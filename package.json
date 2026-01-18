@@ -1,0 +1,51 @@
+{
+  "name": "medical-terminologies-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server that unifies access to major global medical terminologies through a standardized interface",
+  "author": "Sidney Bissoli",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "medical-terminologies-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "mcp",
+    "medical",
+    "terminologies",
+    "icd-11",
+    "snomed",
+    "loinc",
+    "rxnorm",
+    "mesh",
+    "healthcare",
+    "clinical",
+    "coding"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp.git"
+  },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk",
+    "dev": "npm run build && node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "axios": "^1.6.0",
+    "node-cache": "^5.1.2",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.19.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
