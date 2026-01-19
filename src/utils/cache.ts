@@ -1,4 +1,7 @@
 import NodeCache from 'node-cache';
+import { createLogger } from './logger.js';
+
+const log = createLogger('cache');
 
 /**
  * Default TTL values for different types of cached data (in seconds)
@@ -140,11 +143,14 @@ export class CacheManager {
     factory: () => Promise<T>,
     ttl: number = DEFAULT_TTL.LOOKUP
   ): Promise<T> {
+    const cacheKey = this.generateKey(prefix, key);
     const cached = this.get<T>(prefix, key);
     if (cached !== undefined) {
+      log.debug({ key: cacheKey }, 'Cache hit');
       return cached;
     }
 
+    log.debug({ key: cacheKey }, 'Cache miss');
     const value = await factory();
     this.set(prefix, key, value, ttl);
     return value;

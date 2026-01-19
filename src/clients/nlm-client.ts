@@ -3,6 +3,9 @@ import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError } from '../types/index.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('nlm-client');
 
 /**
  * NLM Clinical Tables API Configuration
@@ -68,15 +71,23 @@ export class NLMClient {
     // Apply rate limiting
     await rateLimiters.nlm.acquire();
 
+    const startTime = Date.now();
+    log.debug({ url, params }, 'Starting API request');
+
     return withRetry(
       async () => {
         try {
           const response = await this.httpClient.get<T>(url, { params });
+          const duration = Date.now() - startTime;
+          log.info({ url, status: response.status, durationMs: duration }, 'API request completed');
           return response.data;
         } catch (error) {
           if (error instanceof AxiosError) {
             const status = error.response?.status;
             const message = error.response?.data?.message || error.message;
+            const duration = Date.now() - startTime;
+
+            log.error({ url, status, error: message, durationMs: duration }, 'API request failed');
 
             if (status === 404) {
               throw new ApiError(`Resource not found`, 'NOT_FOUND', status);

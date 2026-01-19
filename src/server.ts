@@ -6,6 +6,9 @@ import {
   Tool,
   CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
+import { createLogger } from './utils/logger.js';
+
+const log = createLogger('server');
 
 /**
  * Server metadata
@@ -95,9 +98,13 @@ export function createServer(): Server {
   // Handle tool invocations
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
+    const startTime = Date.now();
+
+    log.debug({ tool: name, args }, 'Tool invocation started');
 
     const handler = toolRegistry.getHandler(name);
     if (!handler) {
+      log.warn({ tool: name }, 'Unknown tool requested');
       return {
         content: [
           {
@@ -110,10 +117,14 @@ export function createServer(): Server {
     }
 
     try {
-      return await handler(args ?? {});
+      const result = await handler(args ?? {});
+      const duration = Date.now() - startTime;
+      log.info({ tool: name, durationMs: duration }, 'Tool invocation completed');
+      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      process.stderr.write(`[error] Tool "${name}" failed: ${errorMessage}\n`);
+      const duration = Date.now() - startTime;
+      log.error({ tool: name, error: errorMessage, durationMs: duration }, 'Tool invocation failed');
 
       return {
         content: [
@@ -138,6 +149,8 @@ export async function startServer(server: Server): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  process.stderr.write(`[info] ${SERVER_INFO.name} v${SERVER_INFO.version} started\n`);
-  process.stderr.write(`[info] ${toolRegistry.getTools().length} tools available\n`);
+  log.info(
+    { name: SERVER_INFO.name, version: SERVER_INFO.version, toolCount: toolRegistry.getTools().length },
+    'Server started'
+  );
 }

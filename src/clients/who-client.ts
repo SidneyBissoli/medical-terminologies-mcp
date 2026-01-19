@@ -3,6 +3,9 @@ import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError, CachedToken, OAuthTokenResponse } from '../types/index.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('who-client');
 
 /**
  * WHO ICD-11 API Configuration
@@ -103,7 +106,7 @@ export class WHOClient {
         maxRetries: 3,
         initialDelay: 2000,
         onRetry: (attempt, error) => {
-          process.stderr.write(`[who-client] Token request retry ${attempt}: ${error.message}\n`);
+          log.warn({ attempt, error: error.message }, 'Token request retry');
         },
       }
     );
@@ -115,7 +118,7 @@ export class WHOClient {
     };
     cache.set(CACHE_PREFIX.TOKEN, TOKEN_CACHE_KEY, cachedTokenData, DEFAULT_TTL.TOKEN);
 
-    process.stderr.write('[who-client] New OAuth token obtained and cached\n');
+    log.info('New OAuth token obtained and cached');
     return tokenResponse.access_token;
   }
 
@@ -138,19 +141,8 @@ export class WHOClient {
 
     const token = await this.getAccessToken();
 
-    // Build full URL for debugging
-    const fullUrl = `${WHO_CONFIG.apiBaseUrl}${path}`;
-    const requestHeaders = {
-      'Authorization': `Bearer ${token.substring(0, 20)}...`,
-      'Accept-Language': language,
-      'Accept': 'application/json',
-      'API-Version': 'v2',
-    };
-
-    process.stderr.write(`[who-client] DEBUG Request:\n`);
-    process.stderr.write(`  URL: ${fullUrl}\n`);
-    process.stderr.write(`  Headers: ${JSON.stringify(requestHeaders, null, 2)}\n`);
-    process.stderr.write(`  Params: ${JSON.stringify(params)}\n`);
+    const startTime = Date.now();
+    log.debug({ path, params, language }, 'Starting API request');
 
     return withRetry(
       async () => {
@@ -162,18 +154,17 @@ export class WHOClient {
               'Accept-Language': language,
             },
           });
-          process.stderr.write(`[who-client] DEBUG Response: OK (${response.status})\n`);
+          const duration = Date.now() - startTime;
+          log.info({ path, status: response.status, durationMs: duration }, 'API request completed');
           return response.data;
         } catch (error) {
           if (error instanceof AxiosError) {
             const status = error.response?.status;
             const responseData = error.response?.data;
             const message = responseData?.message || error.message;
+            const duration = Date.now() - startTime;
 
-            process.stderr.write(`[who-client] DEBUG Error Response:\n`);
-            process.stderr.write(`  Status: ${status}\n`);
-            process.stderr.write(`  Data: ${JSON.stringify(responseData, null, 2)}\n`);
-            process.stderr.write(`  Headers: ${JSON.stringify(error.response?.headers, null, 2)}\n`);
+            log.error({ path, status, error: message, durationMs: duration }, 'API request failed');
 
             // Handle specific error codes
             if (status === 401) {
@@ -307,7 +298,7 @@ export class WHOClient {
         const parent = await this.getEntity(parentUri, language);
         parents.push(parent);
       } catch (error) {
-        process.stderr.write(`[who-client] Failed to fetch parent ${parentUri}: ${error}\n`);
+        log.warn({ parentUri, error: error instanceof Error ? error.message : String(error) }, 'Failed to fetch parent entity');
       }
     }
 
@@ -334,7 +325,7 @@ export class WHOClient {
         const child = await this.getEntity(childUri, language);
         children.push(child);
       } catch (error) {
-        process.stderr.write(`[who-client] Failed to fetch child ${childUri}: ${error}\n`);
+        log.warn({ childUri, error: error instanceof Error ? error.message : String(error) }, 'Failed to fetch child entity');
       }
     }
 
