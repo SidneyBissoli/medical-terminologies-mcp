@@ -605,19 +605,9 @@ async function handleICD11Postcoordination(args: Record<string, unknown>): Promi
  * Registers all ICD-11 tools with the tool registry
  */
 export function registerICD11Tools(): void {
-  try {
-    process.stderr.write('[icd11] Starting tool registration...\n');
-
-    toolRegistry.register(icd11SearchTool, handleICD11Search);
-    toolRegistry.register(icd11LookupTool, handleICD11Lookup);
-    toolRegistry.register(icd11HierarchyTool, handleICD11Hierarchy);
-    toolRegistry.register(icd11ChaptersTool, handleICD11Chapters);
-    toolRegistry.register(icd11PostcoordinationTool, handleICD11Postcoordination);
-
-    process.stderr.write('[icd11] Registered 5 ICD-11 tools\n');
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`[icd11] ERROR registering tools: ${msg}\n`);
-    throw error;
-  }
+  toolRegistry.register(icd11SearchTool, handleICD11Search);
+  toolRegistry.register(icd11LookupTool, handleICD11Lookup);
+  toolRegistry.register(icd11HierarchyTool, handleICD11Hierarchy);
+  toolRegistry.register(icd11ChaptersTool, handleICD11Chapters);
+  toolRegistry.register(icd11PostcoordinationTool, handleICD11Postcoordination);
 }

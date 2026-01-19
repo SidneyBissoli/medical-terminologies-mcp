@@ -27,7 +27,6 @@ export type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolRes
 class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
   private handlers: Map<string, ToolHandler> = new Map();
-  private readonly registryId = Math.random().toString(36).substring(7);
 
   /**
    * Registers a tool with its handler
@@ -35,7 +34,6 @@ class ToolRegistry {
    * @param handler - Function to handle tool invocations
    */
   register(tool: Tool, handler: ToolHandler): void {
-    process.stderr.write(`[registry:${this.registryId}] Registering tool: ${tool.name}\n`);
     this.tools.set(tool.name, tool);
     this.handlers.set(tool.name, handler);
   }
@@ -45,7 +43,6 @@ class ToolRegistry {
    * @returns Array of tool definitions
    */
   getTools(): Tool[] {
-    process.stderr.write(`[registry:${this.registryId}] getTools called, has ${this.tools.size} tools\n`);
     return Array.from(this.tools.values());
   }
 
