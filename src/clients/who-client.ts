@@ -14,8 +14,8 @@ const WHO_CONFIG = {
   tokenUrl: 'https://icdaccessmanagement.who.int/connect/token',
   /** OAuth2 scope */
   scope: 'icdapi_access',
-  /** API version */
-  apiVersion: 'v2',
+  /** Release ID (use 2024-01 for latest stable release) */
+  releaseId: '2024-01',
   /** Linearization for MMS (Mortality and Morbidity Statistics) */
   linearization: 'mms',
 } as const;
@@ -60,7 +60,6 @@ export class WHOClient {
       timeout: 30000,
       headers: {
         'Accept': 'application/json',
-        'API-Version': WHO_CONFIG.apiVersion,
       },
     });
   }
@@ -203,7 +202,7 @@ export class WHOClient {
       CACHE_PREFIX.ICD11,
       cacheKey,
       () => this.request<ICD11SearchResponse>(
-        `/release/11/${WHO_CONFIG.apiVersion}/${WHO_CONFIG.linearization}/search`,
+        `/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/search`,
         {
           q: query,
           subtreeFilterUsesFoundationDescendants: false,
@@ -237,7 +236,7 @@ export class WHOClient {
       path = url.pathname;
     } else {
       // Build path from code
-      path = `/release/11/${WHO_CONFIG.apiVersion}/${WHO_CONFIG.linearization}/codeinfo/${codeOrUri}`;
+      path = `/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/codeinfo/${codeOrUri}`;
     }
 
     return cache.getOrSet(
@@ -333,7 +332,7 @@ export class WHOClient {
       CACHE_PREFIX.ICD11,
       cacheKey,
       () => this.request<ICD11ChapterResponse>(
-        `/release/11/${WHO_CONFIG.apiVersion}/${WHO_CONFIG.linearization}`,
+        `/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}`,
         {},
         language
       ),
@@ -355,7 +354,7 @@ export class WHOClient {
       CACHE_PREFIX.ICD11,
       cacheKey,
       () => this.request<ICD11PostcoordinationResponse>(
-        `/release/11/${WHO_CONFIG.apiVersion}/${WHO_CONFIG.linearization}/codeinfo/${code}/postcoordination`,
+        `/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/codeinfo/${code}/postcoordination`,
         {},
         language
       ),
