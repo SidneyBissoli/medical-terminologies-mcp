@@ -12,12 +12,12 @@ This document tracks the implementation progress of the Medical Terminologies MC
 | 1 | ICD-11 (WHO) | ✅ Complete | 5 tools |
 | 2 | LOINC | ✅ Complete | 4 tools |
 | 3 | RxNorm | ✅ Complete | 5 tools |
-| 4 | MeSH | ⏳ Pending | 4 tools |
+| 4 | MeSH | ✅ Complete | 4 tools |
 | 5 | SNOMED CT | ⏳ Pending | 5 tools |
 | 6 | Crosswalk | ⏳ Pending | 4 tools |
 | 7 | Documentation & Publish | ⏳ Pending | - |
 
-**Total Tools:** 14 / 27 implemented
+**Total Tools:** 18 / 27 implemented
 
 ---
 
@@ -118,16 +118,28 @@ This document tracks the implementation progress of the Medical Terminologies MC
 
 ---
 
-## Phase 4: MeSH ⏳
+## Phase 4: MeSH ✅
 
-### Planned Tools
+### Implemented Tools
 
 | Tool | Description | Status |
 |------|-------------|--------|
-| mesh_search | Search descriptors | ⏳ |
-| mesh_descriptor | Details by ID | ⏳ |
-| mesh_tree | Tree location | ⏳ |
-| mesh_qualifiers | Allowed qualifiers | ⏳ |
+| mesh_search | Search descriptors by term | ✅ |
+| mesh_descriptor | Details by MeSH ID | ✅ |
+| mesh_tree | Tree hierarchy location | ✅ |
+| mesh_qualifiers | Allowed qualifiers | ✅ |
+
+### Completed Requirements
+
+- [x] MeSH Linked Data API client (src/clients/mesh-client.ts)
+- [x] Rate limiting (10 req/s, shared with NLM)
+- [x] Response caching
+- [x] JSON-LD parsing for descriptor details
+
+### Build Status
+
+- Build: ✅ Success (esbuild, 668.7kb)
+- TypeScript: ✅ No errors
 
 ---
 
@@ -171,6 +183,15 @@ This document tracks the implementation progress of the Medical Terminologies MC
 ---
 
 ## Changelog
+
+### 2026-01-19 - Phase 4 Complete
+
+- MeSH Linked Data API client implemented
+- 4 MeSH tools implemented:
+  - mesh_search: Search descriptors with match types (exact, contains, startswith)
+  - mesh_descriptor: Get full descriptor details with scope note and concepts
+  - mesh_tree: Get tree hierarchy locations with category names
+  - mesh_qualifiers: Get allowed qualifiers for a descriptor
 
 ### 2026-01-19 - Phase 3 Complete
 

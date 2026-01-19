@@ -24,9 +24,10 @@ import './tools/icd11.js';
 import './tools/loinc.js';
 // Phase 3: RxNorm
 import './tools/rxnorm.js';
+// Phase 4: MeSH
+import './tools/mesh.js';
 
 // Future phases (uncomment as implemented)
-// import './tools/mesh.js';
 // import './tools/snomed.js';
 // import './tools/crosswalk.js';
 
