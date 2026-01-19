@@ -18,13 +18,20 @@
 import { createServer, startServer, SERVER_INFO } from './server.js';
 
 // Tool imports - Phase 1: ICD-11
+// Side-effect import to prevent tree-shaking
+import './tools/icd11.js';
 import { registerICD11Tools } from './tools/icd11.js';
 
 // Future phases (uncomment as implemented)
+// import './tools/loinc.js';
 // import { registerLOINCTools } from './tools/loinc.js';
+// import './tools/rxnorm.js';
 // import { registerRxNormTools } from './tools/rxnorm.js';
+// import './tools/mesh.js';
 // import { registerMeSHTools } from './tools/mesh.js';
+// import './tools/snomed.js';
 // import { registerSNOMEDTools } from './tools/snomed.js';
+// import './tools/crosswalk.js';
 // import { registerCrosswalkTools } from './tools/crosswalk.js';
 
 /**
