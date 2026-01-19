@@ -9,7 +9,7 @@ This document tracks the implementation progress of the Medical Terminologies MC
 | Phase | Description | Status | Tools |
 |-------|-------------|--------|-------|
 | 0 | Setup inicial | ✅ Complete | - |
-| 1 | ICD-11 (WHO) | ⏳ Pending | 5 tools |
+| 1 | ICD-11 (WHO) | ✅ Complete | 5 tools |
 | 2 | LOINC | ⏳ Pending | 4 tools |
 | 3 | RxNorm | ⏳ Pending | 5 tools |
 | 4 | MeSH | ⏳ Pending | 4 tools |
@@ -17,7 +17,7 @@ This document tracks the implementation progress of the Medical Terminologies MC
 | 6 | Crosswalk | ⏳ Pending | 4 tools |
 | 7 | Documentation & Publish | ⏳ Pending | - |
 
-**Total Tools:** 0 / 27 implemented
+**Total Tools:** 5 / 27 implemented
 
 ---
 
@@ -43,23 +43,28 @@ This document tracks the implementation progress of the Medical Terminologies MC
 
 ---
 
-## Phase 1: ICD-11 (WHO) ⏳
+## Phase 1: ICD-11 (WHO) ✅
 
-### Planned Tools
+### Implemented Tools
 
 | Tool | Description | Status |
 |------|-------------|--------|
-| icd11_search | Text search in ICD-11 MMS | ⏳ |
-| icd11_lookup | Entity details by code/URI | ⏳ |
-| icd11_hierarchy | Parents and children | ⏳ |
-| icd11_chapters | List ICD-11 chapters | ⏳ |
-| icd11_postcoordination | Composite code info | ⏳ |
+| icd11_search | Text search in ICD-11 MMS | ✅ |
+| icd11_lookup | Entity details by code/URI | ✅ |
+| icd11_hierarchy | Parents and children | ✅ |
+| icd11_chapters | List ICD-11 chapters | ✅ |
+| icd11_postcoordination | Composite code info | ✅ |
 
-### Requirements
+### Completed Requirements
 
-- [ ] WHO OAuth2 client implementation
-- [ ] Token caching (50 min TTL)
-- [ ] Rate limiting (5 req/s)
+- [x] WHO OAuth2 client implementation (src/clients/who-client.ts)
+- [x] Token caching (50 min TTL)
+- [x] Rate limiting (5 req/s)
+
+### Build Status
+
+- Build: ✅ Success (esbuild, 604.2kb)
+- TypeScript: ✅ No errors
 
 ---
 
@@ -143,6 +148,16 @@ This document tracks the implementation progress of the Medical Terminologies MC
 ---
 
 ## Changelog
+
+### 2026-01-19 - Phase 1 Complete
+
+- WHO OAuth2 client with token caching
+- 5 ICD-11 tools implemented:
+  - icd11_search: Text search with multi-language support
+  - icd11_lookup: Entity details by code or URI
+  - icd11_hierarchy: Navigate parent/child relationships
+  - icd11_chapters: List all 28 chapters
+  - icd11_postcoordination: Extension axes info
 
 ### 2026-01-18 - Phase 0 Complete
 

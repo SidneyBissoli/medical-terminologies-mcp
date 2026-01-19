@@ -17,13 +17,15 @@
 
 import { createServer, startServer, SERVER_INFO } from './server.js';
 
-// Tool imports will be added here as each phase is implemented
-// import './tools/icd11.js';
-// import './tools/loinc.js';
-// import './tools/rxnorm.js';
-// import './tools/mesh.js';
-// import './tools/snomed.js';
-// import './tools/crosswalk.js';
+// Tool imports - Phase 1: ICD-11
+import { registerICD11Tools } from './tools/icd11.js';
+
+// Future phases (uncomment as implemented)
+// import { registerLOINCTools } from './tools/loinc.js';
+// import { registerRxNormTools } from './tools/rxnorm.js';
+// import { registerMeSHTools } from './tools/mesh.js';
+// import { registerSNOMEDTools } from './tools/snomed.js';
+// import { registerCrosswalkTools } from './tools/crosswalk.js';
 
 /**
  * Main entry point
@@ -31,6 +33,14 @@ import { createServer, startServer, SERVER_INFO } from './server.js';
 async function main(): Promise<void> {
   try {
     process.stderr.write(`[info] Initializing ${SERVER_INFO.name}...\n`);
+
+    // Register all tools before creating server
+    registerICD11Tools();
+    // registerLOINCTools();
+    // registerRxNormTools();
+    // registerMeSHTools();
+    // registerSNOMEDTools();
+    // registerCrosswalkTools();
 
     const server = createServer();
     await startServer(server);
