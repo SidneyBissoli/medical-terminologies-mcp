@@ -22,9 +22,10 @@ import { createServer, startServer, SERVER_INFO } from './server.js';
 import './tools/icd11.js';
 // Phase 2: LOINC
 import './tools/loinc.js';
+// Phase 3: RxNorm
+import './tools/rxnorm.js';
 
 // Future phases (uncomment as implemented)
-// import './tools/rxnorm.js';
 // import './tools/mesh.js';
 // import './tools/snomed.js';
 // import './tools/crosswalk.js';

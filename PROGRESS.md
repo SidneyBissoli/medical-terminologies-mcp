@@ -11,13 +11,13 @@ This document tracks the implementation progress of the Medical Terminologies MC
 | 0 | Setup inicial | ✅ Complete | - |
 | 1 | ICD-11 (WHO) | ✅ Complete | 5 tools |
 | 2 | LOINC | ✅ Complete | 4 tools |
-| 3 | RxNorm | ⏳ Pending | 5 tools |
+| 3 | RxNorm | ✅ Complete | 5 tools |
 | 4 | MeSH | ⏳ Pending | 4 tools |
 | 5 | SNOMED CT | ⏳ Pending | 5 tools |
 | 6 | Crosswalk | ⏳ Pending | 4 tools |
 | 7 | Documentation & Publish | ⏳ Pending | - |
 
-**Total Tools:** 9 / 27 implemented
+**Total Tools:** 14 / 27 implemented
 
 ---
 
@@ -92,17 +92,29 @@ This document tracks the implementation progress of the Medical Terminologies MC
 
 ---
 
-## Phase 3: RxNorm ⏳
+## Phase 3: RxNorm ✅
 
-### Planned Tools
+### Implemented Tools
 
 | Tool | Description | Status |
 |------|-------------|--------|
-| rxnorm_search | Search drugs | ⏳ |
-| rxnorm_concept | Details by RxCUI | ⏳ |
-| rxnorm_ingredients | Active ingredients | ⏳ |
-| rxnorm_classes | Therapeutic classes | ⏳ |
-| rxnorm_ndc | NDC mapping | ⏳ |
+| rxnorm_search | Search drugs by name | ✅ |
+| rxnorm_concept | Details by RxCUI | ✅ |
+| rxnorm_ingredients | Active ingredients | ✅ |
+| rxnorm_classes | Therapeutic classes | ✅ |
+| rxnorm_ndc | NDC mapping | ✅ |
+
+### Completed Requirements
+
+- [x] RxNorm REST API client (src/clients/rxnorm-client.ts)
+- [x] Rate limiting (20 req/s)
+- [x] Response caching
+- [x] Approximate matching for fuzzy search
+
+### Build Status
+
+- Build: ✅ Success
+- TypeScript: ✅ No errors
 
 ---
 
@@ -159,6 +171,16 @@ This document tracks the implementation progress of the Medical Terminologies MC
 ---
 
 ## Changelog
+
+### 2026-01-19 - Phase 3 Complete
+
+- RxNorm REST API client implemented
+- 5 RxNorm tools implemented:
+  - rxnorm_search: Search drugs with approximate matching
+  - rxnorm_concept: Get full concept details with related concepts
+  - rxnorm_ingredients: Get active ingredients (IN/MIN)
+  - rxnorm_classes: Get therapeutic/pharmacologic classes
+  - rxnorm_ndc: Bidirectional NDC-RxCUI mapping
 
 ### 2026-01-19 - Phase 2 Complete
 
