@@ -48,10 +48,11 @@ export class SNOMEDClient {
     this.branch = branch;
     this.httpClient = axios.create({
       baseURL: SNOMED_CONFIG.baseUrl,
-      timeout: 30000,
+      timeout: 60000, // 60 seconds for slow connections
       headers: {
         'Accept': 'application/json',
         'Accept-Language': 'en',
+        'User-Agent': 'medical-terminologies-mcp/1.0.0',
       },
     });
   }
