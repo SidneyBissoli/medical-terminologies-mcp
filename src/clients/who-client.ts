@@ -138,6 +138,20 @@ export class WHOClient {
 
     const token = await this.getAccessToken();
 
+    // Build full URL for debugging
+    const fullUrl = `${WHO_CONFIG.apiBaseUrl}${path}`;
+    const requestHeaders = {
+      'Authorization': `Bearer ${token.substring(0, 20)}...`,
+      'Accept-Language': language,
+      'Accept': 'application/json',
+      'API-Version': 'v2',
+    };
+
+    process.stderr.write(`[who-client] DEBUG Request:\n`);
+    process.stderr.write(`  URL: ${fullUrl}\n`);
+    process.stderr.write(`  Headers: ${JSON.stringify(requestHeaders, null, 2)}\n`);
+    process.stderr.write(`  Params: ${JSON.stringify(params)}\n`);
+
     return withRetry(
       async () => {
         try {
@@ -148,11 +162,18 @@ export class WHOClient {
               'Accept-Language': language,
             },
           });
+          process.stderr.write(`[who-client] DEBUG Response: OK (${response.status})\n`);
           return response.data;
         } catch (error) {
           if (error instanceof AxiosError) {
             const status = error.response?.status;
-            const message = error.response?.data?.message || error.message;
+            const responseData = error.response?.data;
+            const message = responseData?.message || error.message;
+
+            process.stderr.write(`[who-client] DEBUG Error Response:\n`);
+            process.stderr.write(`  Status: ${status}\n`);
+            process.stderr.write(`  Data: ${JSON.stringify(responseData, null, 2)}\n`);
+            process.stderr.write(`  Headers: ${JSON.stringify(error.response?.headers, null, 2)}\n`);
 
             // Handle specific error codes
             if (status === 401) {
