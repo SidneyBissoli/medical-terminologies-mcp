@@ -1,0 +1,11 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "medical-terminologies-mcp",
+  "displayName": "Medical Terminologies",
+  "description": "Unified access to global medical terminologies: ICD-11, SNOMED CT, LOINC, RxNorm, MeSH",
+  "homepage": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
+  "repository": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
+  "license": "MIT",
+  "registryType": "npm",
+  "registrySource": "medical-terminologies-mcp"
+}

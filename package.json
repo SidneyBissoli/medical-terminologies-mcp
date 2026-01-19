@@ -1,7 +1,7 @@
 {
   "name": "medical-terminologies-mcp",
   "version": "1.0.0",
-  "description": "MCP Server that unifies access to major global medical terminologies through a standardized interface",
+  "description": "MCP Server providing unified access to major global medical terminologies: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH",
   "author": "Sidney Bissoli",
   "license": "MIT",
   "type": "module",
@@ -14,24 +14,39 @@
   ],
   "keywords": [
     "mcp",
+    "model-context-protocol",
     "medical",
     "terminologies",
     "icd-11",
+    "icd11",
     "snomed",
+    "snomed-ct",
     "loinc",
     "rxnorm",
     "mesh",
     "healthcare",
     "clinical",
-    "coding"
+    "coding",
+    "who",
+    "nlm",
+    "nih",
+    "medical-coding",
+    "health-informatics",
+    "interoperability"
   ],
   "repository": {
     "type": "git",
     "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp.git"
   },
+  "bugs": {
+    "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp/issues"
+  },
+  "homepage": "https://github.com/SidneyBissoli/medical-terminologies-mcp#readme",
+  "mcpName": "io.github.SidneyBissoli/medical-terminologies-mcp",
   "sideEffects": true,
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk --tree-shaking=false --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "start": "node dist/index.js",
     "dev": "npm run build && node dist/index.js",
     "prepublishOnly": "npm run build"
   },
