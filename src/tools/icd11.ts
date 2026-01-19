@@ -598,16 +598,21 @@ async function handleICD11Postcoordination(args: Record<string, unknown>): Promi
 }
 
 // ============================================================================
-// Tool Registration
+// Tool Registration (executed at module load time)
 // ============================================================================
+
+// Register all ICD-11 tools immediately when this module is imported
+toolRegistry.register(icd11SearchTool, handleICD11Search);
+toolRegistry.register(icd11LookupTool, handleICD11Lookup);
+toolRegistry.register(icd11HierarchyTool, handleICD11Hierarchy);
+toolRegistry.register(icd11ChaptersTool, handleICD11Chapters);
+toolRegistry.register(icd11PostcoordinationTool, handleICD11Postcoordination);
 
 /**
  * Registers all ICD-11 tools with the tool registry
+ * @deprecated Tools are now registered automatically on module import
  */
 export function registerICD11Tools(): void {
-  toolRegistry.register(icd11SearchTool, handleICD11Search);
-  toolRegistry.register(icd11LookupTool, handleICD11Lookup);
-  toolRegistry.register(icd11HierarchyTool, handleICD11Hierarchy);
-  toolRegistry.register(icd11ChaptersTool, handleICD11Chapters);
-  toolRegistry.register(icd11PostcoordinationTool, handleICD11Postcoordination);
+  // Tools are already registered at module load time
+  // This function is kept for backwards compatibility
 }
