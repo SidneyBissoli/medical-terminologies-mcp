@@ -10,14 +10,14 @@ This document tracks the implementation progress of the Medical Terminologies MC
 |-------|-------------|--------|-------|
 | 0 | Setup inicial | ✅ Complete | - |
 | 1 | ICD-11 (WHO) | ✅ Complete | 5 tools |
-| 2 | LOINC | ⏳ Pending | 4 tools |
+| 2 | LOINC | ✅ Complete | 4 tools |
 | 3 | RxNorm | ⏳ Pending | 5 tools |
 | 4 | MeSH | ⏳ Pending | 4 tools |
 | 5 | SNOMED CT | ⏳ Pending | 5 tools |
 | 6 | Crosswalk | ⏳ Pending | 4 tools |
 | 7 | Documentation & Publish | ⏳ Pending | - |
 
-**Total Tools:** 5 / 27 implemented
+**Total Tools:** 9 / 27 implemented
 
 ---
 
@@ -68,16 +68,27 @@ This document tracks the implementation progress of the Medical Terminologies MC
 
 ---
 
-## Phase 2: LOINC ⏳
+## Phase 2: LOINC ✅
 
-### Planned Tools
+### Implemented Tools
 
 | Tool | Description | Status |
 |------|-------------|--------|
-| loinc_search | Search by term or code | ⏳ |
-| loinc_details | Full code details | ⏳ |
-| loinc_answers | Form answers list | ⏳ |
-| loinc_panels | Related panels | ⏳ |
+| loinc_search | Search by term or code | ✅ |
+| loinc_details | Full code details | ✅ |
+| loinc_answers | Form answers list | ✅ |
+| loinc_panels | Related panels | ✅ |
+
+### Completed Requirements
+
+- [x] NLM Clinical Tables API client (src/clients/nlm-client.ts)
+- [x] Rate limiting (10 req/s)
+- [x] Response caching
+
+### Build Status
+
+- Build: ✅ Success (esbuild, 624.0kb)
+- TypeScript: ✅ No errors
 
 ---
 
@@ -148,6 +159,15 @@ This document tracks the implementation progress of the Medical Terminologies MC
 ---
 
 ## Changelog
+
+### 2026-01-19 - Phase 2 Complete
+
+- NLM Clinical Tables API client implemented
+- 4 LOINC tools implemented:
+  - loinc_search: Search lab tests and observations
+  - loinc_details: Get full code details
+  - loinc_answers: Get questionnaire answer lists
+  - loinc_panels: Get panel/form structure
 
 ### 2026-01-19 - Phase 1 Complete
 

@@ -20,9 +20,10 @@ import { createServer, startServer, SERVER_INFO } from './server.js';
 // Tool imports - tools register themselves when imported (side-effect)
 // Phase 1: ICD-11
 import './tools/icd11.js';
+// Phase 2: LOINC
+import './tools/loinc.js';
 
 // Future phases (uncomment as implemented)
-// import './tools/loinc.js';
 // import './tools/rxnorm.js';
 // import './tools/mesh.js';
 // import './tools/snomed.js';
