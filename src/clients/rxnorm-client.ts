@@ -188,17 +188,22 @@ export class RxNormClient {
       cacheKey,
       async () => {
         try {
-          const [propsResponse, statusResponse] = await Promise.all([
-            this.request<RxNormPropertiesResponse>(`/rxcui/${rxcui}/properties.json`),
-            this.request<RxNormStatusResponse>(`/rxcui/${rxcui}/status.json`),
-          ]);
+          // First get properties (required)
+          const propsResponse = await this.request<RxNormPropertiesResponse>(`/rxcui/${rxcui}/properties.json`);
 
           const props = propsResponse.properties;
           if (!props) {
             return null;
           }
 
-          const status = statusResponse.rxcuiStatus;
+          // Try to get status (optional - don't fail if this errors)
+          let status: { status: string; remappedTo?: string[] } | undefined;
+          try {
+            const statusResponse = await this.request<RxNormStatusResponse>(`/rxcui/${rxcui}/status.json`);
+            status = statusResponse.rxcuiStatus;
+          } catch {
+            // Status endpoint failed, continue without it
+          }
 
           return {
             rxcui: props.rxcui,
