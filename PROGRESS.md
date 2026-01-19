@@ -13,11 +13,11 @@ This document tracks the implementation progress of the Medical Terminologies MC
 | 2 | LOINC | ✅ Complete | 4 tools |
 | 3 | RxNorm | ✅ Complete | 5 tools |
 | 4 | MeSH | ✅ Complete | 4 tools |
-| 5 | SNOMED CT | ⏳ Pending | 5 tools |
+| 5 | SNOMED CT | ✅ Complete | 5 tools |
 | 6 | Crosswalk | ⏳ Pending | 4 tools |
 | 7 | Documentation & Publish | ⏳ Pending | - |
 
-**Total Tools:** 18 / 27 implemented
+**Total Tools:** 23 / 27 implemented
 
 ---
 
@@ -143,17 +143,29 @@ This document tracks the implementation progress of the Medical Terminologies MC
 
 ---
 
-## Phase 5: SNOMED CT ⏳
+## Phase 5: SNOMED CT ✅
 
-### Planned Tools
+### Implemented Tools
 
 | Tool | Description | Status |
 |------|-------------|--------|
-| snomed_search | Search by term | ⏳ |
-| snomed_concept | Details by SCTID | ⏳ |
-| snomed_hierarchy | Supertypes/subtypes | ⏳ |
-| snomed_descriptions | FSN, PT, synonyms | ⏳ |
-| snomed_ecl | ECL queries | ⏳ |
+| snomed_search | Search concepts by term | ✅ |
+| snomed_concept | Details by SCTID | ✅ |
+| snomed_hierarchy | Parents/children (IS-A) | ✅ |
+| snomed_descriptions | FSN, PT, synonyms | ✅ |
+| snomed_ecl | ECL queries | ✅ |
+
+### Completed Requirements
+
+- [x] SNOMED CT Snowstorm API client (src/clients/snomed-client.ts)
+- [x] Rate limiting (10 req/s)
+- [x] Response caching
+- [x] IHTSDO license disclaimer on all outputs
+
+### Build Status
+
+- Build: ✅ Success (esbuild, 693.4kb)
+- TypeScript: ✅ No errors
 
 ---
 
@@ -183,6 +195,17 @@ This document tracks the implementation progress of the Medical Terminologies MC
 ---
 
 ## Changelog
+
+### 2026-01-19 - Phase 5 Complete
+
+- SNOMED CT Snowstorm API client implemented
+- 5 SNOMED CT tools implemented:
+  - snomed_search: Search concepts with active filter
+  - snomed_concept: Get full concept details (FSN, PT, status)
+  - snomed_hierarchy: Navigate IS-A relationships (parents/children)
+  - snomed_descriptions: Get all descriptions with types
+  - snomed_ecl: Execute ECL queries for advanced searches
+- Added IHTSDO license disclaimer to all SNOMED outputs
 
 ### 2026-01-19 - Phase 4 Complete
 

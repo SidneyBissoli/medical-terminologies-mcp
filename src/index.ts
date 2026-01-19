@@ -26,9 +26,10 @@ import './tools/loinc.js';
 import './tools/rxnorm.js';
 // Phase 4: MeSH
 import './tools/mesh.js';
+// Phase 5: SNOMED CT
+import './tools/snomed.js';
 
 // Future phases (uncomment as implemented)
-// import './tools/snomed.js';
 // import './tools/crosswalk.js';
 
 /**
