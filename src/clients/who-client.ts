@@ -60,6 +60,7 @@ export class WHOClient {
       timeout: 30000,
       headers: {
         'Accept': 'application/json',
+        'API-Version': 'v2',
       },
     });
   }
