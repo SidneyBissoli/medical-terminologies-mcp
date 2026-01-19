@@ -28,9 +28,8 @@ import './tools/rxnorm.js';
 import './tools/mesh.js';
 // Phase 5: SNOMED CT
 import './tools/snomed.js';
-
-// Future phases (uncomment as implemented)
-// import './tools/crosswalk.js';
+// Phase 6: Crosswalk
+import './tools/crosswalk.js';
 
 /**
  * Main entry point

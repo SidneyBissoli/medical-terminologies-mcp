@@ -14,10 +14,10 @@ This document tracks the implementation progress of the Medical Terminologies MC
 | 3 | RxNorm | ✅ Complete | 5 tools |
 | 4 | MeSH | ✅ Complete | 4 tools |
 | 5 | SNOMED CT | ✅ Complete | 5 tools |
-| 6 | Crosswalk | ⏳ Pending | 4 tools |
+| 6 | Crosswalk | ✅ Complete | 4 tools |
 | 7 | Documentation & Publish | ⏳ Pending | - |
 
-**Total Tools:** 23 / 27 implemented
+**Total Tools:** 27 / 27 implemented ✅
 
 ---
 
@@ -169,16 +169,29 @@ This document tracks the implementation progress of the Medical Terminologies MC
 
 ---
 
-## Phase 6: Crosswalk ⏳
+## Phase 6: Crosswalk ✅
 
-### Planned Tools
+### Implemented Tools
 
 | Tool | Description | Status |
 |------|-------------|--------|
-| map_icd10_to_icd11 | ICD-10 → ICD-11 | ⏳ |
-| map_snomed_to_icd10 | SNOMED → ICD-10 | ⏳ |
-| map_loinc_to_snomed | LOINC → SNOMED | ⏳ |
-| find_equivalent | Cross-terminology search | ⏳ |
+| map_icd10_to_icd11 | ICD-10 → ICD-11 mapping | ✅ |
+| map_snomed_to_icd10 | SNOMED → ICD-10 (guidance) | ✅ |
+| map_loinc_to_snomed | LOINC → SNOMED (guidance) | ✅ |
+| find_equivalent | Cross-terminology search | ✅ |
+
+### Completed Requirements
+
+- [x] ICD-10 to ICD-11 mapping via WHO API search
+- [x] SNOMED to ICD-10 mapping guidance (requires license)
+- [x] LOINC to SNOMED mapping guidance (requires UMLS)
+- [x] Cross-terminology text search across all 5 systems
+- [x] Graceful handling when mappings unavailable
+
+### Build Status
+
+- Build: ✅ Success (esbuild, 710.0kb)
+- TypeScript: ✅ No errors
 
 ---
 
@@ -195,6 +208,16 @@ This document tracks the implementation progress of the Medical Terminologies MC
 ---
 
 ## Changelog
+
+### 2026-01-19 - Phase 6 Complete
+
+- Crosswalk (mapping) tools implemented
+- 4 crosswalk tools implemented:
+  - map_icd10_to_icd11: Search-based ICD-10 to ICD-11 mapping
+  - map_snomed_to_icd10: Guidance for SNOMED-ICD mapping (requires license)
+  - map_loinc_to_snomed: Guidance for LOINC-SNOMED mapping (requires UMLS)
+  - find_equivalent: Cross-terminology parallel search
+- All 27 tools complete!
 
 ### 2026-01-19 - Phase 5 Complete
 
