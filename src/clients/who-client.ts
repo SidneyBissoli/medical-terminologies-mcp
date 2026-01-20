@@ -3,6 +3,9 @@ import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError, CachedToken, OAuthTokenResponse } from '../types/index.js';
+import { createClientLogger } from '../utils/logger.js';
+
+const log = createClientLogger('who');
 
 /**
  * WHO ICD-11 API Configuration
@@ -76,6 +79,7 @@ export class WHOClient {
     // Check cache first
     const cachedToken = cache.get<CachedToken>(CACHE_PREFIX.TOKEN, TOKEN_CACHE_KEY);
     if (cachedToken && cachedToken.expiresAt > Date.now()) {
+      log.debug('Using cached OAuth token');
       return cachedToken.accessToken;
     }
 
@@ -103,7 +107,7 @@ export class WHOClient {
         maxRetries: 3,
         initialDelay: 2000,
         onRetry: (attempt, error) => {
-          process.stderr.write(`[who-client] Token request retry ${attempt}: ${error.message}\n`);
+          log.warn({ attempt, error: error.message }, 'Token request retry');
         },
       }
     );
@@ -115,7 +119,7 @@ export class WHOClient {
     };
     cache.set(CACHE_PREFIX.TOKEN, TOKEN_CACHE_KEY, cachedTokenData, DEFAULT_TTL.TOKEN);
 
-    process.stderr.write('[who-client] New OAuth token obtained and cached\n');
+    log.info('New OAuth token obtained and cached');
     return tokenResponse.access_token;
   }
 
@@ -140,21 +144,13 @@ export class WHOClient {
 
     // Build full URL for debugging
     const fullUrl = `${WHO_CONFIG.apiBaseUrl}${path}`;
-    const requestHeaders = {
-      'Authorization': `Bearer ${token.substring(0, 20)}...`,
-      'Accept-Language': language,
-      'Accept': 'application/json',
-      'API-Version': 'v2',
-    };
 
-    process.stderr.write(`[who-client] DEBUG Request:\n`);
-    process.stderr.write(`  URL: ${fullUrl}\n`);
-    process.stderr.write(`  Headers: ${JSON.stringify(requestHeaders, null, 2)}\n`);
-    process.stderr.write(`  Params: ${JSON.stringify(params)}\n`);
+    log.debug({ url: fullUrl, params, language }, 'HTTP request');
 
     return withRetry(
       async () => {
         try {
+          const startTime = Date.now();
           const response = await this.httpClient.get<T>(path, {
             params,
             headers: {
@@ -162,7 +158,8 @@ export class WHOClient {
               'Accept-Language': language,
             },
           });
-          process.stderr.write(`[who-client] DEBUG Response: OK (${response.status})\n`);
+          const duration = Date.now() - startTime;
+          log.debug({ status: response.status, duration }, 'HTTP response OK');
           return response.data;
         } catch (error) {
           if (error instanceof AxiosError) {
@@ -170,10 +167,7 @@ export class WHOClient {
             const responseData = error.response?.data;
             const message = responseData?.message || error.message;
 
-            process.stderr.write(`[who-client] DEBUG Error Response:\n`);
-            process.stderr.write(`  Status: ${status}\n`);
-            process.stderr.write(`  Data: ${JSON.stringify(responseData, null, 2)}\n`);
-            process.stderr.write(`  Headers: ${JSON.stringify(error.response?.headers, null, 2)}\n`);
+            log.error({ status, data: responseData }, 'HTTP error response');
 
             // Handle specific error codes
             if (status === 401) {
@@ -219,7 +213,14 @@ export class WHOClient {
     maxResults: number = 25
   ): Promise<ICD11SearchResponse> {
     const cacheKey = `search:${query}:${language}:${maxResults}`;
+    const cached = cache.get<ICD11SearchResponse>(CACHE_PREFIX.ICD11, cacheKey);
+    
+    if (cached) {
+      log.debug({ cacheKey }, 'Cache hit');
+      return cached;
+    }
 
+    log.debug({ cacheKey }, 'Cache miss');
     return cache.getOrSet(
       CACHE_PREFIX.ICD11,
       cacheKey,
@@ -276,13 +277,23 @@ export class WHOClient {
    * @param language - Language code
    * @returns Entity details
    */
-  async getEntity(uri: string, language: string = 'en'): Promise<ICD11EntityResponse> {
+ async getEntity(uri: string, language: string = 'en'): Promise<ICD11EntityResponse> {
     const cacheKey = `entity:${uri}:${language}`;
+
+    // Extract path from full URI if needed
+    let path: string;
+    if (uri.startsWith('http')) {
+      const url = new URL(uri);
+      // Remove /icd prefix since baseURL already includes it
+      path = url.pathname.replace(/^\/icd/, '');
+    } else {
+      path = uri;
+    }
 
     return cache.getOrSet(
       CACHE_PREFIX.ICD11,
       cacheKey,
-      () => this.request<ICD11EntityResponse>(uri, {}, language),
+      () => this.request<ICD11EntityResponse>(path, {}, language),
       DEFAULT_TTL.LOOKUP
     );
   }
@@ -307,7 +318,7 @@ export class WHOClient {
         const parent = await this.getEntity(parentUri, language);
         parents.push(parent);
       } catch (error) {
-        process.stderr.write(`[who-client] Failed to fetch parent ${parentUri}: ${error}\n`);
+        log.warn({ parentUri, error: String(error) }, 'Failed to fetch parent');
       }
     }
 
@@ -334,7 +345,7 @@ export class WHOClient {
         const child = await this.getEntity(childUri, language);
         children.push(child);
       } catch (error) {
-        process.stderr.write(`[who-client] Failed to fetch child ${childUri}: ${error}\n`);
+        log.warn({ childUri, error: String(error) }, 'Failed to fetch child');
       }
     }
 
@@ -417,7 +428,7 @@ export interface ICD11DestinationEntity {
   title: string;
   /** Stem entity URI */
   stemId?: string;
-  /** Whether it's a leaf node */
+  /** Whether it is a leaf node */
   isLeaf: boolean;
   /** Postcoordination availability */
   postcoordinationAvailability: string;
