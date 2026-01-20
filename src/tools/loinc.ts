@@ -17,9 +17,9 @@ import { z } from 'zod';
 import { toolRegistry } from '../server.js';
 import { getNLMClient, LOINCItem, LOINCAnswer, LOINCPanel } from '../clients/nlm-client.js';
 import { ApiError } from '../types/index.js';
-import { createLogger } from '../utils/logger.js';
+import { createToolLogger } from '../utils/logger.js';
 
-const log = createLogger('loinc-tools');
+const log = createToolLogger('loinc');
 
 // ============================================================================
 // Zod Schemas

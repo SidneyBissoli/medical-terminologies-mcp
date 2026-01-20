@@ -23,9 +23,9 @@ import {
   ICD11ChaptersParamsSchema,
   ApiError,
 } from '../types/index.js';
-import { createLogger } from '../utils/logger.js';
+import { createToolLogger } from '../utils/logger.js';
 
-const log = createLogger('icd11-tools');
+const log = createToolLogger('icd11');
 
 // ============================================================================
 // Tool Definitions

@@ -63,6 +63,24 @@ export function createLogger(component: string): pino.Logger {
 }
 
 /**
+ * Creates a logger for API clients
+ * @param clientName - Client name (e.g., 'who', 'nlm', 'rxnorm')
+ * @returns Child logger instance with client context
+ */
+export function createClientLogger(clientName: string): pino.Logger {
+  return logger.child({ component: 'client', client: clientName });
+}
+
+/**
+ * Creates a logger for tools
+ * @param toolPrefix - Tool prefix (e.g., 'icd11', 'loinc', 'rxnorm')
+ * @returns Child logger instance with tool context
+ */
+export function createToolLogger(toolPrefix: string): pino.Logger {
+  return logger.child({ component: 'tool', toolPrefix });
+}
+
+/**
  * Helper to measure and log operation duration
  * @param loggerInstance - Logger instance
  * @param operation - Operation name

@@ -14,9 +14,9 @@ import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError } from '../types/index.js';
-import { createLogger } from '../utils/logger.js';
+import { createClientLogger } from '../utils/logger.js';
 
-const log = createLogger('rxnorm-client');
+const log = createClientLogger('rxnorm');
 
 /**
  * RxNorm API Configuration
