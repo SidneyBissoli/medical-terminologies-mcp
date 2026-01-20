@@ -23,6 +23,9 @@ import {
   ICD11ChaptersParamsSchema,
   ApiError,
 } from '../types/index.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('icd11-tools');
 
 // ============================================================================
 // Tool Definitions
@@ -300,6 +303,9 @@ function formatHierarchyList(entities: ICD11EntityResponse[], direction: string)
  * Handler for icd11_search
  */
 async function handleICD11Search(args: Record<string, unknown>): Promise<CallToolResult> {
+  const startTime = Date.now();
+  log.debug({ tool: 'icd11_search', args }, 'Tool invocation started');
+
   try {
     const params = ICD11SearchParamsSchema.parse({
       query: args.query,
@@ -336,6 +342,9 @@ async function handleICD11Search(args: Record<string, unknown>): Promise<CallToo
 
     const header = `## ICD-11 Search Results for "${params.query}"\n\nFound ${results.destinationEntities.length} results (showing top ${Math.min(params.maxResults, results.destinationEntities.length)}):\n\n`;
 
+    const duration = Date.now() - startTime;
+    log.info({ tool: 'icd11_search', durationMs: duration, resultCount: results.destinationEntities.length }, 'Tool invocation completed');
+
     return {
       content: [{
         type: 'text',
@@ -343,6 +352,10 @@ async function handleICD11Search(args: Record<string, unknown>): Promise<CallToo
       }],
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error({ tool: 'icd11_search', durationMs: duration, error: errorMessage }, 'Tool invocation failed');
+
     if (error instanceof z.ZodError) {
       return {
         content: [{
@@ -369,6 +382,9 @@ async function handleICD11Search(args: Record<string, unknown>): Promise<CallToo
  * Handler for icd11_lookup
  */
 async function handleICD11Lookup(args: Record<string, unknown>): Promise<CallToolResult> {
+  const startTime = Date.now();
+  log.debug({ tool: 'icd11_lookup', args }, 'Tool invocation started');
+
   try {
     // Validate that at least one of code or uri is provided
     if (!args.code && !args.uri) {
@@ -387,6 +403,9 @@ async function handleICD11Lookup(args: Record<string, unknown>): Promise<CallToo
     const client = getWHOClient();
     const entity = await client.lookup(codeOrUri, language);
 
+    const duration = Date.now() - startTime;
+    log.info({ tool: 'icd11_lookup', durationMs: duration, code: codeOrUri }, 'Tool invocation completed');
+
     return {
       content: [{
         type: 'text',
@@ -394,6 +413,10 @@ async function handleICD11Lookup(args: Record<string, unknown>): Promise<CallToo
       }],
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error({ tool: 'icd11_lookup', durationMs: duration, error: errorMessage }, 'Tool invocation failed');
+
     if (error instanceof ApiError) {
       if (error.code === 'NOT_FOUND') {
         return {
@@ -420,6 +443,9 @@ async function handleICD11Lookup(args: Record<string, unknown>): Promise<CallToo
  * Handler for icd11_hierarchy
  */
 async function handleICD11Hierarchy(args: Record<string, unknown>): Promise<CallToolResult> {
+  const startTime = Date.now();
+  log.debug({ tool: 'icd11_hierarchy', args }, 'Tool invocation started');
+
   try {
     const params = ICD11HierarchyParamsSchema.parse({
       code: args.code,
@@ -437,6 +463,9 @@ async function handleICD11Hierarchy(args: Record<string, unknown>): Promise<Call
 
     const formatted = formatHierarchyList(entities, params.direction);
 
+    const duration = Date.now() - startTime;
+    log.info({ tool: 'icd11_hierarchy', durationMs: duration, code: params.code, direction: params.direction, resultCount: entities.length }, 'Tool invocation completed');
+
     return {
       content: [{
         type: 'text',
@@ -444,6 +473,10 @@ async function handleICD11Hierarchy(args: Record<string, unknown>): Promise<Call
       }],
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error({ tool: 'icd11_hierarchy', durationMs: duration, error: errorMessage }, 'Tool invocation failed');
+
     if (error instanceof z.ZodError) {
       return {
         content: [{
@@ -470,6 +503,9 @@ async function handleICD11Hierarchy(args: Record<string, unknown>): Promise<Call
  * Handler for icd11_chapters
  */
 async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallToolResult> {
+  const startTime = Date.now();
+  log.debug({ tool: 'icd11_chapters', args }, 'Tool invocation started');
+
   try {
     const params = ICD11ChaptersParamsSchema.parse({
       language: args.language ?? 'en',
@@ -479,6 +515,8 @@ async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallT
     const chaptersResponse = await client.getChapters(params.language);
 
     if (!chaptersResponse.child || chaptersResponse.child.length === 0) {
+      const duration = Date.now() - startTime;
+      log.info({ tool: 'icd11_chapters', durationMs: duration, resultCount: 0 }, 'Tool invocation completed');
       return {
         content: [{
           type: 'text',
@@ -508,6 +546,9 @@ async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallT
       }
     }
 
+    const duration = Date.now() - startTime;
+    log.info({ tool: 'icd11_chapters', durationMs: duration, resultCount: chaptersResponse.child.length }, 'Tool invocation completed');
+
     return {
       content: [{
         type: 'text',
@@ -515,6 +556,10 @@ async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallT
       }],
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error({ tool: 'icd11_chapters', durationMs: duration, error: errorMessage }, 'Tool invocation failed');
+
     if (error instanceof ApiError) {
       return {
         content: [{
@@ -532,6 +577,9 @@ async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallT
  * Handler for icd11_postcoordination
  */
 async function handleICD11Postcoordination(args: Record<string, unknown>): Promise<CallToolResult> {
+  const startTime = Date.now();
+  log.debug({ tool: 'icd11_postcoordination', args }, 'Tool invocation started');
+
   try {
     const code = args.code as string;
     if (!code) {
@@ -569,6 +617,10 @@ async function handleICD11Postcoordination(args: Record<string, unknown>): Promi
       }
     }
 
+    const duration = Date.now() - startTime;
+    const axesCount = postcoord.postcoordinationScale?.length || 0;
+    log.info({ tool: 'icd11_postcoordination', durationMs: duration, code, axesCount }, 'Tool invocation completed');
+
     return {
       content: [{
         type: 'text',
@@ -576,6 +628,10 @@ async function handleICD11Postcoordination(args: Record<string, unknown>): Promi
       }],
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error({ tool: 'icd11_postcoordination', durationMs: duration, error: errorMessage }, 'Tool invocation failed');
+
     if (error instanceof ApiError) {
       if (error.code === 'NOT_FOUND') {
         return {

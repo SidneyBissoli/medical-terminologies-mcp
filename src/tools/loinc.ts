@@ -17,6 +17,9 @@ import { z } from 'zod';
 import { toolRegistry } from '../server.js';
 import { getNLMClient, LOINCItem, LOINCAnswer, LOINCPanel } from '../clients/nlm-client.js';
 import { ApiError } from '../types/index.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('loinc-tools');
 
 // ============================================================================
 // Zod Schemas
@@ -286,6 +289,9 @@ function formatLOINCPanel(panel: LOINCPanel | null, loincNum: string): string {
  * Handler for loinc_search
  */
 async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToolResult> {
+  const startTime = Date.now();
+  log.debug({ tool: 'loinc_search', args }, 'Tool invocation started');
+
   try {
     const params = LOINCSearchParamsSchema.parse({
       query: args.query,
@@ -296,6 +302,8 @@ async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToo
     const results = await client.searchLOINC(params.query, params.maxResults);
 
     if (results.items.length === 0) {
+      const duration = Date.now() - startTime;
+      log.info({ tool: 'loinc_search', durationMs: duration, resultCount: 0 }, 'Tool invocation completed');
       return {
         content: [{
           type: 'text',
@@ -310,6 +318,9 @@ async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToo
 
     const header = `## LOINC Search Results for "${params.query}"\n\nFound ${results.totalCount} total results (showing ${results.items.length}):\n\n`;
 
+    const duration = Date.now() - startTime;
+    log.info({ tool: 'loinc_search', durationMs: duration, resultCount: results.items.length }, 'Tool invocation completed');
+
     return {
       content: [{
         type: 'text',
@@ -317,6 +328,10 @@ async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToo
       }],
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error({ tool: 'loinc_search', durationMs: duration, error: errorMessage }, 'Tool invocation failed');
+
     if (error instanceof z.ZodError) {
       return {
         content: [{
@@ -343,6 +358,9 @@ async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToo
  * Handler for loinc_details
  */
 async function handleLOINCDetails(args: Record<string, unknown>): Promise<CallToolResult> {
+  const startTime = Date.now();
+  log.debug({ tool: 'loinc_details', args }, 'Tool invocation started');
+
   try {
     const params = LOINCDetailsParamsSchema.parse({
       loincNum: args.loinc_num,
@@ -352,6 +370,8 @@ async function handleLOINCDetails(args: Record<string, unknown>): Promise<CallTo
     const item = await client.getLOINCDetails(params.loincNum);
 
     if (!item) {
+      const duration = Date.now() - startTime;
+      log.info({ tool: 'loinc_details', durationMs: duration, loincNum: params.loincNum, found: false }, 'Tool invocation completed');
       return {
         content: [{
           type: 'text',
@@ -361,6 +381,9 @@ async function handleLOINCDetails(args: Record<string, unknown>): Promise<CallTo
       };
     }
 
+    const duration = Date.now() - startTime;
+    log.info({ tool: 'loinc_details', durationMs: duration, loincNum: params.loincNum, found: true }, 'Tool invocation completed');
+
     return {
       content: [{
         type: 'text',
@@ -368,6 +391,10 @@ async function handleLOINCDetails(args: Record<string, unknown>): Promise<CallTo
       }],
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error({ tool: 'loinc_details', durationMs: duration, error: errorMessage }, 'Tool invocation failed');
+
     if (error instanceof z.ZodError) {
       return {
         content: [{
@@ -394,6 +421,9 @@ async function handleLOINCDetails(args: Record<string, unknown>): Promise<CallTo
  * Handler for loinc_answers
  */
 async function handleLOINCAnswers(args: Record<string, unknown>): Promise<CallToolResult> {
+  const startTime = Date.now();
+  log.debug({ tool: 'loinc_answers', args }, 'Tool invocation started');
+
   try {
     const params = LOINCAnswersParamsSchema.parse({
       loincNum: args.loinc_num,
@@ -402,6 +432,9 @@ async function handleLOINCAnswers(args: Record<string, unknown>): Promise<CallTo
     const client = getNLMClient();
     const answers = await client.getLOINCAnswers(params.loincNum);
 
+    const duration = Date.now() - startTime;
+    log.info({ tool: 'loinc_answers', durationMs: duration, loincNum: params.loincNum, answerCount: answers.length }, 'Tool invocation completed');
+
     return {
       content: [{
         type: 'text',
@@ -409,6 +442,10 @@ async function handleLOINCAnswers(args: Record<string, unknown>): Promise<CallTo
       }],
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error({ tool: 'loinc_answers', durationMs: duration, error: errorMessage }, 'Tool invocation failed');
+
     if (error instanceof z.ZodError) {
       return {
         content: [{
@@ -435,6 +472,9 @@ async function handleLOINCAnswers(args: Record<string, unknown>): Promise<CallTo
  * Handler for loinc_panels
  */
 async function handleLOINCPanels(args: Record<string, unknown>): Promise<CallToolResult> {
+  const startTime = Date.now();
+  log.debug({ tool: 'loinc_panels', args }, 'Tool invocation started');
+
   try {
     const params = LOINCPanelsParamsSchema.parse({
       loincNum: args.loinc_num,
@@ -443,6 +483,9 @@ async function handleLOINCPanels(args: Record<string, unknown>): Promise<CallToo
     const client = getNLMClient();
     const panel = await client.getLOINCPanel(params.loincNum);
 
+    const duration = Date.now() - startTime;
+    log.info({ tool: 'loinc_panels', durationMs: duration, loincNum: params.loincNum, itemCount: panel?.items.length || 0 }, 'Tool invocation completed');
+
     return {
       content: [{
         type: 'text',
@@ -450,6 +493,10 @@ async function handleLOINCPanels(args: Record<string, unknown>): Promise<CallToo
       }],
     };
   } catch (error) {
+    const duration = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    log.error({ tool: 'loinc_panels', durationMs: duration, error: errorMessage }, 'Tool invocation failed');
+
     if (error instanceof z.ZodError) {
       return {
         content: [{
