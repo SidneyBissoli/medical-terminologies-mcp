@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * Medical Terminologies MCP Server
  *
@@ -14,8 +13,8 @@
  * @author Sidney Bissoli
  * @license MIT
  */
-
 import { createServer, startServer, SERVER_INFO } from './server.js';
+import { logger } from './utils/logger.js';
 
 // Tool imports - tools register themselves when imported (side-effect)
 // Phase 1: ICD-11
@@ -36,24 +35,26 @@ import './tools/crosswalk.js';
  */
 async function main(): Promise<void> {
   try {
-    process.stderr.write(`[info] Initializing ${SERVER_INFO.name}...\n`);
-
+    logger.info({ server: SERVER_INFO.name }, 'Initializing server...');
+    
     const server = createServer();
     await startServer(server);
+    
+    logger.info({ server: SERVER_INFO.name, version: SERVER_INFO.version }, 'Server started');
 
     // Handle graceful shutdown
     process.on('SIGINT', () => {
-      process.stderr.write('[info] Received SIGINT, shutting down...\n');
+      logger.info('Received SIGINT, shutting down...');
       process.exit(0);
     });
 
     process.on('SIGTERM', () => {
-      process.stderr.write('[info] Received SIGTERM, shutting down...\n');
+      logger.info('Received SIGTERM, shutting down...');
       process.exit(0);
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`[fatal] Failed to start server: ${errorMessage}\n`);
+    logger.fatal({ error: errorMessage }, 'Failed to start server');
     process.exit(1);
   }
 }
