@@ -72,6 +72,98 @@ export const ICD11PostcoordinationParamsSchema = z.object({
 });
 
 // ============================================================================
+// ICD-11 output schemas (structuredContent)
+// ============================================================================
+
+const ICD11MatchingPVSchema = z.object({
+  property_id: z.string(),
+  label: z.string(),
+  score: z.number(),
+  important: z.boolean().optional(),
+});
+
+export const ICD11SearchOutputSchema = z.object({
+  query: z.string(),
+  total_count: z.number().int(),
+  entities: z.array(
+    z.object({
+      code: z.string().nullable(),
+      title: z.string(),
+      score: z.number(),
+      uri: z.string(),
+      is_leaf: z.boolean(),
+      matching_pvs: z.array(ICD11MatchingPVSchema),
+    }),
+  ),
+});
+
+const ICD11LabelRefSchema = z.object({
+  uri: z.string(),
+  label: z.string(),
+});
+
+export const ICD11LookupOutputSchema = z.object({
+  code: z.string().nullable(),
+  code_range: z.string().nullable(),
+  uri: z.string(),
+  title: z.string(),
+  class_kind: z.string().nullable(),
+  block_id: z.string().nullable(),
+  definition: z.string().nullable(),
+  long_definition: z.string().nullable(),
+  diagnostic_criteria: z.string().nullable(),
+  coding_note: z.string().nullable(),
+  exclusions: z.array(ICD11LabelRefSchema),
+  inclusions: z.array(ICD11LabelRefSchema),
+  index_terms: z.array(ICD11LabelRefSchema),
+  browser_url: z.string().nullable(),
+});
+
+export const ICD11HierarchyOutputSchema = z.object({
+  code: z.string(),
+  direction: z.enum(['parents', 'children']),
+  entities: z.array(
+    z.object({
+      code: z.string().nullable(),
+      code_range: z.string().nullable(),
+      title: z.string(),
+      uri: z.string(),
+    }),
+  ),
+});
+
+export const ICD11ChaptersOutputSchema = z.object({
+  chapters: z.array(
+    z.object({
+      number: z.number().int(),
+      uri: z.string(),
+      code: z.string().nullable(),
+      code_range: z.string().nullable(),
+      title: z.string().nullable(),
+      error: z.string().nullable(),
+    }),
+  ),
+});
+
+export const ICD11PostcoordinationOutputSchema = z.object({
+  code: z.string(),
+  axes: z.array(
+    z.object({
+      axis_name: z.string(),
+      required: z.boolean(),
+      allow_multiple: z.boolean(),
+      value_count: z.number().int().nullable(),
+    }),
+  ),
+});
+
+export type ICD11SearchOutput = z.infer<typeof ICD11SearchOutputSchema>;
+export type ICD11LookupOutput = z.infer<typeof ICD11LookupOutputSchema>;
+export type ICD11HierarchyOutput = z.infer<typeof ICD11HierarchyOutputSchema>;
+export type ICD11ChaptersOutput = z.infer<typeof ICD11ChaptersOutputSchema>;
+export type ICD11PostcoordinationOutput = z.infer<typeof ICD11PostcoordinationOutputSchema>;
+
+// ============================================================================
 // LOINC params
 // ============================================================================
 

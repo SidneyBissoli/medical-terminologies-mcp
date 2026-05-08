@@ -41,6 +41,19 @@ export function buildInputSchema(schema: z.ZodTypeAny): Tool['inputSchema'] {
   return json as Tool['inputSchema'];
 }
 
+/**
+ * Same conversion as buildInputSchema, but typed for Tool.outputSchema.
+ * Kept as a separate function so call sites read clearly: input vs output.
+ */
+export function buildOutputSchema(schema: z.ZodTypeAny): NonNullable<Tool['outputSchema']> {
+  const json = toJsonSchema(schema, {
+    $refStrategy: 'none',
+    target: 'jsonSchema7',
+  }) as Record<string, unknown>;
+  delete json.$schema;
+  return json as NonNullable<Tool['outputSchema']>;
+}
+
 function formatZodError(error: z.ZodError): string {
   return error.errors
     .map((e) => {
