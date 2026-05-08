@@ -65,6 +65,48 @@ Probabilidade temporal: (a) primeiro, depois (c), depois talvez (b). Quando atac
 
 ---
 
+## [P3 — Lacunas de cobertura de terminologias] Status: deliberadamente diferido (revisão 2026-05-08)
+
+**Estado atual:**
+
+- 5 terminologias suportadas (ICD-11, LOINC, RxNorm, MeSH, SNOMED). Sem ATC, CID-10, DSM-5, OPCS-4, CPT, OMIM, CID-O, DICOM SR.
+- Decisão tomada conjuntamente no início do Batch B; ficou registrada apenas em conversação até esta nota (mesmo caso da deferral do Streamable HTTP transport acima).
+
+**Por que diferido (não "faltando"):**
+
+A própria auditoria diferenciou explicitamente esse item dos outros: *"Risco de não fazer: Não é risco — é oportunidade."* Distinto qualitativamente das outras duas deferrals deste arquivo:
+
+- P1 testes = **risco** (regressão silenciosa em produção)
+- P3 Streamable HTTP = **oportunidade de adoção** (canal de distribuição)
+- P3 cobertura de terminologias = **oportunidade de cobertura funcional** (caso de uso brasileiro fora hoje)
+
+Esse é o único dos três que é genuinamente roadmap, não débito. Sustentar a distinção evita que futuro auditor (humano ou IA) trate os três como equivalentes.
+
+**Triagem interna (auditoria já fez):**
+
+- **ATC**: implementar (WHO Collaborating Centre)
+- **CID-10**: implementar (DataSUS / CDC XML)
+- **DSM-5**: somente documentação (licença APA restritiva)
+- **OPCS-4, CPT**: fora (licenças restritivas)
+- **OMIM, CID-O, DICOM SR**: fora (nicho insuficiente)
+
+ATC + CID-10 = ~12h. São os dois únicos worth implementing.
+
+**Precisões sobre o framing brasileiro** (importantes para futura implementação):
+
+- **CID-10 não é "equivalente brasileiro" do ICD-11.** É a tradução brasileira oficial (CBCD/USP) da ICD-10 — versão anterior. ICD-11 é a internacional mais nova; o Brasil ainda não adotou oficialmente. Implementar CID-10 não é adicionar "equivalente regional" — é cobrir a versão da ICD que SUS/ANVISA usam operacionalmente hoje. Reforça o argumento de impacto.
+- **ATC não tem equivalente brasileiro.** É a classificação internacional WHO Collaborating Centre adotada diretamente por ANVISA, RENAME, Farmácia Popular. Sem camada de adaptação brasileira — só acesso à classificação WHO. Simplifica a implementação (não precisa parser de variante local).
+
+**Reavaliar quando:**
+
+- (a) **Decisão de submeter ao MCP Registry com tag `region:brazil` ou `country:br`**, ou de listar em catálogos brasileiros de software de saúde (GitHub topic `saude-publica-brasil`, blog post na rede brasileira de saúde digital). Operacionaliza a intenção abstrata "posicionar para mercado brasileiro" em ação concreta com data.
+- (b) **Pelo menos 1 pedido formal de usuário OU 1 issue no GitHub mencionando uso clínico/governamental brasileiro.** Sinal qualitativo (uso institucional) > quantitativo (contagem de pedidos) — usuários de MCPs raramente abrem issues pedindo features; tipicamente abandonam e procuram alternativa, então threshold de N pedidos pode nunca ser atingido mesmo com demanda real.
+- (c) **Decisão de propor o pacote como ferramenta auxiliar em projeto institucional do DataSenado, IBGE, Ministério da Saúde ou similar.** Trigger com maior probabilidade dado o contexto profissional do autor (Analista Legislativo do DataSenado, acesso natural a esses canais). ATC + CID-10 viram pré-requisitos imediatos se o pacote for proposto institucionalmente.
+
+Probabilidade temporal estimada: (c) primeiro, depois (a), depois (b). Esse item, no contexto específico do autor, provavelmente tem retorno por hora maior que vários itens P1/P2 fechados — mas só se materializar via canal institucional. Sem isso, são 12h num projeto solo de ~160 dl/mês com retorno marginal baixo.
+
+---
+
 ## [P0 — descoberto após auditoria, 2026-05-08] Backend SNOMED público está fora
 
 - **Categoria:** Cobertura funcional / Robustez
