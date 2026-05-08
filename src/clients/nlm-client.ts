@@ -158,7 +158,14 @@ export class NLMClient {
   }
 
   /**
-   * Gets detailed information for a specific LOINC code
+   * Gets detailed information for a specific LOINC code by exact LOINC_NUM match.
+   *
+   * Uses sf=LOINC_NUM to scope the Clinical Tables search to the LOINC_NUM
+   * field. Without that scope, the API does ranked text search across all
+   * fields, and an unrelated entity whose description happens to contain the
+   * code's digits can be ranked above the actual code — making maxList=1
+   * miss perfectly valid lookups. With sf=LOINC_NUM, total=0 means the code
+   * doesn't exist; total=1 means we got it exactly.
    *
    * @param loincNum - LOINC number (e.g., "2339-0")
    * @returns LOINC item details or null if not found
@@ -170,10 +177,10 @@ export class NLMClient {
       CACHE_PREFIX.LOINC,
       cacheKey,
       async () => {
-        // Search for exact LOINC code
         const url = `${NLM_CONFIG.clinicalTablesUrl}/loinc_items/v3/search`;
         const response = await this.request<[number, string[], null, Array<string[]>]>(url, {
           terms: loincNum,
+          sf: 'LOINC_NUM',
           maxList: 1,
           df: DEFAULT_LOINC_FIELDS.join(','),
           ef: 'LOINC_NUM,LONG_COMMON_NAME,COMPONENT,PROPERTY,TIME_ASPCT,SYSTEM,SCALE_TYP,METHOD_TYP,CLASS,STATUS,SHORTNAME,EXAMPLE_UNITS,EXAMPLE_UCUM_UNITS,ORDER_OBS,HL7_FIELD_SUBFIELD_ID,RELATEDNAMES2,CONSUMER_NAME,CLASSTYPE',
