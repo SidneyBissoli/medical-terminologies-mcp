@@ -137,30 +137,9 @@ export class MeSHClient {
    * @returns Descriptor details or null if not found
    */
   async getDescriptor(meshId: string): Promise<MeSHDescriptor | null> {
-    const cacheKey = `mesh:descriptor:${meshId}`;
-
-    return cache.getOrSet(
-      CACHE_PREFIX.MESH,
-      cacheKey,
-      async () => {
-        try {
-          const response = await this.request<MeSHDescriptorResponse>(`/${meshId}.json`);
-
-          if (!response) {
-            return null;
-          }
-
-          // Parse the JSON-LD response
-          return this.parseDescriptor(meshId, response);
-        } catch (error) {
-          if (error instanceof ApiError && error.code === 'NOT_FOUND') {
-            return null;
-          }
-          throw error;
-        }
-      },
-      DEFAULT_TTL.LOOKUP
-    );
+    const raw = await this.fetchDescriptorRaw(meshId);
+    if (!raw) return null;
+    return this.parseDescriptor(meshId, raw);
   }
 
   /**
@@ -170,62 +149,95 @@ export class MeSHClient {
    * @returns Array of tree numbers
    */
   async getTreeNumbers(meshId: string): Promise<MeSHTreeNumber[]> {
-    const cacheKey = `mesh:tree:${meshId}`;
+    const raw = await this.fetchDescriptorRaw(meshId);
+    if (!raw) return [];
+    return this.extractTreeNumbers(raw);
+  }
 
+  /**
+   * Gets allowed qualifiers for a descriptor.
+   *
+   * The descriptor JSON-LD only references qualifiers by URI; their labels
+   * live in each qualifier's own resource. This method fetches the
+   * descriptor once (cached), extracts the qualifier URIs, then fetches
+   * each qualifier's label in parallel via the shared NLM rate limiter.
+   * Qualifier labels are cached separately with a long TTL since they
+   * rarely change.
+   *
+   * @param meshId - MeSH Descriptor ID
+   * @returns Array of allowed qualifiers with labels populated
+   */
+  async getAllowedQualifiers(meshId: string): Promise<MeSHQualifier[]> {
+    const raw = await this.fetchDescriptorRaw(meshId);
+    if (!raw) return [];
+
+    const refs = this.extractQualifierRefs(raw);
+    if (refs.length === 0) return [];
+
+    const settled = await Promise.allSettled(
+      refs.map((ref) => this.fetchQualifierLabel(ref.id)),
+    );
+
+    return refs.map((ref, i) => ({
+      id: ref.id,
+      uri: ref.uri,
+      label: settled[i].status === 'fulfilled' ? (settled[i] as PromiseFulfilledResult<string>).value : '',
+    }));
+  }
+
+  // ===========================================================================
+  // Internal: shared raw fetch + parsers
+  // ===========================================================================
+
+  /**
+   * Fetches and caches the raw descriptor JSON-LD once. The three public
+   * methods that need this resource (getDescriptor / getTreeNumbers /
+   * getAllowedQualifiers) all share a single cached entry instead of
+   * fetching three times on cold lookup.
+   */
+  private async fetchDescriptorRaw(meshId: string): Promise<MeSHDescriptorResponse | null> {
+    const cacheKey = `mesh:raw:${meshId}`;
     return cache.getOrSet(
       CACHE_PREFIX.MESH,
       cacheKey,
       async () => {
         try {
           const response = await this.request<MeSHDescriptorResponse>(`/${meshId}.json`);
-
-          if (!response) {
-            return [];
-          }
-
-          const treeNumbers = this.extractTreeNumbers(response);
-          return treeNumbers;
+          return response ?? null;
         } catch (error) {
           if (error instanceof ApiError && error.code === 'NOT_FOUND') {
-            return [];
+            return null;
           }
           throw error;
         }
       },
-      DEFAULT_TTL.LOOKUP
+      DEFAULT_TTL.LOOKUP,
     );
   }
 
   /**
-   * Gets allowed qualifiers for a descriptor
-   *
-   * @param meshId - MeSH Descriptor ID
-   * @returns Array of allowed qualifiers
+   * Fetches a qualifier's label from its own JSON-LD resource. Cached
+   * with STATIC TTL (24h) — qualifier labels are part of the controlled
+   * vocabulary and almost never change between MeSH releases.
    */
-  async getAllowedQualifiers(meshId: string): Promise<MeSHQualifier[]> {
-    const cacheKey = `mesh:qualifiers:${meshId}`;
-
+  private async fetchQualifierLabel(qualifierId: string): Promise<string> {
+    const cacheKey = `mesh:qlabel:${qualifierId}`;
     return cache.getOrSet(
       CACHE_PREFIX.MESH,
       cacheKey,
       async () => {
         try {
-          const response = await this.request<MeSHDescriptorResponse>(`/${meshId}.json`);
-
-          if (!response) {
-            return [];
+          const raw = await this.request<MeSHDescriptorResponse>(`/${qualifierId}.json`);
+          const main = this.findMainEntity(raw, qualifierId);
+          if (main && main['rdfs:label']) {
+            return this.extractValue(main['rdfs:label']);
           }
-
-          const qualifiers = this.extractQualifiers(response);
-          return qualifiers;
-        } catch (error) {
-          if (error instanceof ApiError && error.code === 'NOT_FOUND') {
-            return [];
-          }
-          throw error;
+        } catch {
+          // swallow — caller defaults to '' on rejection
         }
+        return '';
       },
-      DEFAULT_TTL.LOOKUP
+      DEFAULT_TTL.STATIC,
     );
   }
 
@@ -261,24 +273,24 @@ export class MeSHClient {
       return descriptor;
     }
 
-    // Extract label
     if (mainEntity['rdfs:label']) {
       descriptor.label = this.extractValue(mainEntity['rdfs:label']);
     }
 
-    // Extract scope note
     if (mainEntity['meshv:scopeNote']) {
       descriptor.scopeNote = this.extractValue(mainEntity['meshv:scopeNote']);
     }
 
-    // Extract tree numbers
     descriptor.treeNumbers = this.extractTreeNumbers(response);
-
-    // Extract concepts
     descriptor.concepts = this.extractConcepts(response);
-
-    // Extract qualifiers
-    descriptor.qualifiers = this.extractQualifiers(response);
+    // For getDescriptor we expose qualifier URIs without labels (avoid
+    // fanning out N extra requests on every descriptor read). Callers who
+    // need labels use getAllowedQualifiers.
+    descriptor.qualifiers = this.extractQualifierRefs(response).map((ref) => ({
+      id: ref.id,
+      uri: ref.uri,
+      label: '',
+    }));
 
     return descriptor;
   }
@@ -296,7 +308,6 @@ export class MeSHClient {
       return null;
     }
 
-    // Find the descriptor entity
     const meshUri = `http://id.nlm.nih.gov/mesh/${meshId}`;
     return graph.find(
       item => item['@id'] === meshUri || item['@id'] === `${MESH_CONFIG.baseUrl}/${meshId}`
@@ -349,7 +360,8 @@ export class MeSHClient {
   }
 
   /**
-   * Extracts concepts from response
+   * Extracts concepts from response, resolving each concept's terms by
+   * looking up meshv:Term entries that share the same @graph.
    */
   private extractConcepts(response: MeSHDescriptorResponse): MeSHConcept[] {
     const concepts: MeSHConcept[] = [];
@@ -359,20 +371,23 @@ export class MeSHClient {
       return concepts;
     }
 
+    // First pass: build a URI → term-label map from meshv:Term entries.
+    const termLabels = new Map<string, string>();
+    for (const item of graph) {
+      if (item['@type'] === 'meshv:Term' && item['@id'] && item['rdfs:label']) {
+        termLabels.set(item['@id'] as string, this.extractValue(item['rdfs:label']));
+      }
+    }
+
+    // Second pass: build concepts and resolve their term references.
     for (const item of graph) {
       if (item['@type'] === 'meshv:Concept' && item['rdfs:label']) {
         const concept: MeSHConcept = {
           uri: item['@id'] || '',
           label: this.extractValue(item['rdfs:label']),
-          isPreferred: false,
-          terms: [],
+          isPreferred: Boolean(item['meshv:preferredConcept']),
+          terms: this.resolveTermRefs(item['meshv:term'], termLabels),
         };
-
-        // Check if preferred
-        if (item['meshv:preferredConcept']) {
-          concept.isPreferred = true;
-        }
-
         concepts.push(concept);
       }
     }
@@ -381,37 +396,52 @@ export class MeSHClient {
   }
 
   /**
-   * Extracts qualifiers from response
+   * Given a meshv:term property value (URI string or array of URI refs)
+   * and a URI → label map, returns the resolved term labels in order.
+   * Unresolved references are skipped — they typically mean the term
+   * lives on a separate document, which is rare for MeSH descriptors.
    */
-  private extractQualifiers(response: MeSHDescriptorResponse): MeSHQualifier[] {
-    const qualifiers: MeSHQualifier[] = [];
+  private resolveTermRefs(termProp: unknown, termLabels: Map<string, string>): string[] {
+    if (!termProp) return [];
+    const refs = Array.isArray(termProp) ? termProp : [termProp];
+    const labels: string[] = [];
+    for (const ref of refs) {
+      const uri = typeof ref === 'string' ? ref : (ref as { '@id'?: string } | null)?.['@id'];
+      if (uri && termLabels.has(uri)) {
+        labels.push(termLabels.get(uri) as string);
+      }
+    }
+    return labels;
+  }
+
+  /**
+   * Extracts qualifier URI references from response (no labels — those
+   * live on each qualifier's own resource and are fetched on demand by
+   * getAllowedQualifiers).
+   */
+  private extractQualifierRefs(response: MeSHDescriptorResponse): Array<{ id: string; uri: string }> {
+    const refs: Array<{ id: string; uri: string }> = [];
     const graph = response['@graph'];
 
     if (!Array.isArray(graph)) {
-      return qualifiers;
+      return refs;
     }
 
-    // Find the main descriptor and get allowed qualifiers
     for (const item of graph) {
       if (item['meshv:allowableQualifier']) {
         const allowable = item['meshv:allowableQualifier'];
         const qualifierRefs = Array.isArray(allowable) ? allowable : [allowable];
 
         for (const ref of qualifierRefs) {
-          const uri = typeof ref === 'string' ? ref : ref?.['@id'];
+          const uri = typeof ref === 'string' ? ref : (ref as { '@id'?: string } | null)?.['@id'];
           if (uri) {
-            const id = this.extractMeshId(uri);
-            qualifiers.push({
-              id,
-              uri,
-              label: '', // Would need separate lookup to get labels
-            });
+            refs.push({ id: this.extractMeshId(uri), uri });
           }
         }
       }
     }
 
-    return qualifiers;
+    return refs;
   }
 }
 
@@ -485,6 +515,7 @@ interface MeSHDescriptorResponse {
     'meshv:scopeNote'?: unknown;
     'meshv:allowableQualifier'?: unknown;
     'meshv:preferredConcept'?: unknown;
+    'meshv:term'?: unknown;
     [key: string]: unknown;
   }>;
   [key: string]: unknown;

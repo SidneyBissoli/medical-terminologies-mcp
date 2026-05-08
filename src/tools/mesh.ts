@@ -254,8 +254,7 @@ function formatQualifiers(meshId: string, qualifiers: MeSHQualifier[]): string {
   lines.push('|--------------|-------|');
 
   for (const qual of qualifiers) {
-    const label = qual.label || '(lookup required)';
-    lines.push(`| ${qual.id} | ${label} |`);
+    lines.push(`| ${qual.id} | ${qual.label} |`);
   }
 
   lines.push('');
