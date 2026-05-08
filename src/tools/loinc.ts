@@ -1,8 +1,6 @@
 /**
  * LOINC Tools for Medical Terminologies MCP Server
  *
- * Provides access to LOINC (Logical Observation Identifiers Names and Codes)
- * through the following tools:
  * - loinc_search: Search for LOINC codes by term
  * - loinc_details: Get detailed information for a LOINC code
  * - loinc_answers: Get answer lists for questionnaire items
@@ -13,39 +11,18 @@
  */
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
 import { toolRegistry } from '../server.js';
 import { getNLMClient, LOINCItem, LOINCAnswer, LOINCPanel } from '../clients/nlm-client.js';
-import { ApiError } from '../types/index.js';
-
-// ============================================================================
-// Zod Schemas
-// ============================================================================
-
-const LOINCSearchParamsSchema = z.object({
-  query: z.string().min(1).describe('Search term (test name, keyword, or LOINC code)'),
-  maxResults: z.number().int().min(1).max(100).optional().default(25).describe('Maximum results'),
-});
-
-const LOINCDetailsParamsSchema = z.object({
-  loincNum: z.string().min(1).describe('LOINC number (e.g., "2339-0")'),
-});
-
-const LOINCAnswersParamsSchema = z.object({
-  loincNum: z.string().min(1).describe('LOINC number for questionnaire item'),
-});
-
-const LOINCPanelsParamsSchema = z.object({
-  loincNum: z.string().min(1).describe('LOINC number for panel/form'),
-});
+import {
+  LOINCSearchParamsSchema,
+  LOINCByCodeParamsSchema,
+} from '../types/index.js';
+import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
 // ============================================================================
 
-/**
- * loinc_search tool definition
- */
 const loincSearchTool: Tool = {
   name: 'loinc_search',
   description: `Search for laboratory tests, clinical observations, and measurements in LOINC (Logical Observation Identifiers Names and Codes).
@@ -56,27 +33,9 @@ Use this tool to:
 - Look up diagnostic observations
 
 Returns matching LOINC codes with names, components, and properties.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: 'Search term (test name, keyword, or partial LOINC code)',
-      },
-      max_results: {
-        type: 'number',
-        description: 'Maximum number of results (1-100). Default: 25',
-        minimum: 1,
-        maximum: 100,
-      },
-    },
-    required: ['query'],
-  },
+  inputSchema: buildInputSchema(LOINCSearchParamsSchema),
 };
 
-/**
- * loinc_details tool definition
- */
 const loincDetailsTool: Tool = {
   name: 'loinc_details',
   description: `Get detailed information about a specific LOINC code.
@@ -87,21 +46,9 @@ Use this tool to:
 - Check the scale type and method
 
 Provide a LOINC number in format "XXXXX-X" (e.g., "2339-0" for Glucose).`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      loinc_num: {
-        type: 'string',
-        description: 'LOINC number (e.g., "2339-0")',
-      },
-    },
-    required: ['loinc_num'],
-  },
+  inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
 };
 
-/**
- * loinc_answers tool definition
- */
 const loincAnswersTool: Tool = {
   name: 'loinc_answers',
   description: `Get the list of valid answers for a LOINC questionnaire item.
@@ -112,21 +59,9 @@ Use this tool to:
 - Look up standardized answer lists
 
 Only applicable to LOINC codes that represent questions with defined answer sets.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      loinc_num: {
-        type: 'string',
-        description: 'LOINC number for the questionnaire item',
-      },
-    },
-    required: ['loinc_num'],
-  },
+  inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
 };
 
-/**
- * loinc_panels tool definition
- */
 const loincPanelsTool: Tool = {
   name: 'loinc_panels',
   description: `Get the structure of a LOINC panel or form.
@@ -137,25 +72,13 @@ Use this tool to:
 - Find related observations grouped together
 
 Returns the list of LOINC codes that make up the panel.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      loinc_num: {
-        type: 'string',
-        description: 'LOINC number for the panel or form',
-      },
-    },
-    required: ['loinc_num'],
-  },
+  inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
 };
 
 // ============================================================================
 // Formatters
 // ============================================================================
 
-/**
- * Formats a LOINC item for display
- */
 function formatLOINCItem(item: LOINCItem, index?: number): string {
   const lines: string[] = [];
   const prefix = index !== undefined ? `${index + 1}. ` : '';
@@ -181,9 +104,6 @@ function formatLOINCItem(item: LOINCItem, index?: number): string {
   return lines.join('\n');
 }
 
-/**
- * Formats LOINC item details for display
- */
 function formatLOINCDetails(item: LOINCItem): string {
   const lines: string[] = [];
 
@@ -211,9 +131,6 @@ function formatLOINCDetails(item: LOINCItem): string {
   return lines.join('\n');
 }
 
-/**
- * Formats LOINC answers for display
- */
 function formatLOINCAnswers(loincNum: string, answers: LOINCAnswer[]): string {
   const lines: string[] = [];
 
@@ -241,9 +158,6 @@ function formatLOINCAnswers(loincNum: string, answers: LOINCAnswer[]): string {
   return lines.join('\n');
 }
 
-/**
- * Formats LOINC panel for display
- */
 function formatLOINCPanel(panel: LOINCPanel | null, loincNum: string): string {
   const lines: string[] = [];
 
@@ -282,25 +196,15 @@ function formatLOINCPanel(panel: LOINCPanel | null, loincNum: string): string {
 // Tool Handlers
 // ============================================================================
 
-/**
- * Handler for loinc_search
- */
 async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = LOINCSearchParamsSchema.parse({
-      query: args.query,
-      maxResults: args.max_results ?? 25,
-    });
-
+    const params = LOINCSearchParamsSchema.parse(args);
     const client = getNLMClient();
-    const results = await client.searchLOINC(params.query, params.maxResults);
+    const results = await client.searchLOINC(params.query, params.max_results);
 
     if (results.items.length === 0) {
       return {
-        content: [{
-          type: 'text',
-          text: `No LOINC codes found for "${params.query}".`,
-        }],
+        content: [{ type: 'text', text: `No LOINC codes found for "${params.query}".` }],
       };
     }
 
@@ -311,172 +215,69 @@ async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToo
     const header = `## LOINC Search Results for "${params.query}"\n\nFound ${results.totalCount} total results (showing ${results.items.length}):\n\n`;
 
     return {
-      content: [{
-        type: 'text',
-        text: header + formatted,
-      }],
+      content: [{ type: 'text', text: header + formatted }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for loinc_details
- */
 async function handleLOINCDetails(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = LOINCDetailsParamsSchema.parse({
-      loincNum: args.loinc_num,
-    });
-
+    const params = LOINCByCodeParamsSchema.parse(args);
     const client = getNLMClient();
-    const item = await client.getLOINCDetails(params.loincNum);
+    const item = await client.getLOINCDetails(params.loinc_num);
 
     if (!item) {
       return {
         content: [{
           type: 'text',
-          text: `LOINC code "${params.loincNum}" not found. Please verify the code is correct.`,
+          text: `LOINC code "${params.loinc_num}" not found. Please verify the code is correct.`,
         }],
         isError: true,
       };
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: formatLOINCDetails(item),
-      }],
+      content: [{ type: 'text', text: formatLOINCDetails(item) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for loinc_answers
- */
 async function handleLOINCAnswers(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = LOINCAnswersParamsSchema.parse({
-      loincNum: args.loinc_num,
-    });
-
+    const params = LOINCByCodeParamsSchema.parse(args);
     const client = getNLMClient();
-    const answers = await client.getLOINCAnswers(params.loincNum);
+    const answers = await client.getLOINCAnswers(params.loinc_num);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatLOINCAnswers(params.loincNum, answers),
-      }],
+      content: [{ type: 'text', text: formatLOINCAnswers(params.loinc_num, answers) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for loinc_panels
- */
 async function handleLOINCPanels(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = LOINCPanelsParamsSchema.parse({
-      loincNum: args.loinc_num,
-    });
-
+    const params = LOINCByCodeParamsSchema.parse(args);
     const client = getNLMClient();
-    const panel = await client.getLOINCPanel(params.loincNum);
+    const panel = await client.getLOINCPanel(params.loinc_num);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatLOINCPanel(panel, params.loincNum),
-      }],
+      content: [{ type: 'text', text: formatLOINCPanel(panel, params.loinc_num) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
 // ============================================================================
-// Tool Registration (executed at module load time)
+// Tool Registration
 // ============================================================================
 
-// Register all LOINC tools immediately when this module is imported
 toolRegistry.register(loincSearchTool, handleLOINCSearch);
 toolRegistry.register(loincDetailsTool, handleLOINCDetails);
 toolRegistry.register(loincAnswersTool, handleLOINCAnswers);

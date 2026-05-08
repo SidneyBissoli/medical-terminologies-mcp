@@ -1,7 +1,6 @@
 /**
  * MeSH Tools for Medical Terminologies MCP Server
  *
- * Provides access to MeSH (Medical Subject Headings) through:
  * - mesh_search: Search descriptors by term
  * - mesh_descriptor: Get descriptor details by ID
  * - mesh_tree: Get tree hierarchy for a descriptor
@@ -12,7 +11,6 @@
  */
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
 import { toolRegistry } from '../server.js';
 import {
   getMeSHClient,
@@ -21,37 +19,16 @@ import {
   MeSHTreeNumber,
   MeSHQualifier,
 } from '../clients/mesh-client.js';
-import { ApiError } from '../types/index.js';
-
-// ============================================================================
-// Zod Schemas
-// ============================================================================
-
-const MeSHSearchParamsSchema = z.object({
-  query: z.string().min(1).describe('Search term'),
-  match: z.enum(['exact', 'contains', 'startswith']).optional().default('contains').describe('Match type'),
-  maxResults: z.number().int().min(1).max(100).optional().default(25).describe('Maximum results'),
-});
-
-const MeSHDescriptorParamsSchema = z.object({
-  meshId: z.string().min(1).describe('MeSH Descriptor ID (e.g., D015242)'),
-});
-
-const MeSHTreeParamsSchema = z.object({
-  meshId: z.string().min(1).describe('MeSH Descriptor ID'),
-});
-
-const MeSHQualifiersParamsSchema = z.object({
-  meshId: z.string().min(1).describe('MeSH Descriptor ID'),
-});
+import {
+  MeSHSearchParamsSchema,
+  MeSHByIdParamsSchema,
+} from '../types/index.js';
+import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
 // ============================================================================
 
-/**
- * mesh_search tool definition
- */
 const meshSearchTool: Tool = {
   name: 'mesh_search',
   description: `Search for MeSH (Medical Subject Headings) descriptors.
@@ -62,32 +39,9 @@ Use this tool to:
 - Find controlled vocabulary terms
 
 Returns matching descriptors with MeSH IDs and labels.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: 'Search term (e.g., "diabetes", "heart failure")',
-      },
-      match: {
-        type: 'string',
-        enum: ['exact', 'contains', 'startswith'],
-        description: 'Match type: exact, contains, or startswith. Default: contains',
-      },
-      max_results: {
-        type: 'number',
-        description: 'Maximum results (1-100). Default: 25',
-        minimum: 1,
-        maximum: 100,
-      },
-    },
-    required: ['query'],
-  },
+  inputSchema: buildInputSchema(MeSHSearchParamsSchema),
 };
 
-/**
- * mesh_descriptor tool definition
- */
 const meshDescriptorTool: Tool = {
   name: 'mesh_descriptor',
   description: `Get detailed information about a MeSH descriptor by ID.
@@ -98,21 +52,9 @@ Use this tool to:
 - See related concepts and synonyms
 
 Provide a MeSH Descriptor ID like "D015242" (Ofloxacin).`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      mesh_id: {
-        type: 'string',
-        description: 'MeSH Descriptor ID (e.g., D015242, D003920)',
-      },
-    },
-    required: ['mesh_id'],
-  },
+  inputSchema: buildInputSchema(MeSHByIdParamsSchema),
 };
 
-/**
- * mesh_tree tool definition
- */
 const meshTreeTool: Tool = {
   name: 'mesh_tree',
   description: `Get the tree hierarchy location(s) for a MeSH descriptor.
@@ -123,21 +65,9 @@ Use this tool to:
 - Find related terms in the same branch
 
 MeSH tree numbers show the hierarchical path (e.g., C14.280.647 for Myocardial Infarction).`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      mesh_id: {
-        type: 'string',
-        description: 'MeSH Descriptor ID',
-      },
-    },
-    required: ['mesh_id'],
-  },
+  inputSchema: buildInputSchema(MeSHByIdParamsSchema),
 };
 
-/**
- * mesh_qualifiers tool definition
- */
 const meshQualifiersTool: Tool = {
   name: 'mesh_qualifiers',
   description: `Get allowed qualifiers (subheadings) for a MeSH descriptor.
@@ -148,25 +78,13 @@ Use this tool to:
 - Understand aspects that can be specified
 
 Qualifiers refine descriptors (e.g., "Diabetes Mellitus/drug therapy").`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      mesh_id: {
-        type: 'string',
-        description: 'MeSH Descriptor ID',
-      },
-    },
-    required: ['mesh_id'],
-  },
+  inputSchema: buildInputSchema(MeSHByIdParamsSchema),
 };
 
 // ============================================================================
 // Formatters
 // ============================================================================
 
-/**
- * Formats search results for display
- */
 function formatSearchResults(query: string, results: MeSHSearchResult[]): string {
   const lines: string[] = [];
 
@@ -190,9 +108,6 @@ function formatSearchResults(query: string, results: MeSHSearchResult[]): string
   return lines.join('\n');
 }
 
-/**
- * Formats descriptor details for display
- */
 function formatDescriptor(descriptor: MeSHDescriptor): string {
   const lines: string[] = [];
 
@@ -235,9 +150,6 @@ function formatDescriptor(descriptor: MeSHDescriptor): string {
   return lines.join('\n');
 }
 
-/**
- * Formats tree numbers for display
- */
 function formatTreeNumbers(meshId: string, treeNumbers: MeSHTreeNumber[]): string {
   const lines: string[] = [];
 
@@ -252,7 +164,6 @@ function formatTreeNumbers(meshId: string, treeNumbers: MeSHTreeNumber[]): strin
   lines.push(`Found ${treeNumbers.length} tree location(s):`);
   lines.push('');
 
-  // Group by top-level category
   const categories: Record<string, string[]> = {};
 
   for (const tn of treeNumbers) {
@@ -277,9 +188,6 @@ function formatTreeNumbers(meshId: string, treeNumbers: MeSHTreeNumber[]): strin
   return lines.join('\n');
 }
 
-/**
- * Gets MeSH category name from tree number prefix
- */
 function getMeSHCategoryName(prefix: string): string {
   const categories: Record<string, string> = {
     'A': 'Anatomy',
@@ -304,9 +212,6 @@ function getMeSHCategoryName(prefix: string): string {
   return categories[letter] || `Category ${letter}`;
 }
 
-/**
- * Formats qualifiers for display
- */
 function formatQualifiers(meshId: string, qualifiers: MeSHQualifier[]): string {
   const lines: string[] = [];
 
@@ -342,187 +247,76 @@ function formatQualifiers(meshId: string, qualifiers: MeSHQualifier[]): string {
 // Tool Handlers
 // ============================================================================
 
-/**
- * Handler for mesh_search
- */
 async function handleMeSHSearch(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = MeSHSearchParamsSchema.parse({
-      query: args.query,
-      match: args.match ?? 'contains',
-      maxResults: args.max_results ?? 25,
-    });
-
+    const params = MeSHSearchParamsSchema.parse(args);
     const client = getMeSHClient();
-    const results = await client.searchDescriptors(params.query, params.match, params.maxResults);
+    const results = await client.searchDescriptors(params.query, params.match, params.max_results);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatSearchResults(params.query, results),
-      }],
+      content: [{ type: 'text', text: formatSearchResults(params.query, results) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for mesh_descriptor
- */
 async function handleMeSHDescriptor(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = MeSHDescriptorParamsSchema.parse({
-      meshId: args.mesh_id,
-    });
-
+    const params = MeSHByIdParamsSchema.parse(args);
     const client = getMeSHClient();
-    const descriptor = await client.getDescriptor(params.meshId);
+    const descriptor = await client.getDescriptor(params.mesh_id);
 
     if (!descriptor) {
       return {
         content: [{
           type: 'text',
-          text: `MeSH Descriptor "${params.meshId}" not found. Please verify the ID is correct (e.g., D015242).`,
+          text: `MeSH Descriptor "${params.mesh_id}" not found. Please verify the ID is correct (e.g., D015242).`,
         }],
         isError: true,
       };
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: formatDescriptor(descriptor),
-      }],
+      content: [{ type: 'text', text: formatDescriptor(descriptor) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for mesh_tree
- */
 async function handleMeSHTree(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = MeSHTreeParamsSchema.parse({
-      meshId: args.mesh_id,
-    });
-
+    const params = MeSHByIdParamsSchema.parse(args);
     const client = getMeSHClient();
-    const treeNumbers = await client.getTreeNumbers(params.meshId);
+    const treeNumbers = await client.getTreeNumbers(params.mesh_id);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatTreeNumbers(params.meshId, treeNumbers),
-      }],
+      content: [{ type: 'text', text: formatTreeNumbers(params.mesh_id, treeNumbers) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for mesh_qualifiers
- */
 async function handleMeSHQualifiers(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = MeSHQualifiersParamsSchema.parse({
-      meshId: args.mesh_id,
-    });
-
+    const params = MeSHByIdParamsSchema.parse(args);
     const client = getMeSHClient();
-    const qualifiers = await client.getAllowedQualifiers(params.meshId);
+    const qualifiers = await client.getAllowedQualifiers(params.mesh_id);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatQualifiers(params.meshId, qualifiers),
-      }],
+      content: [{ type: 'text', text: formatQualifiers(params.mesh_id, qualifiers) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
 // ============================================================================
-// Tool Registration (executed at module load time)
+// Tool Registration
 // ============================================================================
 
-// Register all MeSH tools immediately when this module is imported
 toolRegistry.register(meshSearchTool, handleMeSHSearch);
 toolRegistry.register(meshDescriptorTool, handleMeSHDescriptor);
 toolRegistry.register(meshTreeTool, handleMeSHTree);

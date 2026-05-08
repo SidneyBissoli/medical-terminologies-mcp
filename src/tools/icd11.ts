@@ -1,8 +1,6 @@
 /**
  * ICD-11 Tools for Medical Terminologies MCP Server
  *
- * Provides access to WHO's ICD-11 (International Classification of Diseases, 11th Revision)
- * through the following tools:
  * - icd11_search: Text search in ICD-11 MMS
  * - icd11_lookup: Entity details by code or URI
  * - icd11_hierarchy: Parents and children of an entity
@@ -14,23 +12,22 @@
  */
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
 import { toolRegistry } from '../server.js';
 import { getWHOClient, ICD11DestinationEntity, ICD11EntityResponse } from '../clients/who-client.js';
 import {
   ICD11SearchParamsSchema,
+  ICD11LookupParamsSchema,
   ICD11HierarchyParamsSchema,
   ICD11ChaptersParamsSchema,
+  ICD11PostcoordinationParamsSchema,
   ApiError,
 } from '../types/index.js';
+import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
 // ============================================================================
 
-/**
- * icd11_search tool definition
- */
 const icd11SearchTool: Tool = {
   name: 'icd11_search',
   description: `Search for medical conditions, diseases, and health problems in ICD-11 (International Classification of Diseases, 11th Revision).
@@ -41,32 +38,9 @@ Use this tool to:
 - Look up conditions in multiple languages
 
 Returns matching entities with codes, titles, and relevance scores.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: 'Search text (disease name, symptom, or keyword)',
-      },
-      language: {
-        type: 'string',
-        description: 'Language code (en, es, pt, fr, de, etc.). Default: en',
-        enum: ['en', 'es', 'pt', 'fr', 'de', 'it', 'zh', 'ja', 'ar', 'ru'],
-      },
-      max_results: {
-        type: 'number',
-        description: 'Maximum number of results (1-100). Default: 25',
-        minimum: 1,
-        maximum: 100,
-      },
-    },
-    required: ['query'],
-  },
+  inputSchema: buildInputSchema(ICD11SearchParamsSchema),
 };
 
-/**
- * icd11_lookup tool definition
- */
 const icd11LookupTool: Tool = {
   name: 'icd11_lookup',
   description: `Get detailed information about a specific ICD-11 entity by code or URI.
@@ -77,29 +51,9 @@ Use this tool to:
 - Get the official title and synonyms
 
 Provide either an ICD-11 code (e.g., "BA00") or a full foundation URI.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      code: {
-        type: 'string',
-        description: 'ICD-11 code (e.g., "BA00", "1A00")',
-      },
-      uri: {
-        type: 'string',
-        description: 'Full ICD-11 foundation URI',
-      },
-      language: {
-        type: 'string',
-        description: 'Language code. Default: en',
-        enum: ['en', 'es', 'pt', 'fr', 'de', 'it', 'zh', 'ja', 'ar', 'ru'],
-      },
-    },
-  },
+  inputSchema: buildInputSchema(ICD11LookupParamsSchema),
 };
 
-/**
- * icd11_hierarchy tool definition
- */
 const icd11HierarchyTool: Tool = {
   name: 'icd11_hierarchy',
   description: `Navigate the ICD-11 hierarchy to find parent or child entities.
@@ -110,26 +64,9 @@ Use this tool to:
 - Understand the classification structure
 
 Direction 'parents' returns ancestor categories, 'children' returns subcategories.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      code: {
-        type: 'string',
-        description: 'ICD-11 code to get hierarchy for',
-      },
-      direction: {
-        type: 'string',
-        description: 'Direction: "parents" for ancestors, "children" for subtypes',
-        enum: ['parents', 'children'],
-      },
-    },
-    required: ['code', 'direction'],
-  },
+  inputSchema: buildInputSchema(ICD11HierarchyParamsSchema),
 };
 
-/**
- * icd11_chapters tool definition
- */
 const icd11ChaptersTool: Tool = {
   name: 'icd11_chapters',
   description: `List all ICD-11 chapters (top-level categories).
@@ -140,21 +77,9 @@ Use this tool to:
 - Navigate to specific disease categories
 
 ICD-11 has 28 chapters covering all areas of medicine.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      language: {
-        type: 'string',
-        description: 'Language code. Default: en',
-        enum: ['en', 'es', 'pt', 'fr', 'de', 'it', 'zh', 'ja', 'ar', 'ru'],
-      },
-    },
-  },
+  inputSchema: buildInputSchema(ICD11ChaptersParamsSchema),
 };
 
-/**
- * icd11_postcoordination tool definition
- */
 const icd11PostcoordinationTool: Tool = {
   name: 'icd11_postcoordination',
   description: `Get postcoordination information for an ICD-11 code.
@@ -165,31 +90,19 @@ Use this tool to:
 - Understand code extension possibilities
 
 Postcoordination allows adding severity, laterality, anatomy, etc.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      code: {
-        type: 'string',
-        description: 'ICD-11 code to get postcoordination info for',
-      },
-    },
-    required: ['code'],
-  },
+  inputSchema: buildInputSchema(ICD11PostcoordinationParamsSchema),
 };
 
 // ============================================================================
-// Tool Handlers
+// Formatters
 // ============================================================================
 
-/**
- * Formats a search result entity for display
- */
 function formatSearchResult(entity: ICD11DestinationEntity, index: number): string {
   const lines: string[] = [];
   lines.push(`${index + 1}. **${entity.theCode || 'No code'}** - ${entity.title}`);
 
   if (entity.matchingPVs && entity.matchingPVs.length > 0) {
-    const matches = entity.matchingPVs.map(pv => pv.label).join(', ');
+    const matches = entity.matchingPVs.map((pv) => pv.label).join(', ');
     lines.push(`   Matches: ${matches}`);
   }
 
@@ -198,43 +111,34 @@ function formatSearchResult(entity: ICD11DestinationEntity, index: number): stri
   return lines.join('\n');
 }
 
-/**
- * Formats an entity for display
- */
 function formatEntity(entity: ICD11EntityResponse): string {
   const lines: string[] = [];
 
-  // Title and code
   const title = entity.title?.['@value'] || 'Unknown';
   const code = entity.code || entity.codeRange || 'No code';
   lines.push(`# ${code} - ${title}`);
   lines.push('');
 
-  // Definition
   if (entity.definition?.['@value']) {
     lines.push(`**Definition:** ${entity.definition['@value']}`);
     lines.push('');
   }
 
-  // Long definition
   if (entity.longDefinition?.['@value']) {
     lines.push(`**Detailed Description:** ${entity.longDefinition['@value']}`);
     lines.push('');
   }
 
-  // Diagnostic criteria
   if (entity.diagnosticCriteria?.['@value']) {
     lines.push(`**Diagnostic Criteria:** ${entity.diagnosticCriteria['@value']}`);
     lines.push('');
   }
 
-  // Coding note
   if (entity.codingNote?.['@value']) {
     lines.push(`**Coding Note:** ${entity.codingNote['@value']}`);
     lines.push('');
   }
 
-  // Exclusions
   if (entity.exclusion && entity.exclusion.length > 0) {
     lines.push('**Exclusions:**');
     for (const exc of entity.exclusion) {
@@ -244,7 +148,6 @@ function formatEntity(entity: ICD11EntityResponse): string {
     lines.push('');
   }
 
-  // Inclusions
   if (entity.inclusion && entity.inclusion.length > 0) {
     lines.push('**Inclusions (Synonyms):**');
     for (const inc of entity.inclusion) {
@@ -254,7 +157,6 @@ function formatEntity(entity: ICD11EntityResponse): string {
     lines.push('');
   }
 
-  // Index terms
   if (entity.indexTerm && entity.indexTerm.length > 0) {
     lines.push('**Index Terms:**');
     for (const term of entity.indexTerm.slice(0, 10)) {
@@ -267,7 +169,6 @@ function formatEntity(entity: ICD11EntityResponse): string {
     lines.push('');
   }
 
-  // Browser URL
   if (entity.browserUrl) {
     lines.push(`**Browser:** ${entity.browserUrl}`);
   }
@@ -275,9 +176,6 @@ function formatEntity(entity: ICD11EntityResponse): string {
   return lines.join('\n');
 }
 
-/**
- * Formats a list of entities for hierarchy display
- */
 function formatHierarchyList(entities: ICD11EntityResponse[], direction: string): string {
   if (entities.length === 0) {
     return `No ${direction} found for this entity.`;
@@ -296,144 +194,78 @@ function formatHierarchyList(entities: ICD11EntityResponse[], direction: string)
   return lines.join('\n');
 }
 
-/**
- * Handler for icd11_search
- */
+// ============================================================================
+// Tool Handlers
+// ============================================================================
+
 async function handleICD11Search(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = ICD11SearchParamsSchema.parse({
-      query: args.query,
-      language: args.language ?? 'en',
-      maxResults: args.max_results ?? 25,
-    });
-
+    const params = ICD11SearchParamsSchema.parse(args);
     const client = getWHOClient();
-    const results = await client.search(params.query, params.language, params.maxResults);
+    const results = await client.search(params.query, params.language, params.max_results);
 
     if (results.error) {
       return {
-        content: [{
-          type: 'text',
-          text: `Search error: ${results.errorMessage || 'Unknown error'}`,
-        }],
+        content: [{ type: 'text', text: `Search error: ${results.errorMessage || 'Unknown error'}` }],
         isError: true,
       };
     }
 
     if (!results.destinationEntities || results.destinationEntities.length === 0) {
       return {
-        content: [{
-          type: 'text',
-          text: `No results found for "${params.query}" in ICD-11.`,
-        }],
+        content: [{ type: 'text', text: `No results found for "${params.query}" in ICD-11.` }],
       };
     }
 
     const formatted = results.destinationEntities
-      .slice(0, params.maxResults)
+      .slice(0, params.max_results)
       .map((entity, index) => formatSearchResult(entity, index))
       .join('\n\n');
 
-    const header = `## ICD-11 Search Results for "${params.query}"\n\nFound ${results.destinationEntities.length} results (showing top ${Math.min(params.maxResults, results.destinationEntities.length)}):\n\n`;
+    const header = `## ICD-11 Search Results for "${params.query}"\n\nFound ${results.destinationEntities.length} results (showing top ${Math.min(params.max_results, results.destinationEntities.length)}):\n\n`;
 
     return {
-      content: [{
-        type: 'text',
-        text: header + formatted,
-      }],
+      content: [{ type: 'text', text: header + formatted }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for icd11_lookup
- */
 async function handleICD11Lookup(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    // Validate that at least one of code or uri is provided
-    if (!args.code && !args.uri) {
-      return {
-        content: [{
-          type: 'text',
-          text: 'Error: Either "code" or "uri" must be provided.',
-        }],
-        isError: true,
-      };
-    }
-
-    const language = (args.language as string) ?? 'en';
-    const codeOrUri = (args.code || args.uri) as string;
+    const params = ICD11LookupParamsSchema.parse(args);
+    const codeOrUri = (params.code || params.uri) as string;
 
     const client = getWHOClient();
-    const entity = await client.lookup(codeOrUri, language);
+    const entity = await client.lookup(codeOrUri, params.language);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatEntity(entity),
-      }],
+      content: [{ type: 'text', text: formatEntity(entity) }],
     };
   } catch (error) {
-    if (error instanceof ApiError) {
-      if (error.code === 'NOT_FOUND') {
-        return {
-          content: [{
-            type: 'text',
-            text: `Entity not found: ${args.code || args.uri}. Please verify the code is correct.`,
-          }],
-          isError: true,
-        };
-      }
+    if (error instanceof ApiError && error.code === 'NOT_FOUND') {
       return {
         content: [{
           type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
+          text: `Entity not found: ${args.code || args.uri}. Please verify the code is correct.`,
         }],
         isError: true,
       };
     }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for icd11_hierarchy
- */
 async function handleICD11Hierarchy(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = ICD11HierarchyParamsSchema.parse({
-      code: args.code,
-      direction: args.direction,
-    });
-
+    const params = ICD11HierarchyParamsSchema.parse(args);
     const client = getWHOClient();
 
-    let entities: ICD11EntityResponse[];
-    if (params.direction === 'parents') {
-      entities = await client.getParents(params.code);
-    } else {
-      entities = await client.getChildren(params.code);
-    }
+    const entities =
+      params.direction === 'parents'
+        ? await client.getParents(params.code)
+        : await client.getChildren(params.code);
 
     const formatted = formatHierarchyList(entities, params.direction);
 
@@ -444,50 +276,22 @@ async function handleICD11Hierarchy(args: Record<string, unknown>): Promise<Call
       }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for icd11_chapters
- */
 async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = ICD11ChaptersParamsSchema.parse({
-      language: args.language ?? 'en',
-    });
-
+    const params = ICD11ChaptersParamsSchema.parse(args);
     const client = getWHOClient();
     const chaptersResponse = await client.getChapters(params.language);
 
     if (!chaptersResponse.child || chaptersResponse.child.length === 0) {
       return {
-        content: [{
-          type: 'text',
-          text: 'No chapters found in ICD-11.',
-        }],
+        content: [{ type: 'text', text: 'No chapters found in ICD-11.' }],
       };
     }
 
-    // Fetch details for each chapter
     const lines: string[] = [];
     lines.push('# ICD-11 Chapters');
     lines.push('');
@@ -509,46 +313,21 @@ async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallT
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: lines.join('\n'),
-      }],
+      content: [{ type: 'text', text: lines.join('\n') }],
     };
   } catch (error) {
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for icd11_postcoordination
- */
 async function handleICD11Postcoordination(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const code = args.code as string;
-    if (!code) {
-      return {
-        content: [{
-          type: 'text',
-          text: 'Error: "code" parameter is required.',
-        }],
-        isError: true,
-      };
-    }
-
+    const params = ICD11PostcoordinationParamsSchema.parse(args);
     const client = getWHOClient();
-    const postcoord = await client.getPostcoordination(code);
+    const postcoord = await client.getPostcoordination(params.code);
 
     const lines: string[] = [];
-    lines.push(`# Postcoordination for ${code}`);
+    lines.push(`# Postcoordination for ${params.code}`);
     lines.push('');
 
     if (!postcoord.postcoordinationScale || postcoord.postcoordinationScale.length === 0) {
@@ -570,49 +349,24 @@ async function handleICD11Postcoordination(args: Record<string, unknown>): Promi
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: lines.join('\n'),
-      }],
+      content: [{ type: 'text', text: lines.join('\n') }],
     };
   } catch (error) {
-    if (error instanceof ApiError) {
-      if (error.code === 'NOT_FOUND') {
-        return {
-          content: [{
-            type: 'text',
-            text: `No postcoordination info found for code: ${args.code}`,
-          }],
-        };
-      }
+    if (error instanceof ApiError && error.code === 'NOT_FOUND') {
       return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
+        content: [{ type: 'text', text: `No postcoordination info found for code: ${args.code}` }],
       };
     }
-    throw error;
+    return handleToolError(error);
   }
 }
 
 // ============================================================================
-// Tool Registration (executed at module load time)
+// Tool Registration
 // ============================================================================
 
-// Register all ICD-11 tools immediately when this module is imported
 toolRegistry.register(icd11SearchTool, handleICD11Search);
 toolRegistry.register(icd11LookupTool, handleICD11Lookup);
 toolRegistry.register(icd11HierarchyTool, handleICD11Hierarchy);
 toolRegistry.register(icd11ChaptersTool, handleICD11Chapters);
 toolRegistry.register(icd11PostcoordinationTool, handleICD11Postcoordination);
-
-/**
- * Registers all ICD-11 tools with the tool registry
- * @deprecated Tools are now registered automatically on module import
- */
-export function registerICD11Tools(): void {
-  // Tools are already registered at module load time
-  // This function is kept for backwards compatibility
-}

@@ -1,8 +1,6 @@
 /**
  * RxNorm Tools for Medical Terminologies MCP Server
  *
- * Provides access to RxNorm (Normalized names for clinical drugs)
- * through the following tools:
  * - rxnorm_search: Search for drugs by name
  * - rxnorm_concept: Get concept details by RxCUI
  * - rxnorm_ingredients: Get active ingredients for a drug
@@ -14,7 +12,6 @@
  */
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
 import { toolRegistry } from '../server.js';
 import {
   getRxNormClient,
@@ -25,42 +22,18 @@ import {
   RxNormNDC,
   RxNormRelatedGroup,
 } from '../clients/rxnorm-client.js';
-import { ApiError } from '../types/index.js';
-
-// ============================================================================
-// Zod Schemas
-// ============================================================================
-
-const RxNormSearchParamsSchema = z.object({
-  query: z.string().min(1).describe('Drug name to search'),
-  maxResults: z.number().int().min(1).max(100).optional().default(25).describe('Maximum results'),
-});
-
-const RxNormConceptParamsSchema = z.object({
-  rxcui: z.string().min(1).describe('RxNorm Concept Unique Identifier'),
-  includeRelated: z.boolean().optional().default(false).describe('Include related concepts'),
-});
-
-const RxNormIngredientsParamsSchema = z.object({
-  rxcui: z.string().min(1).describe('RxCUI of the drug'),
-});
-
-const RxNormClassesParamsSchema = z.object({
-  rxcui: z.string().min(1).describe('RxCUI of the drug'),
-});
-
-const RxNormNDCParamsSchema = z.object({
-  rxcui: z.string().optional().describe('RxCUI to get NDC codes for'),
-  ndc: z.string().optional().describe('NDC code to look up RxCUI'),
-});
+import {
+  RxNormSearchParamsSchema,
+  RxNormConceptParamsSchema,
+  RxNormByRxcuiParamsSchema,
+  RxNormNDCParamsSchema,
+} from '../types/index.js';
+import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
 // ============================================================================
 
-/**
- * rxnorm_search tool definition
- */
 const rxnormSearchTool: Tool = {
   name: 'rxnorm_search',
   description: `Search for drugs in RxNorm (Normalized names for clinical drugs).
@@ -71,27 +44,9 @@ Use this tool to:
 - Search for drug formulations
 
 Returns matching drugs with RxCUI identifiers, names, and term types.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: 'Drug name to search (brand or generic)',
-      },
-      max_results: {
-        type: 'number',
-        description: 'Maximum number of results (1-100). Default: 25',
-        minimum: 1,
-        maximum: 100,
-      },
-    },
-    required: ['query'],
-  },
+  inputSchema: buildInputSchema(RxNormSearchParamsSchema),
 };
 
-/**
- * rxnorm_concept tool definition
- */
 const rxnormConceptTool: Tool = {
   name: 'rxnorm_concept',
   description: `Get detailed information about a specific RxNorm concept by RxCUI.
@@ -102,25 +57,9 @@ Use this tool to:
 - View related concepts (ingredients, brands, forms)
 
 Provide an RxCUI (RxNorm Concept Unique Identifier) like "161".`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      rxcui: {
-        type: 'string',
-        description: 'RxNorm Concept Unique Identifier',
-      },
-      include_related: {
-        type: 'boolean',
-        description: 'Include related concepts (ingredients, brands, dose forms)',
-      },
-    },
-    required: ['rxcui'],
-  },
+  inputSchema: buildInputSchema(RxNormConceptParamsSchema),
 };
 
-/**
- * rxnorm_ingredients tool definition
- */
 const rxnormIngredientsTool: Tool = {
   name: 'rxnorm_ingredients',
   description: `Get active ingredients for a drug by RxCUI.
@@ -131,21 +70,9 @@ Use this tool to:
 - Identify the generic components of brand drugs
 
 Returns ingredient RxCUIs and names.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      rxcui: {
-        type: 'string',
-        description: 'RxCUI of the drug product',
-      },
-    },
-    required: ['rxcui'],
-  },
+  inputSchema: buildInputSchema(RxNormByRxcuiParamsSchema),
 };
 
-/**
- * rxnorm_classes tool definition
- */
 const rxnormClassesTool: Tool = {
   name: 'rxnorm_classes',
   description: `Get therapeutic and pharmacologic classes for a drug.
@@ -156,21 +83,9 @@ Use this tool to:
 - Look up mechanism of action classifications
 
 Returns class IDs, names, and classification sources.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      rxcui: {
-        type: 'string',
-        description: 'RxCUI of the drug',
-      },
-    },
-    required: ['rxcui'],
-  },
+  inputSchema: buildInputSchema(RxNormByRxcuiParamsSchema),
 };
 
-/**
- * rxnorm_ndc tool definition
- */
 const rxnormNDCTool: Tool = {
   name: 'rxnorm_ndc',
   description: `Map between RxNorm concepts and National Drug Codes (NDC).
@@ -181,36 +96,18 @@ Use this tool to:
 - Cross-reference between coding systems
 
 Provide either an RxCUI to get NDCs, or an NDC to get the RxCUI.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      rxcui: {
-        type: 'string',
-        description: 'RxCUI to get NDC codes for',
-      },
-      ndc: {
-        type: 'string',
-        description: 'NDC code to look up RxCUI (alternative to rxcui)',
-      },
-    },
-  },
+  inputSchema: buildInputSchema(RxNormNDCParamsSchema),
 };
 
 // ============================================================================
 // Formatters
 // ============================================================================
 
-/**
- * Formats a drug for display
- */
 function formatDrug(drug: RxNormDrug, index?: number): string {
   const prefix = index !== undefined ? `${index + 1}. ` : '';
   return `${prefix}**${drug.rxcui}** - ${drug.name}\n   Type: ${drug.tty} | Synonym: ${drug.synonym || 'N/A'}`;
 }
 
-/**
- * Formats concept details for display
- */
 function formatConcept(concept: RxNormConcept, related?: RxNormRelatedGroup[]): string {
   const lines: string[] = [];
 
@@ -258,9 +155,6 @@ function formatConcept(concept: RxNormConcept, related?: RxNormRelatedGroup[]): 
   return lines.join('\n');
 }
 
-/**
- * Gets a human-readable description for term type
- */
 function getTtyDescription(tty: string): string {
   const descriptions: Record<string, string> = {
     IN: 'Ingredient',
@@ -283,9 +177,6 @@ function getTtyDescription(tty: string): string {
   return descriptions[tty] || tty;
 }
 
-/**
- * Formats ingredients for display
- */
 function formatIngredients(rxcui: string, ingredients: RxNormIngredient[]): string {
   const lines: string[] = [];
 
@@ -313,9 +204,6 @@ function formatIngredients(rxcui: string, ingredients: RxNormIngredient[]): stri
   return lines.join('\n');
 }
 
-/**
- * Formats drug classes for display
- */
 function formatClasses(rxcui: string, classes: RxNormDrugClass[]): string {
   const lines: string[] = [];
 
@@ -338,9 +226,6 @@ function formatClasses(rxcui: string, classes: RxNormDrugClass[]): string {
   return lines.join('\n');
 }
 
-/**
- * Formats NDC codes for display
- */
 function formatNDCs(rxcui: string, ndcs: RxNormNDC[]): string {
   const lines: string[] = [];
 
@@ -353,7 +238,6 @@ function formatNDCs(rxcui: string, ndcs: RxNormNDC[]): string {
     lines.push(`Found ${ndcs.length} NDC code(s):`);
     lines.push('');
 
-    // Show in columns for readability
     const columns = 3;
     const rows = Math.ceil(ndcs.length / columns);
 
@@ -376,27 +260,18 @@ function formatNDCs(rxcui: string, ndcs: RxNormNDC[]): string {
 // Tool Handlers
 // ============================================================================
 
-/**
- * Handler for rxnorm_search
- */
 async function handleRxNormSearch(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = RxNormSearchParamsSchema.parse({
-      query: args.query,
-      maxResults: args.max_results ?? 25,
-    });
-
+    const params = RxNormSearchParamsSchema.parse(args);
     const client = getRxNormClient();
 
-    // Try exact drug search first, then approximate if no results
     let result = await client.searchDrugs(params.query);
 
     if (result.drugs.length === 0) {
-      const approxMatches = await client.getApproximateMatch(params.query, params.maxResults);
+      const approxMatches = await client.getApproximateMatch(params.query, params.max_results);
       if (approxMatches.length > 0) {
-        // Convert approximate matches to drug format
         result = {
-          drugs: approxMatches.map(m => ({
+          drugs: approxMatches.map((m) => ({
             rxcui: m.rxcui,
             name: m.name,
             synonym: '',
@@ -409,59 +284,28 @@ async function handleRxNormSearch(args: Record<string, unknown>): Promise<CallTo
 
     if (result.drugs.length === 0) {
       return {
-        content: [{
-          type: 'text',
-          text: `No drugs found for "${params.query}".`,
-        }],
+        content: [{ type: 'text', text: `No drugs found for "${params.query}".` }],
       };
     }
 
     const formatted = result.drugs
-      .slice(0, params.maxResults)
+      .slice(0, params.max_results)
       .map((drug, index) => formatDrug(drug, index))
       .join('\n\n');
 
     const header = `## RxNorm Search Results for "${params.query}"\n\nFound ${result.drugs.length} result(s):\n\n`;
 
     return {
-      content: [{
-        type: 'text',
-        text: header + formatted,
-      }],
+      content: [{ type: 'text', text: header + formatted }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for rxnorm_concept
- */
 async function handleRxNormConcept(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = RxNormConceptParamsSchema.parse({
-      rxcui: args.rxcui,
-      includeRelated: args.include_related ?? false,
-    });
-
+    const params = RxNormConceptParamsSchema.parse(args);
     const client = getRxNormClient();
     const concept = await client.getConcept(params.rxcui);
 
@@ -476,156 +320,58 @@ async function handleRxNormConcept(args: Record<string, unknown>): Promise<CallT
     }
 
     let related: RxNormRelatedGroup[] | undefined;
-    if (params.includeRelated) {
+    if (params.include_related) {
       related = await client.getRelatedConcepts(params.rxcui);
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: formatConcept(concept, related),
-      }],
+      content: [{ type: 'text', text: formatConcept(concept, related) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for rxnorm_ingredients
- */
 async function handleRxNormIngredients(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = RxNormIngredientsParamsSchema.parse({
-      rxcui: args.rxcui,
-    });
-
+    const params = RxNormByRxcuiParamsSchema.parse(args);
     const client = getRxNormClient();
     const ingredients = await client.getIngredients(params.rxcui);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatIngredients(params.rxcui, ingredients),
-      }],
+      content: [{ type: 'text', text: formatIngredients(params.rxcui, ingredients) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for rxnorm_classes
- */
 async function handleRxNormClasses(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = RxNormClassesParamsSchema.parse({
-      rxcui: args.rxcui,
-    });
-
+    const params = RxNormByRxcuiParamsSchema.parse(args);
     const client = getRxNormClient();
     const classes = await client.getDrugClasses(params.rxcui);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatClasses(params.rxcui, classes),
-      }],
+      content: [{ type: 'text', text: formatClasses(params.rxcui, classes) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for rxnorm_ndc
- */
 async function handleRxNormNDC(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = RxNormNDCParamsSchema.parse({
-      rxcui: args.rxcui,
-      ndc: args.ndc,
-    });
-
-    if (!params.rxcui && !params.ndc) {
-      return {
-        content: [{
-          type: 'text',
-          text: 'Please provide either an rxcui or an ndc parameter.',
-        }],
-        isError: true,
-      };
-    }
-
+    const params = RxNormNDCParamsSchema.parse(args);
     const client = getRxNormClient();
 
     if (params.ndc) {
-      // Look up RxCUI by NDC
       const rxcui = await client.getRxcuiByNDC(params.ndc);
-
       if (!rxcui) {
         return {
-          content: [{
-            type: 'text',
-            text: `No RxCUI found for NDC "${params.ndc}".`,
-          }],
+          content: [{ type: 'text', text: `No RxCUI found for NDC "${params.ndc}".` }],
         };
       }
-
       return {
         content: [{
           type: 'text',
@@ -634,43 +380,23 @@ async function handleRxNormNDC(args: Record<string, unknown>): Promise<CallToolR
       };
     }
 
-    // Get NDCs for RxCUI
-    const ndcs = await client.getNDCs(params.rxcui!);
+    // Schema's refine guarantees at least one of rxcui/ndc; ndc was empty so
+    // rxcui must be set here.
+    const rxcui = params.rxcui as string;
+    const ndcs = await client.getNDCs(rxcui);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatNDCs(params.rxcui!, ndcs),
-      }],
+      content: [{ type: 'text', text: formatNDCs(rxcui, ndcs) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
 // ============================================================================
-// Tool Registration (executed at module load time)
+// Tool Registration
 // ============================================================================
 
-// Register all RxNorm tools immediately when this module is imported
 toolRegistry.register(rxnormSearchTool, handleRxNormSearch);
 toolRegistry.register(rxnormConceptTool, handleRxNormConcept);
 toolRegistry.register(rxnormIngredientsTool, handleRxNormIngredients);

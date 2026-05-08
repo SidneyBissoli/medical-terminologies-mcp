@@ -1,14 +1,13 @@
 /**
  * SNOMED CT Tools for Medical Terminologies MCP Server
  *
- * Provides access to SNOMED CT through:
  * - snomed_search: Search concepts by term
  * - snomed_concept: Get concept details by SCTID
  * - snomed_hierarchy: Get parent/child relationships
  * - snomed_descriptions: Get all descriptions (FSN, PT, synonyms)
  * - snomed_ecl: Execute ECL queries
  *
- * ⚠️ DISCLAIMER: SNOMED CT content is for reference purposes only.
+ * SNOMED CT content is for reference purposes only.
  * Production use requires an IHTSDO (SNOMED International) license.
  *
  * @author Sidney Bissoli
@@ -16,7 +15,6 @@
  */
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
 import { toolRegistry } from '../server.js';
 import {
   getSNOMEDClient,
@@ -26,36 +24,13 @@ import {
   SNOMEDHierarchyConcept,
   SNOMEDDescription,
 } from '../clients/snomed-client.js';
-import { ApiError } from '../types/index.js';
-
-// ============================================================================
-// Zod Schemas
-// ============================================================================
-
-const SNOMEDSearchParamsSchema = z.object({
-  query: z.string().min(1).describe('Search term'),
-  activeOnly: z.boolean().optional().default(true).describe('Only active concepts'),
-  maxResults: z.number().int().min(1).max(100).optional().default(25).describe('Maximum results'),
-});
-
-const SNOMEDConceptParamsSchema = z.object({
-  sctid: z.string().min(1).describe('SNOMED CT Identifier'),
-});
-
-const SNOMEDHierarchyParamsSchema = z.object({
-  sctid: z.string().min(1).describe('SNOMED CT Identifier'),
-  direction: z.enum(['parents', 'children', 'both']).optional().default('both').describe('Direction'),
-  limit: z.number().int().min(1).max(100).optional().default(50).describe('Max children'),
-});
-
-const SNOMEDDescriptionsParamsSchema = z.object({
-  sctid: z.string().min(1).describe('SNOMED CT Identifier'),
-});
-
-const SNOMEDECLParamsSchema = z.object({
-  ecl: z.string().min(1).describe('ECL expression'),
-  maxResults: z.number().int().min(1).max(100).optional().default(25).describe('Maximum results'),
-});
+import {
+  SNOMEDSearchParamsSchema,
+  SNOMEDBySctidParamsSchema,
+  SNOMEDHierarchyParamsSchema,
+  SNOMEDECLParamsSchema,
+} from '../types/index.js';
+import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
@@ -63,9 +38,6 @@ const SNOMEDECLParamsSchema = z.object({
 
 const SNOMED_TOOL_DISCLAIMER = `\n\n---\n${SNOMED_DISCLAIMER}`;
 
-/**
- * snomed_search tool definition
- */
 const snomedSearchTool: Tool = {
   name: 'snomed_search',
   description: `Search for SNOMED CT concepts by term.
@@ -78,31 +50,9 @@ Use this tool to:
 Returns matching concepts with SCTID, Fully Specified Name (FSN), and Preferred Term (PT).
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: 'Search term (e.g., "diabetes", "myocardial infarction")',
-      },
-      active_only: {
-        type: 'boolean',
-        description: 'Only return active concepts. Default: true',
-      },
-      max_results: {
-        type: 'number',
-        description: 'Maximum results (1-100). Default: 25',
-        minimum: 1,
-        maximum: 100,
-      },
-    },
-    required: ['query'],
-  },
+  inputSchema: buildInputSchema(SNOMEDSearchParamsSchema),
 };
 
-/**
- * snomed_concept tool definition
- */
 const snomedConceptTool: Tool = {
   name: 'snomed_concept',
   description: `Get detailed information about a SNOMED CT concept by SCTID.
@@ -115,21 +65,9 @@ Use this tool to:
 Provide a SCTID like "73211009" (Diabetes mellitus).
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      sctid: {
-        type: 'string',
-        description: 'SNOMED CT Identifier (e.g., 73211009)',
-      },
-    },
-    required: ['sctid'],
-  },
+  inputSchema: buildInputSchema(SNOMEDBySctidParamsSchema),
 };
 
-/**
- * snomed_hierarchy tool definition
- */
 const snomedHierarchyTool: Tool = {
   name: 'snomed_hierarchy',
   description: `Get the hierarchical relationships (IS-A) for a SNOMED CT concept.
@@ -142,32 +80,9 @@ Use this tool to:
 Returns parent and/or child concepts based on IS-A relationships.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      sctid: {
-        type: 'string',
-        description: 'SNOMED CT Identifier',
-      },
-      direction: {
-        type: 'string',
-        enum: ['parents', 'children', 'both'],
-        description: 'Direction: parents, children, or both. Default: both',
-      },
-      limit: {
-        type: 'number',
-        description: 'Maximum children to return (1-100). Default: 50',
-        minimum: 1,
-        maximum: 100,
-      },
-    },
-    required: ['sctid'],
-  },
+  inputSchema: buildInputSchema(SNOMEDHierarchyParamsSchema),
 };
 
-/**
- * snomed_descriptions tool definition
- */
 const snomedDescriptionsTool: Tool = {
   name: 'snomed_descriptions',
   description: `Get all descriptions (names) for a SNOMED CT concept.
@@ -180,21 +95,9 @@ Use this tool to:
 Returns all active descriptions with their type and acceptability.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      sctid: {
-        type: 'string',
-        description: 'SNOMED CT Identifier',
-      },
-    },
-    required: ['sctid'],
-  },
+  inputSchema: buildInputSchema(SNOMEDBySctidParamsSchema),
 };
 
-/**
- * snomed_ecl tool definition
- */
 const snomedECLTool: Tool = {
   name: 'snomed_ecl',
   description: `Execute an ECL (Expression Constraint Language) query.
@@ -208,31 +111,13 @@ Use this tool to:
 ECL is a powerful query language for navigating SNOMED CT.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
-  inputSchema: {
-    type: 'object',
-    properties: {
-      ecl: {
-        type: 'string',
-        description: 'ECL expression (e.g., "<< 73211009" for all types of diabetes)',
-      },
-      max_results: {
-        type: 'number',
-        description: 'Maximum results (1-100). Default: 25',
-        minimum: 1,
-        maximum: 100,
-      },
-    },
-    required: ['ecl'],
-  },
+  inputSchema: buildInputSchema(SNOMEDECLParamsSchema),
 };
 
 // ============================================================================
 // Formatters
 // ============================================================================
 
-/**
- * Formats search results for display
- */
 function formatSearchResults(query: string, results: SNOMEDSearchResult[]): string {
   const lines: string[] = [];
 
@@ -259,9 +144,6 @@ function formatSearchResults(query: string, results: SNOMEDSearchResult[]): stri
   return lines.join('\n');
 }
 
-/**
- * Formats concept details for display
- */
 function formatConcept(concept: SNOMEDConcept): string {
   const lines: string[] = [];
 
@@ -284,14 +166,11 @@ function formatConcept(concept: SNOMEDConcept): string {
   return lines.join('\n');
 }
 
-/**
- * Formats hierarchy for display
- */
 function formatHierarchy(
   sctid: string,
   parents: SNOMEDHierarchyConcept[],
   children: SNOMEDHierarchyConcept[],
-  direction: string
+  direction: string,
 ): string {
   const lines: string[] = [];
 
@@ -334,9 +213,6 @@ function formatHierarchy(
   return lines.join('\n');
 }
 
-/**
- * Formats descriptions for display
- */
 function formatDescriptions(sctid: string, descriptions: SNOMEDDescription[]): string {
   const lines: string[] = [];
 
@@ -349,8 +225,7 @@ function formatDescriptions(sctid: string, descriptions: SNOMEDDescription[]): s
     return lines.join('\n');
   }
 
-  // Group by type
-  const fsn = descriptions.filter(d => d.type === 'FSN');
+  const fsn = descriptions.filter((d) => d.type === 'FSN');
 
   if (fsn.length > 0) {
     lines.push('## Fully Specified Name (FSN)');
@@ -375,9 +250,6 @@ function formatDescriptions(sctid: string, descriptions: SNOMEDDescription[]): s
   return lines.join('\n');
 }
 
-/**
- * Formats ECL results for display
- */
 function formatECLResults(ecl: string, results: SNOMEDSearchResult[]): string {
   const lines: string[] = [];
 
@@ -409,58 +281,23 @@ function formatECLResults(ecl: string, results: SNOMEDSearchResult[]): string {
 // Tool Handlers
 // ============================================================================
 
-/**
- * Handler for snomed_search
- */
 async function handleSNOMEDSearch(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = SNOMEDSearchParamsSchema.parse({
-      query: args.query,
-      activeOnly: args.active_only ?? true,
-      maxResults: args.max_results ?? 25,
-    });
-
+    const params = SNOMEDSearchParamsSchema.parse(args);
     const client = getSNOMEDClient();
-    const results = await client.searchConcepts(params.query, params.activeOnly, params.maxResults);
+    const results = await client.searchConcepts(params.query, params.active_only, params.max_results);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatSearchResults(params.query, results),
-      }],
+      content: [{ type: 'text', text: formatSearchResults(params.query, results) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for snomed_concept
- */
 async function handleSNOMEDConcept(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = SNOMEDConceptParamsSchema.parse({
-      sctid: args.sctid,
-    });
-
+    const params = SNOMEDBySctidParamsSchema.parse(args);
     const client = getSNOMEDClient();
     const concept = await client.getConcept(params.sctid);
 
@@ -475,45 +312,16 @@ async function handleSNOMEDConcept(args: Record<string, unknown>): Promise<CallT
     }
 
     return {
-      content: [{
-        type: 'text',
-        text: formatConcept(concept),
-      }],
+      content: [{ type: 'text', text: formatConcept(concept) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for snomed_hierarchy
- */
 async function handleSNOMEDHierarchy(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = SNOMEDHierarchyParamsSchema.parse({
-      sctid: args.sctid,
-      direction: args.direction ?? 'both',
-      limit: args.limit ?? 50,
-    });
-
+    const params = SNOMEDHierarchyParamsSchema.parse(args);
     const client = getSNOMEDClient();
 
     let parents: SNOMEDHierarchyConcept[] = [];
@@ -534,116 +342,42 @@ async function handleSNOMEDHierarchy(args: Record<string, unknown>): Promise<Cal
       }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for snomed_descriptions
- */
 async function handleSNOMEDDescriptions(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = SNOMEDDescriptionsParamsSchema.parse({
-      sctid: args.sctid,
-    });
-
+    const params = SNOMEDBySctidParamsSchema.parse(args);
     const client = getSNOMEDClient();
     const descriptions = await client.getDescriptions(params.sctid);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatDescriptions(params.sctid, descriptions),
-      }],
+      content: [{ type: 'text', text: formatDescriptions(params.sctid, descriptions) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
-/**
- * Handler for snomed_ecl
- */
 async function handleSNOMEDECL(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = SNOMEDECLParamsSchema.parse({
-      ecl: args.ecl,
-      maxResults: args.max_results ?? 25,
-    });
-
+    const params = SNOMEDECLParamsSchema.parse(args);
     const client = getSNOMEDClient();
-    const results = await client.executeECL(params.ecl, params.maxResults);
+    const results = await client.executeECL(params.ecl, params.max_results);
 
     return {
-      content: [{
-        type: 'text',
-        text: formatECLResults(params.ecl, results),
-      }],
+      content: [{ type: 'text', text: formatECLResults(params.ecl, results) }],
     };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `Validation error: ${error.errors.map(e => e.message).join(', ')}`,
-        }],
-        isError: true,
-      };
-    }
-    if (error instanceof ApiError) {
-      return {
-        content: [{
-          type: 'text',
-          text: `API error (${error.code}): ${error.message}\n\nECL syntax help:\n- Descendants: << conceptId\n- Children: < conceptId\n- Self: conceptId\n- AND/OR: expr1 AND expr2`,
-        }],
-        isError: true,
-      };
-    }
-    throw error;
+    return handleToolError(error);
   }
 }
 
 // ============================================================================
-// Tool Registration (executed at module load time)
+// Tool Registration
 // ============================================================================
 
-// Register all SNOMED CT tools immediately when this module is imported
 toolRegistry.register(snomedSearchTool, handleSNOMEDSearch);
 toolRegistry.register(snomedConceptTool, handleSNOMEDConcept);
 toolRegistry.register(snomedHierarchyTool, handleSNOMEDHierarchy);
