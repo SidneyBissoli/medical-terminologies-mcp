@@ -112,12 +112,17 @@ export class WHOClient {
       }
     );
 
-    // Cache the token (50 min TTL to refresh before 60 min expiry)
+    // Honor the API's real expires_in with a 60s safety margin so we
+    // refresh before the token actually expires. Floor at 60s in case the
+    // server ever returns an absurdly short lifetime; fall back to
+    // DEFAULT_TTL.TOKEN if expires_in is missing from the response.
+    const expiresIn = tokenResponse.expires_in ?? DEFAULT_TTL.TOKEN;
+    const ttlSeconds = Math.max(60, expiresIn - 60);
     const cachedTokenData: CachedToken = {
       accessToken: tokenResponse.access_token,
-      expiresAt: Date.now() + DEFAULT_TTL.TOKEN * 1000,
+      expiresAt: Date.now() + ttlSeconds * 1000,
     };
-    cache.set(CACHE_PREFIX.TOKEN, TOKEN_CACHE_KEY, cachedTokenData, DEFAULT_TTL.TOKEN);
+    cache.set(CACHE_PREFIX.TOKEN, TOKEN_CACHE_KEY, cachedTokenData, ttlSeconds);
 
     log.info('New OAuth token obtained and cached');
     return tokenResponse.access_token;
