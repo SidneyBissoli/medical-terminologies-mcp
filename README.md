@@ -68,7 +68,7 @@ Add to your Claude Desktop configuration file:
 | `WHO_ICD11_RELEASE_ID` | No | ICD-11 release to query (e.g. `2024-01`, `2025-01`). Default `2024-01`. |
 | `ENABLE_SNOMED_TOOLS` | No² | Set to `true` to register the 6 SNOMED-dependent tools. Default off. |
 | `SNOMED_BASE_URL` | No² | Base URL for a Snowstorm instance, e.g. `https://my-snowstorm.example.com/snowstorm/snomed-ct`. |
-| `SNOMED_LANGUAGE` | No² | Accept-Language tag(s) for SNOMED responses, e.g. `pt`, `pt-BR`, `es`, `pt-BR,en;q=0.8`. Default `en`. |
+| `SNOMED_LANGUAGE` | No² | Accept-Language tag(s) for SNOMED responses, e.g. `pt`, `pt-BR`, `es`. Default `en`. Single-tag values are pass-through reliably; composite values with q-weights (e.g. `pt-BR,en;q=0.8`) depend on your Snowstorm instance's Accept-Language handling — fallback semantics may vary. Test against your specific deployment if relying on weighted fallback. |
 | `LOG_LEVEL` | No | pino log level (`debug`, `info`, `warn`, `error`, `fatal`). Default `info`. |
 
 ¹ Required for ICD-11 tools. Get credentials at: https://icd.who.int/icdapi.

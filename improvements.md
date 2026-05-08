@@ -63,6 +63,8 @@ Originalmente classificado P3 ("adoção limitada ao caso 'instalo localmente'")
 
 Probabilidade temporal: (a) primeiro, depois (c), depois talvez (b). Quando atacar distribuição, começar por aqui — provavelmente entrega mais que vários sprints técnicos juntos.
 
+**Nota de rastreabilidade cruzada:** Quando este item for implementado, reavaliar o P3 *SNOMED com Accept-Language hardcoded* (resolvido via env var `SNOMED_LANGUAGE` no commit `36a4ccb`). A env var resolve o caso operador-único, mas em deploy multi-tenant via HTTP transport (Smithery/Worker), o LLM consumindo o servidor pode precisar propagar idioma do usuário final por chamada — o que requer parâmetro `language` per-tool, complementando a env var. Não está implementado hoje porque adicionar 5 schemas + handlers sem demanda real é over-engineering; quando o cenário multi-tenant virar real (este item resolvido), o param per-tool deixa de ser prematuro.
+
 ---
 
 ## [P3 — Lacunas de cobertura de terminologias] Status: deliberadamente diferido (revisão 2026-05-08)
