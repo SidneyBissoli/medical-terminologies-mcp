@@ -26,4 +26,4 @@ npm-debug.log*
 # Coverage
 coverage/
 
-.mcpregistry_github_token
+.mcpregistry_*_token
