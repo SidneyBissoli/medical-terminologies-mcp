@@ -27,8 +27,23 @@ import {
   RxNormConceptParamsSchema,
   RxNormByRxcuiParamsSchema,
   RxNormNDCParamsSchema,
+  RxNormSearchOutputSchema,
+  RxNormConceptOutputSchema,
+  RxNormIngredientsOutputSchema,
+  RxNormClassesOutputSchema,
+  RxNormNDCOutputSchema,
+  RxNormSearchOutput,
+  RxNormConceptOutput,
+  RxNormIngredientsOutput,
+  RxNormClassesOutput,
+  RxNormNDCOutput,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
+import {
+  buildInputSchema,
+  buildOutputSchema,
+  handleToolError,
+  READ_ONLY_TOOL_ANNOTATIONS,
+} from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
@@ -45,6 +60,7 @@ Use this tool to:
 
 Returns matching drugs with RxCUI identifiers, names, and term types.`,
   inputSchema: buildInputSchema(RxNormSearchParamsSchema),
+  outputSchema: buildOutputSchema(RxNormSearchOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -59,6 +75,7 @@ Use this tool to:
 
 Provide an RxCUI (RxNorm Concept Unique Identifier) like "161".`,
   inputSchema: buildInputSchema(RxNormConceptParamsSchema),
+  outputSchema: buildOutputSchema(RxNormConceptOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -73,6 +90,7 @@ Use this tool to:
 
 Returns ingredient RxCUIs and names.`,
   inputSchema: buildInputSchema(RxNormByRxcuiParamsSchema),
+  outputSchema: buildOutputSchema(RxNormIngredientsOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -87,6 +105,7 @@ Use this tool to:
 
 Returns class IDs, names, and classification sources.`,
   inputSchema: buildInputSchema(RxNormByRxcuiParamsSchema),
+  outputSchema: buildOutputSchema(RxNormClassesOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -101,6 +120,7 @@ Use this tool to:
 
 Provide either an RxCUI to get NDCs, or an NDC to get the RxCUI.`,
   inputSchema: buildInputSchema(RxNormNDCParamsSchema),
+  outputSchema: buildOutputSchema(RxNormNDCOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -287,14 +307,28 @@ async function handleRxNormSearch(args: Record<string, unknown>): Promise<CallTo
       }
     }
 
+    const drugsCapped = result.drugs.slice(0, params.max_results);
+
+    const structured: RxNormSearchOutput = {
+      query: params.query,
+      total_count: result.drugs.length,
+      drugs: drugsCapped.map((d) => ({
+        rxcui: d.rxcui,
+        name: d.name,
+        synonym: d.synonym,
+        tty: d.tty,
+        language: d.language,
+      })),
+    };
+
     if (result.drugs.length === 0) {
       return {
         content: [{ type: 'text', text: `No drugs found for "${params.query}".` }],
+        structuredContent: structured,
       };
     }
 
-    const formatted = result.drugs
-      .slice(0, params.max_results)
+    const formatted = drugsCapped
       .map((drug, index) => formatDrug(drug, index))
       .join('\n\n');
 
@@ -302,6 +336,7 @@ async function handleRxNormSearch(args: Record<string, unknown>): Promise<CallTo
 
     return {
       content: [{ type: 'text', text: header + formatted }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -329,8 +364,33 @@ async function handleRxNormConcept(args: Record<string, unknown>): Promise<CallT
       related = await client.getRelatedConcepts(params.rxcui);
     }
 
+    const structured: RxNormConceptOutput = {
+      rxcui: concept.rxcui,
+      name: concept.name,
+      synonym: concept.synonym,
+      tty: concept.tty,
+      language: concept.language,
+      suppress: concept.suppress,
+      umlscui: concept.umlscui,
+      status: concept.status,
+      remapped_to: concept.remappedTo,
+      related_groups: related
+        ? related.map((g) => ({
+            tty: g.tty,
+            concepts: g.concepts.map((c) => ({
+              rxcui: c.rxcui,
+              name: c.name,
+              synonym: c.synonym,
+              tty: c.tty,
+              language: c.language,
+            })),
+          }))
+        : null,
+    };
+
     return {
       content: [{ type: 'text', text: formatConcept(concept, related) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -343,8 +403,19 @@ async function handleRxNormIngredients(args: Record<string, unknown>): Promise<C
     const client = getRxNormClient();
     const ingredients = await client.getIngredients(params.rxcui);
 
+    const structured: RxNormIngredientsOutput = {
+      rxcui: params.rxcui,
+      ingredients: ingredients.map((ing) => ({
+        rxcui: ing.rxcui,
+        name: ing.name,
+        tty: ing.tty,
+        is_multiple: ing.isMultiple,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatIngredients(params.rxcui, ingredients) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -357,8 +428,19 @@ async function handleRxNormClasses(args: Record<string, unknown>): Promise<CallT
     const client = getRxNormClient();
     const classes = await client.getDrugClasses(params.rxcui);
 
+    const structured: RxNormClassesOutput = {
+      rxcui: params.rxcui,
+      classes: classes.map((c) => ({
+        class_id: c.classId,
+        class_name: c.className,
+        class_type: c.classType,
+        source: c.source,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatClasses(params.rxcui, classes) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -372,9 +454,16 @@ async function handleRxNormNDC(args: Record<string, unknown>): Promise<CallToolR
 
     if (params.ndc) {
       const rxcui = await client.getRxcuiByNDC(params.ndc);
+      const structured: RxNormNDCOutput = {
+        query_mode: 'rxcui_for_ndc',
+        rxcui: rxcui ?? null,
+        ndc: params.ndc,
+        ndcs: [],
+      };
       if (!rxcui) {
         return {
           content: [{ type: 'text', text: `No RxCUI found for NDC "${params.ndc}".` }],
+          structuredContent: structured,
         };
       }
       return {
@@ -382,6 +471,7 @@ async function handleRxNormNDC(args: Record<string, unknown>): Promise<CallToolR
           type: 'text',
           text: `# NDC Lookup\n\nNDC: ${params.ndc}\nRxCUI: **${rxcui}**`,
         }],
+        structuredContent: structured,
       };
     }
 
@@ -390,8 +480,16 @@ async function handleRxNormNDC(args: Record<string, unknown>): Promise<CallToolR
     const rxcui = params.rxcui as string;
     const ndcs = await client.getNDCs(rxcui);
 
+    const structured: RxNormNDCOutput = {
+      query_mode: 'ndcs_for_rxcui',
+      rxcui,
+      ndc: null,
+      ndcs: ndcs.map((n) => ({ ndc: n.ndc })),
+    };
+
     return {
       content: [{ type: 'text', text: formatNDCs(rxcui, ndcs) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);

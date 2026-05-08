@@ -28,6 +28,12 @@ import {
   SNOMEDHierarchyOutputSchema,
   SNOMEDDescriptionsOutputSchema,
   SNOMEDECLOutputSchema,
+  RxNormSearchOutputSchema,
+  RxNormConceptOutputSchema,
+  RxNormIngredientsOutputSchema,
+  RxNormClassesOutputSchema,
+  RxNormNDCOutputSchema,
+  FindEquivalentOutputSchema,
 } from './index.js';
 
 describe('input param schemas — strict validators run', () => {
@@ -621,6 +627,215 @@ describe('SNOMED CT output schemas — fixtures parse cleanly', () => {
         ecl: '<< 73211009',
         total_count: 1,
         concepts: [sampleSummary],
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('RxNorm output schemas — fixtures parse cleanly', () => {
+  const sampleDrug = {
+    rxcui: '6809',
+    name: 'metformin',
+    synonym: '',
+    tty: 'IN',
+    language: 'ENG',
+  };
+
+  it('search output: exact match', () => {
+    expect(
+      RxNormSearchOutputSchema.safeParse({
+        query: 'metformin',
+        total_count: 1,
+        drugs: [sampleDrug],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('search output: approximate fallback signaled by tty=APPROX', () => {
+    expect(
+      RxNormSearchOutputSchema.safeParse({
+        query: 'metfromin',
+        total_count: 1,
+        drugs: [{ ...sampleDrug, tty: 'APPROX' }],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('concept output: with related_groups null when not requested', () => {
+    expect(
+      RxNormConceptOutputSchema.safeParse({
+        rxcui: '6809',
+        name: 'metformin',
+        synonym: '',
+        tty: 'IN',
+        language: 'ENG',
+        suppress: 'N',
+        umlscui: '',
+        status: 'Active',
+        remapped_to: [],
+        related_groups: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('concept output: with related_groups populated', () => {
+    expect(
+      RxNormConceptOutputSchema.safeParse({
+        rxcui: '6809',
+        name: 'metformin',
+        synonym: '',
+        tty: 'IN',
+        language: 'ENG',
+        suppress: 'N',
+        umlscui: '',
+        status: 'Active',
+        remapped_to: [],
+        related_groups: [
+          {
+            tty: 'BN',
+            concepts: [
+              { rxcui: '152161', name: 'Glucophage', synonym: '', tty: 'BN', language: 'ENG' },
+            ],
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('ingredients output: list with is_multiple flag', () => {
+    expect(
+      RxNormIngredientsOutputSchema.safeParse({
+        rxcui: '152161',
+        ingredients: [
+          { rxcui: '6809', name: 'metformin', tty: 'IN', is_multiple: false },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('classes output: list with class_id/class_name/class_type/source', () => {
+    expect(
+      RxNormClassesOutputSchema.safeParse({
+        rxcui: '6809',
+        classes: [
+          {
+            class_id: 'A10BA',
+            class_name: 'Biguanides',
+            class_type: 'ATC',
+            source: 'ATC',
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('ndc output: ndcs_for_rxcui mode', () => {
+    expect(
+      RxNormNDCOutputSchema.safeParse({
+        query_mode: 'ndcs_for_rxcui',
+        rxcui: '6809',
+        ndc: null,
+        ndcs: [{ ndc: '00093-0058-01' }, { ndc: '00093-0058-05' }],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('ndc output: rxcui_for_ndc mode, found', () => {
+    expect(
+      RxNormNDCOutputSchema.safeParse({
+        query_mode: 'rxcui_for_ndc',
+        rxcui: '6809',
+        ndc: '00093-0058-01',
+        ndcs: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('ndc output: rxcui_for_ndc mode, not found (rxcui null)', () => {
+    expect(
+      RxNormNDCOutputSchema.safeParse({
+        query_mode: 'rxcui_for_ndc',
+        rxcui: null,
+        ndc: '99999-9999-99',
+        ndcs: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('ndc output: rejects unknown query_mode', () => {
+    expect(
+      RxNormNDCOutputSchema.safeParse({
+        query_mode: 'unknown',
+        rxcui: null,
+        ndc: null,
+        ndcs: [],
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('find_equivalent output schema — aggregator with mixed results', () => {
+  it('full aggregator: hits in some terminologies, error in another, empty in another', () => {
+    expect(
+      FindEquivalentOutputSchema.safeParse({
+        term: 'diabetes',
+        source_terminology: null,
+        searched_terminologies: ['icd11', 'snomed', 'loinc', 'rxnorm', 'mesh'],
+        results: {
+          icd11: {
+            found: true,
+            error: null,
+            items: [{ code: '5A11', title: 'Type 2 diabetes mellitus' }],
+          },
+          snomed: { found: false, error: 'SNOMED tools are disabled', items: [] },
+          loinc: { found: true, error: null, items: [{ code: '2339-0', title: 'Glucose' }] },
+          rxnorm: { found: false, error: null, items: [] },
+          mesh: { found: true, error: null, items: [{ code: 'D003920', title: 'Diabetes Mellitus' }] },
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('source_terminology populated → reflected in output', () => {
+    expect(
+      FindEquivalentOutputSchema.safeParse({
+        term: 'diabetes',
+        source_terminology: 'snomed',
+        searched_terminologies: ['icd11', 'loinc', 'rxnorm', 'mesh'],
+        results: {
+          icd11: { found: false, error: null, items: [] },
+          loinc: { found: false, error: null, items: [] },
+          rxnorm: { found: false, error: null, items: [] },
+          mesh: { found: false, error: null, items: [] },
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('subset of terminologies searched: results object only contains those keys', () => {
+    expect(
+      FindEquivalentOutputSchema.safeParse({
+        term: 'aspirin',
+        source_terminology: null,
+        searched_terminologies: ['rxnorm'],
+        results: {
+          rxnorm: {
+            found: true,
+            error: null,
+            items: [{ code: '1191', title: 'aspirin' }],
+          },
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('zero-targets edge case: empty searched_terminologies and empty results', () => {
+    expect(
+      FindEquivalentOutputSchema.safeParse({
+        term: 'x',
+        source_terminology: 'icd11',
+        searched_terminologies: [],
+        results: {},
       }).success,
     ).toBe(true);
   });

@@ -26,8 +26,15 @@ import {
   MapSNOMEDToICD10ParamsSchema,
   MapLOINCToSNOMEDParamsSchema,
   FindEquivalentParamsSchema,
+  FindEquivalentOutputSchema,
+  FindEquivalentOutput,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
+import {
+  buildInputSchema,
+  buildOutputSchema,
+  handleToolError,
+  READ_ONLY_TOOL_ANNOTATIONS,
+} from '../utils/zod-schema.js';
 import { SNOMED_TOOLS_ENABLED, SNOMED_DISABLED_NOTE } from '../utils/feature-flags.js';
 
 // ============================================================================
@@ -87,6 +94,7 @@ Use this tool to:
 
 Searches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH. Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets.`,
   inputSchema: buildInputSchema(FindEquivalentParamsSchema),
+  outputSchema: buildOutputSchema(FindEquivalentOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -270,37 +278,57 @@ async function handleMapLOINCToSNOMED(args: Record<string, unknown>): Promise<Ca
 
 const ALL_TERMINOLOGIES = ['icd11', 'snomed', 'loinc', 'rxnorm', 'mesh'] as const;
 
+type TerminologyKey = (typeof ALL_TERMINOLOGIES)[number];
+
+const TERMINOLOGY_LABELS: Record<TerminologyKey, string> = {
+  icd11: 'ICD-11',
+  snomed: 'SNOMED CT',
+  loinc: 'LOINC',
+  rxnorm: 'RxNorm',
+  mesh: 'MeSH',
+};
+
+type FindEquivalentEntry = NonNullable<FindEquivalentOutput['results']['icd11']>;
+
 async function handleFindEquivalent(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const params = FindEquivalentParamsSchema.parse(args);
     const term = params.term;
     const requestedTargets = params.target_terminologies ?? [...ALL_TERMINOLOGIES];
-    const targets = params.source_terminology
+    const targets: TerminologyKey[] = (params.source_terminology
       ? requestedTargets.filter((t) => t !== params.source_terminology)
-      : requestedTargets;
+      : requestedTargets) as TerminologyKey[];
 
     if (targets.length === 0) {
       const requested = params.target_terminologies
         ? `target_terminologies=${JSON.stringify(params.target_terminologies)}`
         : 'all terminologies';
+      const empty: FindEquivalentOutput = {
+        term,
+        source_terminology: params.source_terminology ?? null,
+        searched_terminologies: [],
+        results: {},
+      };
       return {
         content: [{
           type: 'text',
           text: `# Cross-Terminology Search: "${term}"\n\nNo terminologies left to search after excluding source_terminology="${params.source_terminology}" from ${requested}. Widen target_terminologies or drop source_terminology.`,
         }],
+        structuredContent: empty,
       };
     }
 
-    const lines: string[] = [];
-    lines.push(`# Cross-Terminology Search: "${term}"`);
-    if (params.source_terminology) {
-      lines.push(`_Excluding source_terminology=\`${params.source_terminology}\` from the search._`);
-    }
-    lines.push('');
-
-    const results: Record<string, { found: boolean; items: string[]; error?: string }> = {};
-
+    // Build a single typed map keyed by enum key. Markdown is derived from
+    // this same map below — no duplicated data.
+    const entries: Partial<Record<TerminologyKey, FindEquivalentEntry>> = {};
     const searches: Promise<void>[] = [];
+
+    const ok = (items: FindEquivalentEntry['items']): FindEquivalentEntry => ({
+      found: items.length > 0,
+      error: null,
+      items,
+    });
+    const fail = (error: string): FindEquivalentEntry => ({ found: false, error, items: [] });
 
     if (targets.includes('icd11')) {
       searches.push(
@@ -308,13 +336,15 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
           try {
             const client = getWHOClient();
             const response = await client.search(term, 'en', 5);
-            const icdResults = response.destinationEntities || [];
-            results['ICD-11'] = {
-              found: icdResults.length > 0,
-              items: icdResults.slice(0, 5).map((r) => `${r.theCode || 'N/A'} - ${r.title || 'N/A'}`),
-            };
+            const icdResults = response.destinationEntities ?? [];
+            entries.icd11 = ok(
+              icdResults.slice(0, 5).map((r) => ({
+                code: r.theCode ?? 'N/A',
+                title: r.title ?? 'N/A',
+              })),
+            );
           } catch (e) {
-            results['ICD-11'] = { found: false, items: [], error: e instanceof Error ? e.message : 'Error' };
+            entries.icd11 = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );
@@ -322,28 +352,19 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
 
     if (targets.includes('snomed')) {
       if (!SNOMED_TOOLS_ENABLED) {
-        results['SNOMED CT'] = {
-          found: false,
-          items: [],
-          error: SNOMED_DISABLED_NOTE,
-        };
+        entries.snomed = fail(SNOMED_DISABLED_NOTE);
       } else {
         searches.push(
           (async () => {
             try {
               const client = getSNOMEDClient();
               const snomedResults = await client.searchConcepts(term, true, 5);
-              results['SNOMED CT'] = {
-                found: snomedResults.length > 0,
-                items: snomedResults.map((r) => `${r.conceptId} - ${r.pt}`),
-              };
+              entries.snomed = ok(
+                snomedResults.map((r) => ({ code: r.conceptId, title: r.pt })),
+              );
             } catch (e) {
               const errMsg = e instanceof Error ? e.message : 'Error';
-              results['SNOMED CT'] = {
-                found: false,
-                items: [],
-                error: errMsg.includes('ETIMEDOUT') ? 'Server unavailable' : errMsg,
-              };
+              entries.snomed = fail(errMsg.includes('ETIMEDOUT') ? 'Server unavailable' : errMsg);
             }
           })(),
         );
@@ -356,13 +377,12 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
           try {
             const client = getNLMClient();
             const loincResponse = await client.searchLOINC(term, 5);
-            const loincResults = loincResponse.items || [];
-            results['LOINC'] = {
-              found: loincResults.length > 0,
-              items: loincResults.map((r) => `${r.LOINC_NUM} - ${r.LONG_COMMON_NAME}`),
-            };
+            const loincResults = loincResponse.items ?? [];
+            entries.loinc = ok(
+              loincResults.map((r) => ({ code: r.LOINC_NUM, title: r.LONG_COMMON_NAME })),
+            );
           } catch (e) {
-            results['LOINC'] = { found: false, items: [], error: e instanceof Error ? e.message : 'Error' };
+            entries.loinc = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );
@@ -374,12 +394,11 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
           try {
             const client = getRxNormClient();
             const rxResults = await client.searchDrugs(term);
-            results['RxNorm'] = {
-              found: rxResults.drugs.length > 0,
-              items: rxResults.drugs.slice(0, 5).map((r) => `${r.rxcui} - ${r.name}`),
-            };
+            entries.rxnorm = ok(
+              rxResults.drugs.slice(0, 5).map((r) => ({ code: r.rxcui, title: r.name })),
+            );
           } catch (e) {
-            results['RxNorm'] = { found: false, items: [], error: e instanceof Error ? e.message : 'Error' };
+            entries.rxnorm = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );
@@ -391,12 +410,11 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
           try {
             const client = getMeSHClient();
             const meshResults = await client.searchDescriptors(term, 'contains', 5);
-            results['MeSH'] = {
-              found: meshResults.length > 0,
-              items: meshResults.map((r) => `${r.id} - ${r.label}`),
-            };
+            entries.mesh = ok(
+              meshResults.map((r) => ({ code: r.id, title: r.label })),
+            );
           } catch (e) {
-            results['MeSH'] = { found: false, items: [], error: e instanceof Error ? e.message : 'Error' };
+            entries.mesh = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );
@@ -404,25 +422,35 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
 
     await Promise.all(searches);
 
-    for (const [terminology, result] of Object.entries(results)) {
-      lines.push(`## ${terminology}`);
-      lines.push('');
+    // Markdown derived from the same entries map, in target order so output
+    // is stable regardless of which API resolved first.
+    const lines: string[] = [];
+    lines.push(`# Cross-Terminology Search: "${term}"`);
+    if (params.source_terminology) {
+      lines.push(`_Excluding source_terminology=\`${params.source_terminology}\` from the search._`);
+    }
+    lines.push('');
 
-      if (result.error) {
-        lines.push(`⚠️ ${result.error}`);
-      } else if (!result.found) {
+    for (const key of targets) {
+      const entry = entries[key];
+      if (!entry) continue;
+      lines.push(`## ${TERMINOLOGY_LABELS[key]}`);
+      lines.push('');
+      if (entry.error) {
+        lines.push(`⚠️ ${entry.error}`);
+      } else if (!entry.found) {
         lines.push('No matches found.');
       } else {
-        for (const item of result.items) {
-          lines.push(`- ${item}`);
+        for (const item of entry.items) {
+          lines.push(`- ${item.code} - ${item.title}`);
         }
       }
       lines.push('');
     }
 
-    const foundIn = Object.entries(results)
-      .filter(([, r]) => r.found)
-      .map(([name]) => name);
+    const foundIn = targets
+      .filter((k) => entries[k]?.found)
+      .map((k) => TERMINOLOGY_LABELS[k]);
 
     lines.push('---');
     lines.push('');
@@ -437,8 +465,16 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       lines.push(SNOMED_DISCLAIMER);
     }
 
+    const structured: FindEquivalentOutput = {
+      term,
+      source_terminology: params.source_terminology ?? null,
+      searched_terminologies: targets,
+      results: entries,
+    };
+
     return {
       content: [{ type: 'text', text: lines.join('\n') }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);

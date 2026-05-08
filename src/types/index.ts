@@ -275,6 +275,88 @@ export const RxNormNDCParamsSchema = z
   });
 
 // ============================================================================
+// RxNorm output schemas (structuredContent)
+// ============================================================================
+
+const RxNormDrugOutputSchema = z.object({
+  rxcui: z.string(),
+  name: z.string(),
+  synonym: z.string(),
+  tty: z.string(),
+  language: z.string(),
+});
+
+export const RxNormSearchOutputSchema = z.object({
+  query: z.string(),
+  total_count: z.number().int(),
+  // tty === 'APPROX' on items signals the search used the approximate-match
+  // fallback rather than an exact name match.
+  drugs: z.array(RxNormDrugOutputSchema),
+});
+
+export const RxNormConceptOutputSchema = z.object({
+  rxcui: z.string(),
+  name: z.string(),
+  synonym: z.string(),
+  tty: z.string(),
+  language: z.string(),
+  suppress: z.string(),
+  umlscui: z.string(),
+  status: z.string(),
+  remapped_to: z.array(z.string()),
+  // Populated only when include_related=true; null when the caller didn't
+  // ask for related concepts so the field's absence vs emptiness is
+  // unambiguous.
+  related_groups: z
+    .array(
+      z.object({
+        tty: z.string(),
+        concepts: z.array(RxNormDrugOutputSchema),
+      }),
+    )
+    .nullable(),
+});
+
+export const RxNormIngredientsOutputSchema = z.object({
+  rxcui: z.string(),
+  ingredients: z.array(
+    z.object({
+      rxcui: z.string(),
+      name: z.string(),
+      tty: z.string(),
+      is_multiple: z.boolean(),
+    }),
+  ),
+});
+
+export const RxNormClassesOutputSchema = z.object({
+  rxcui: z.string(),
+  classes: z.array(
+    z.object({
+      class_id: z.string(),
+      class_name: z.string(),
+      class_type: z.string(),
+      source: z.string(),
+    }),
+  ),
+});
+
+export const RxNormNDCOutputSchema = z.object({
+  // 'ndcs_for_rxcui': rxcui populated, ndc null, ndcs = list.
+  // 'rxcui_for_ndc':  ndc populated, rxcui = found ID or null, ndcs = [].
+  query_mode: z.enum(['ndcs_for_rxcui', 'rxcui_for_ndc']),
+  rxcui: z.string().nullable(),
+  ndc: z.string().nullable(),
+  ndcs: z.array(z.object({ ndc: z.string() })),
+});
+
+export type RxNormSearchOutput = z.infer<typeof RxNormSearchOutputSchema>;
+export type RxNormConceptOutput = z.infer<typeof RxNormConceptOutputSchema>;
+export type RxNormIngredientsOutput = z.infer<typeof RxNormIngredientsOutputSchema>;
+export type RxNormClassesOutput = z.infer<typeof RxNormClassesOutputSchema>;
+export type RxNormNDCOutput = z.infer<typeof RxNormNDCOutputSchema>;
+
+// ============================================================================
 // MeSH params
 // ============================================================================
 
@@ -498,6 +580,47 @@ export const FindEquivalentParamsSchema = z.object({
     .optional()
     .describe('Limit the search to these terminologies. If omitted, all five are searched.'),
 });
+
+// ============================================================================
+// find_equivalent output schema (structuredContent)
+//
+// Shape note: per-terminology items are normalized to { code, title } so a
+// consumer can iterate uniformly across results. The native identifier
+// shape (LOINC_NUM vs conceptId vs rxcui vs MeSH ID) is collapsed into the
+// generic "code" field. If an LLM/client needs the native shape, it should
+// call the per-terminology search tool directly with the relevant code.
+// ============================================================================
+
+const FindEquivalentItemSchema = z.object({
+  code: z.string(),
+  title: z.string(),
+});
+
+const FindEquivalentTerminologyResultSchema = z.object({
+  found: z.boolean(),
+  // Populated when the upstream call failed (timeout, server error, or — for
+  // SNOMED — when the SNOMED tools are disabled in this server).
+  error: z.string().nullable(),
+  items: z.array(FindEquivalentItemSchema),
+});
+
+export const FindEquivalentOutputSchema = z.object({
+  term: z.string(),
+  source_terminology: TerminologyEnum.nullable(),
+  searched_terminologies: z.array(TerminologyEnum),
+  // Each terminology key is present only if it was actually searched (i.e.
+  // it's in searched_terminologies). Absent keys mean "not requested",
+  // empty items+found:false means "searched, no hits".
+  results: z.object({
+    icd11: FindEquivalentTerminologyResultSchema.optional(),
+    snomed: FindEquivalentTerminologyResultSchema.optional(),
+    loinc: FindEquivalentTerminologyResultSchema.optional(),
+    rxnorm: FindEquivalentTerminologyResultSchema.optional(),
+    mesh: FindEquivalentTerminologyResultSchema.optional(),
+  }),
+});
+
+export type FindEquivalentOutput = z.infer<typeof FindEquivalentOutputSchema>;
 
 // ============================================================================
 // Runtime types used by clients (kept here because who-client and the OAuth
