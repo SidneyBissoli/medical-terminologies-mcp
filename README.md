@@ -68,6 +68,7 @@ Add to your Claude Desktop configuration file:
 | `WHO_ICD11_RELEASE_ID` | No | ICD-11 release to query (e.g. `2024-01`, `2025-01`). Default `2024-01`. |
 | `ENABLE_SNOMED_TOOLS` | No² | Set to `true` to register the 6 SNOMED-dependent tools. Default off. |
 | `SNOMED_BASE_URL` | No² | Base URL for a Snowstorm instance, e.g. `https://my-snowstorm.example.com/snowstorm/snomed-ct`. |
+| `SNOMED_LANGUAGE` | No² | Accept-Language tag(s) for SNOMED responses, e.g. `pt`, `pt-BR`, `es`, `pt-BR,en;q=0.8`. Default `en`. |
 | `LOG_LEVEL` | No | pino log level (`debug`, `info`, `warn`, `error`, `fatal`). Default `info`. |
 
 ¹ Required for ICD-11 tools. Get credentials at: https://icd.who.int/icdapi.
@@ -191,14 +192,15 @@ To enable the SNOMED tools:
            "WHO_CLIENT_ID": "...",
            "WHO_CLIENT_SECRET": "...",
            "ENABLE_SNOMED_TOOLS": "true",
-           "SNOMED_BASE_URL": "https://my-snowstorm.example.com/snowstorm/snomed-ct"
+           "SNOMED_BASE_URL": "https://my-snowstorm.example.com/snowstorm/snomed-ct",
+           "SNOMED_LANGUAGE": "en"
          }
        }
      }
    }
    ```
 
-   `SNOMED_BASE_URL` should point at the base under which Snowstorm exposes its `/MAIN/concepts` and related endpoints.
+   `SNOMED_BASE_URL` should point at the base under which Snowstorm exposes its `/MAIN/concepts` and related endpoints. `SNOMED_LANGUAGE` accepts standard `Accept-Language` tags (e.g. `pt`, `es`, `pt-BR,en;q=0.8`) — Snowstorm returns localized terms when the branch has them and falls back to English otherwise.
 
 4. **Restart the MCP client** so the server picks up the env vars.
 

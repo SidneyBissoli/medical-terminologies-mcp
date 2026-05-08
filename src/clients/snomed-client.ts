@@ -53,12 +53,18 @@ export class SNOMEDClient {
 
   constructor(branch: string = SNOMED_CONFIG.branch) {
     this.branch = branch;
+    // Snowstorm honors Accept-Language to return localized terms (pt, es, fr,
+    // de, etc.) when the branch and concept have translations available.
+    // Operators set SNOMED_LANGUAGE to their preferred language tag(s);
+    // pass-through with no validation since the API itself falls back to
+    // English on unsupported tags.
+    const acceptLanguage = process.env.SNOMED_LANGUAGE ?? 'en';
     this.httpClient = axios.create({
       baseURL: SNOMED_CONFIG.baseUrl,
       timeout: 60000, // 60 seconds for slow connections
       headers: {
         'Accept': 'application/json',
-        'Accept-Language': 'en',
+        'Accept-Language': acceptLanguage,
         'User-Agent': `${SERVER_INFO.name}/${SERVER_INFO.version}`,
       },
     });
