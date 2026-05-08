@@ -35,21 +35,13 @@ import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
 
 const mapICD10ToICD11Tool: Tool = {
   name: 'map_icd10_to_icd11',
-  description: `Search the ICD-11 catalog using an ICD-10 code as the query string.
+  description: `This tool runs the ICD-10 code as a query string against the ICD-11 search index. The search matches the code against ICD-11 entity titles, definitions, and synonyms; it does not consult any curated ICD-10 → ICD-11 mapping. Results are search hits, not authoritative mappings.
 
-⚠️ NOT an authoritative mapping. This performs a text-similarity search
-against the ICD-11 index — results are search hits, not curated
-ICD-10 → ICD-11 equivalents. The same ICD-10 code may surface ICD-11
-entities whose descriptions happen to mention the code, with no clinical
-correspondence guaranteed.
+For authoritative ICD-10 → ICD-11 mappings (clinical coding, billing, migration projects), consult the WHO transition tables at https://icd.who.int/browse11/Downloads/Download.
 
-For real ICD-10 → ICD-11 mappings, consult WHO's official transition
-tables: https://icd.who.int/browse11/Downloads/Download (registration
-required).
+Use this tool for exploratory lookups: confirming a code exists in ICD-11 text, finding ICD-11 entities whose descriptions reference an ICD-10 code, or seeding a manual mapping review. Do not present the results as ICD-10 → ICD-11 equivalents to clinical or billing consumers.
 
-Use this tool only as a starting point for manual review. Provide a code
-like "E11" (Type 2 diabetes) or "I21" (Acute MI) and treat the output
-as candidates to investigate, not answers to copy.`,
+Provide a code like "E11" (Type 2 diabetes) or "I21" (Acute MI).`,
   inputSchema: buildInputSchema(MapICD10ToICD11ParamsSchema),
 };
 
@@ -112,10 +104,7 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
     lines.push(`# ICD-11 search results for ICD-10 code "${code}"`);
     lines.push('');
     lines.push(
-      '⚠️ **This is a text-similarity search, not an authoritative ICD-10 → ICD-11 mapping.**',
-    );
-    lines.push(
-      'Results below come from running the ICD-10 code as a query string against the ICD-11 index. They may include unrelated entities whose descriptions happen to contain the code. For real mappings, see WHO transition tables: https://icd.who.int/browse11/Downloads/Download',
+      `This output is a text search of the ICD-11 catalog using "${code}" as the query string. The hits below are ICD-11 entities whose titles, definitions, or synonyms contain that string. They are not curated ICD-10 → ICD-11 mappings. For authoritative mappings, use the WHO transition tables: https://icd.who.int/browse11/Downloads/Download.`,
     );
     lines.push('');
 
@@ -142,7 +131,7 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
 
       lines.push('');
       lines.push(
-        '*These are candidates for manual review, not verified mappings. Do not use for clinical or billing decisions without consulting the official WHO crosswalk.*',
+        'These are search candidates intended for manual review. To assign an ICD-11 code for clinical coding or billing, verify each candidate against the WHO transition tables linked above.',
       );
     }
 
