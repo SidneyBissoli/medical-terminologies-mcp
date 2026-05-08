@@ -6,13 +6,14 @@ import {
   Tool,
   CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
+import pkg from '../package.json';
 
 /**
  * Server metadata
  */
 export const SERVER_INFO = {
-  name: 'medical-terminologies-mcp',
-  version: '1.0.0',
+  name: pkg.name,
+  version: pkg.version,
   description: 'MCP Server that unifies access to major global medical terminologies (ICD-11, SNOMED CT, LOINC, RxNorm, MeSH) through a standardized interface',
 } as const;
 

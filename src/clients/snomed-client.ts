@@ -16,6 +16,7 @@ import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError } from '../types/index.js';
+import { SERVER_INFO } from '../server.js';
 
 /**
  * SNOMED CT license disclaimer
@@ -52,7 +53,7 @@ export class SNOMEDClient {
       headers: {
         'Accept': 'application/json',
         'Accept-Language': 'en',
-        'User-Agent': 'medical-terminologies-mcp/1.0.0',
+        'User-Agent': `${SERVER_INFO.name}/${SERVER_INFO.version}`,
       },
     });
   }
