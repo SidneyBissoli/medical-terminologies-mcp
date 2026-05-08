@@ -202,11 +202,15 @@ export const MapLOINCToSNOMEDParamsSchema = z.object({
 
 export const FindEquivalentParamsSchema = z.object({
   term: z.string().min(1).describe('Medical term to search (e.g., "diabetes", "aspirin")'),
-  source_terminology: TerminologyEnum.optional().describe('Optional: specify source terminology'),
+  source_terminology: TerminologyEnum
+    .optional()
+    .describe(
+      'If set, this terminology is excluded from the search. Use this when the term came from this terminology and you want equivalents in the others. Combines with target_terminologies by subtraction (source is removed from the target list).',
+    ),
   target_terminologies: z
     .array(TerminologyEnum)
     .optional()
-    .describe('Optional: limit search to specific terminologies'),
+    .describe('Limit the search to these terminologies. If omitted, all five are searched.'),
 });
 
 // ============================================================================

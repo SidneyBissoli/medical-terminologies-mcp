@@ -82,7 +82,7 @@ Use this tool to:
 - Compare how terminologies represent a concept
 - Support terminology mapping and data integration
 
-Searches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH.`,
+Searches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH. Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets.`,
   inputSchema: buildInputSchema(FindEquivalentParamsSchema),
 };
 
@@ -264,14 +264,34 @@ async function handleMapLOINCToSNOMED(args: Record<string, unknown>): Promise<Ca
   }
 }
 
+const ALL_TERMINOLOGIES = ['icd11', 'snomed', 'loinc', 'rxnorm', 'mesh'] as const;
+
 async function handleFindEquivalent(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const params = FindEquivalentParamsSchema.parse(args);
     const term = params.term;
-    const targets = params.target_terminologies || ['icd11', 'snomed', 'loinc', 'rxnorm', 'mesh'];
+    const requestedTargets = params.target_terminologies ?? [...ALL_TERMINOLOGIES];
+    const targets = params.source_terminology
+      ? requestedTargets.filter((t) => t !== params.source_terminology)
+      : requestedTargets;
+
+    if (targets.length === 0) {
+      const requested = params.target_terminologies
+        ? `target_terminologies=${JSON.stringify(params.target_terminologies)}`
+        : 'all terminologies';
+      return {
+        content: [{
+          type: 'text',
+          text: `# Cross-Terminology Search: "${term}"\n\nNo terminologies left to search after excluding source_terminology="${params.source_terminology}" from ${requested}. Widen target_terminologies or drop source_terminology.`,
+        }],
+      };
+    }
 
     const lines: string[] = [];
     lines.push(`# Cross-Terminology Search: "${term}"`);
+    if (params.source_terminology) {
+      lines.push(`_Excluding source_terminology=\`${params.source_terminology}\` from the search._`);
+    }
     lines.push('');
 
     const results: Record<string, { found: boolean; items: string[]; error?: string }> = {};
