@@ -63,15 +63,13 @@ Provide a SNOMED CT ID like "73211009" (Diabetes mellitus).
 
 const mapLOINCToSNOMEDTool: Tool = {
   name: 'map_loinc_to_snomed',
-  description: `Map a LOINC code to SNOMED CT.
+  description: `This tool looks up a LOINC code in NLM Clinical Tables and returns guidance on where to obtain a LOINC → SNOMED CT mapping. It does not perform the mapping.
 
-Use this tool to:
-- Find SNOMED CT equivalents for lab tests
-- Link observations to clinical concepts
-- Support semantic interoperability
+Direct LOINC → SNOMED CT mappings are not freely available via API. UMLS Metathesaurus contains the relationships but requires an individual UMLS Terminology Services license; the LOINC SNOMED CT Expression Association is published by Regenstrief Institute as part of the LOINC release and requires authenticated download from loinc.org under the LOINC license.
 
-Note: Direct LOINC-SNOMED mapping requires UMLS license.
-This tool provides guidance on available mapping options.`,
+For programmatic LOINC → SNOMED mapping, use UMLS or the LOINC Expression Association files. For interactive lookup, use the SNOMED CT browser available to your organization or the Regenstrief RELMA desktop tool.
+
+Provide a LOINC code like "2339-0" (Glucose) or "718-7" (Hemoglobin).`,
   inputSchema: buildInputSchema(MapLOINCToSNOMEDParamsSchema),
 };
 
@@ -210,51 +208,53 @@ async function handleMapLOINCToSNOMED(args: Record<string, unknown>): Promise<Ca
     const details = await client.getLOINCDetails(params.loinc_code);
 
     const lines: string[] = [];
-    lines.push(`# LOINC to SNOMED CT Mapping`);
+    lines.push(`# LOINC code ${params.loinc_code} → SNOMED CT mapping guidance`);
     lines.push('');
-    lines.push(`**LOINC Code:** ${params.loinc_code}`);
+    lines.push(
+      'This output is a LOINC lookup plus guidance on where to obtain the LOINC → SNOMED CT mapping. The mapping itself is not performed here — direct LOINC → SNOMED CT mappings are not freely available via API.',
+    );
+    lines.push('');
 
+    lines.push('## LOINC code details');
+    lines.push('');
     if (details) {
-      lines.push(`**Long Common Name:** ${details.LONG_COMMON_NAME}`);
-      lines.push(`**Component:** ${details.COMPONENT}`);
-    }
-    lines.push('');
-
-    lines.push('## Mapping Availability');
-    lines.push('');
-    lines.push('Direct LOINC to SNOMED CT mappings are **not freely available** via public APIs.');
-    lines.push('');
-    lines.push('### Available Options:');
-    lines.push('');
-    lines.push('1. **UMLS Metathesaurus** (requires license)');
-    lines.push('   - Contains LOINC-SNOMED relationships');
-    lines.push('   - Apply at: https://uts.nlm.nih.gov/uts/');
-    lines.push('');
-    lines.push('2. **LOINC SNOMED CT Expression Association**');
-    lines.push('   - LOINC provides SNOMED CT mappings in downloads');
-    lines.push('   - Requires LOINC license (free for most uses)');
-    lines.push('   - Download at: https://loinc.org/downloads/');
-    lines.push('');
-    lines.push('3. **Regenstrief RELMA Tool**');
-    lines.push('   - Desktop tool with mapping capabilities');
-    lines.push('   - Free download from LOINC.org');
-    lines.push('');
-
-    if (details) {
-      lines.push('### Suggested SNOMED CT Search');
-      lines.push('');
-      lines.push(`Based on the LOINC component "${details.COMPONENT}", try searching SNOMED CT for:`);
-      lines.push('');
-      lines.push(`- \`snomed_search\` with query: "${details.COMPONENT}"`);
-
+      lines.push(`- **Code:** ${params.loinc_code}`);
+      lines.push(`- **Long Common Name:** ${details.LONG_COMMON_NAME || '—'}`);
+      lines.push(`- **Component:** ${details.COMPONENT || '—'}`);
       if (details.SYSTEM) {
-        lines.push(`- Include specimen/system: "${details.SYSTEM}"`);
+        lines.push(`- **System:** ${details.SYSTEM}`);
       }
+      if (details.PROPERTY) {
+        lines.push(`- **Property:** ${details.PROPERTY}`);
+      }
+    } else {
+      lines.push(`- **Code:** ${params.loinc_code}`);
+      lines.push('- _The code was not found in NLM Clinical Tables. Verify the LOINC number; the format is "XXXXX-X" (e.g., "2339-0")._');
     }
-
     lines.push('');
+
+    lines.push('## Mapping availability');
+    lines.push('');
+    lines.push('The two authoritative LOINC → SNOMED CT mapping sources both require licenses or authenticated downloads:');
+    lines.push('');
+    lines.push('1. **UMLS Metathesaurus** — contains LOINC ↔ SNOMED relationships in a queryable graph. Requires an individual UMLS Terminology Services (UTS) license, free for most uses but with annual renewal. Apply at https://uts.nlm.nih.gov/uts/.');
+    lines.push('2. **LOINC SNOMED CT Expression Association** — published by Regenstrief Institute as part of each LOINC release; contains expression-level mappings as RF2 files. Requires acceptance of the LOINC license at https://loinc.org/downloads/. License is free for most uses.');
+    lines.push('3. **Regenstrief RELMA** — free desktop application that bundles the LOINC release including the Expression Association files. Download at https://loinc.org/relma/.');
+    lines.push('');
+
+    lines.push('## Recommended workflow');
+    lines.push('');
+    if (details && details.COMPONENT) {
+      lines.push(`1. Confirm the LOINC code's component (\`${details.COMPONENT}\`)${details.SYSTEM ? ` and system (\`${details.SYSTEM}\`)` : ''} from the details above.`);
+    } else {
+      lines.push("1. Verify the LOINC code first (use the `loinc_details` tool if needed) so you have the component, system, and method to match against.");
+    }
+    lines.push('2. For a single lookup, search the SNOMED CT browser available to your organization for the component name; verify the candidate matches the LOINC system, property, and method.');
+    lines.push('3. For programmatic mapping or batch work, obtain the LOINC SNOMED CT Expression Association file (option 2 above) or UMLS access (option 1) and process locally.');
+    lines.push('');
+
     lines.push('---');
-    lines.push('*This tool provides guidance only. No automated mapping is performed.*');
+    lines.push('This tool calls NLM Clinical Tables for LOINC details. It does not call SNOMED.');
 
     return {
       content: [{ type: 'text', text: lines.join('\n') }],
