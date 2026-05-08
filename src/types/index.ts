@@ -395,6 +395,79 @@ export const SNOMEDECLParamsSchema = z.object({
 });
 
 // ============================================================================
+// SNOMED CT output schemas (structuredContent)
+// ============================================================================
+
+const SNOMEDConceptSummarySchema = z.object({
+  concept_id: z.string(),
+  fsn: z.string(),
+  pt: z.string(),
+  active: z.boolean(),
+  definition_status: z.string(),
+  module_id: z.string(),
+});
+
+const SNOMEDHierarchyConceptSchema = z.object({
+  concept_id: z.string(),
+  fsn: z.string(),
+  pt: z.string(),
+  active: z.boolean(),
+  definition_status: z.string(),
+});
+
+export const SNOMEDSearchOutputSchema = z.object({
+  query: z.string(),
+  active_only: z.boolean(),
+  total_count: z.number().int(),
+  concepts: z.array(SNOMEDConceptSummarySchema),
+});
+
+export const SNOMEDConceptOutputSchema = z.object({
+  concept_id: z.string(),
+  fsn: z.string(),
+  pt: z.string(),
+  active: z.boolean(),
+  effective_time: z.string(),
+  definition_status: z.string(),
+  module_id: z.string(),
+});
+
+export const SNOMEDHierarchyOutputSchema = z.object({
+  sctid: z.string(),
+  direction: z.enum(['parents', 'children', 'both']),
+  parents: z.array(SNOMEDHierarchyConceptSchema),
+  children: z.array(SNOMEDHierarchyConceptSchema),
+});
+
+export const SNOMEDDescriptionsOutputSchema = z.object({
+  sctid: z.string(),
+  descriptions: z.array(
+    z.object({
+      description_id: z.string(),
+      term: z.string(),
+      type: z.string(),
+      type_id: z.string(),
+      lang: z.string(),
+      active: z.boolean(),
+      case_significance: z.string(),
+      acceptability_map: z.record(z.string(), z.string()),
+    }),
+  ),
+});
+
+export const SNOMEDECLOutputSchema = z.object({
+  ecl: z.string(),
+  total_count: z.number().int(),
+  concepts: z.array(SNOMEDConceptSummarySchema),
+});
+
+export type SNOMEDSearchOutput = z.infer<typeof SNOMEDSearchOutputSchema>;
+export type SNOMEDConceptOutput = z.infer<typeof SNOMEDConceptOutputSchema>;
+export type SNOMEDHierarchyOutput = z.infer<typeof SNOMEDHierarchyOutputSchema>;
+export type SNOMEDDescriptionsOutput = z.infer<typeof SNOMEDDescriptionsOutputSchema>;
+export type SNOMEDECLOutput = z.infer<typeof SNOMEDECLOutputSchema>;
+
+// ============================================================================
 // Crosswalk params
 // ============================================================================
 

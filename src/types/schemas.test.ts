@@ -23,6 +23,11 @@ import {
   MeSHDescriptorOutputSchema,
   MeSHTreeOutputSchema,
   MeSHQualifiersOutputSchema,
+  SNOMEDSearchOutputSchema,
+  SNOMEDConceptOutputSchema,
+  SNOMEDHierarchyOutputSchema,
+  SNOMEDDescriptionsOutputSchema,
+  SNOMEDECLOutputSchema,
 } from './index.js';
 
 describe('input param schemas — strict validators run', () => {
@@ -479,6 +484,143 @@ describe('MeSH output schemas — fixtures parse cleanly', () => {
           { id: 'Q000008', uri: 'http://...', label: 'administration & dosage' },
           { id: 'Q000009', uri: 'http://...', label: 'adverse effects' },
         ],
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('SNOMED CT output schemas — fixtures parse cleanly', () => {
+  const sampleSummary = {
+    concept_id: '73211009',
+    fsn: 'Diabetes mellitus (disorder)',
+    pt: 'Diabetes mellitus',
+    active: true,
+    definition_status: 'PRIMITIVE',
+    module_id: '900000000000207008',
+  };
+
+  it('search output: typical hits', () => {
+    expect(
+      SNOMEDSearchOutputSchema.safeParse({
+        query: 'diabetes',
+        active_only: true,
+        total_count: 1,
+        concepts: [sampleSummary],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('search output: empty result still valid', () => {
+    expect(
+      SNOMEDSearchOutputSchema.safeParse({
+        query: 'xyzzy',
+        active_only: true,
+        total_count: 0,
+        concepts: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('concept output: full record', () => {
+    expect(
+      SNOMEDConceptOutputSchema.safeParse({
+        ...sampleSummary,
+        effective_time: '20020131',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('concept output: rejects missing effective_time (separates concept from search summary)', () => {
+    expect(SNOMEDConceptOutputSchema.safeParse(sampleSummary).success).toBe(false);
+  });
+
+  it('hierarchy output: direction=both populates both arrays', () => {
+    expect(
+      SNOMEDHierarchyOutputSchema.safeParse({
+        sctid: '73211009',
+        direction: 'both',
+        parents: [
+          {
+            concept_id: '64572001',
+            fsn: 'Disease (disorder)',
+            pt: 'Disease',
+            active: true,
+            definition_status: 'PRIMITIVE',
+          },
+        ],
+        children: [
+          {
+            concept_id: '44054006',
+            fsn: 'Type 2 diabetes mellitus (disorder)',
+            pt: 'Type 2 diabetes mellitus',
+            active: true,
+            definition_status: 'PRIMITIVE',
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('hierarchy output: direction=parents → children must still be present (empty array)', () => {
+    expect(
+      SNOMEDHierarchyOutputSchema.safeParse({
+        sctid: '73211009',
+        direction: 'parents',
+        parents: [],
+        children: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('hierarchy output: rejects unknown direction', () => {
+    expect(
+      SNOMEDHierarchyOutputSchema.safeParse({
+        sctid: '73211009',
+        direction: 'siblings',
+        parents: [],
+        children: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('descriptions output: full record with acceptability map', () => {
+    expect(
+      SNOMEDDescriptionsOutputSchema.safeParse({
+        sctid: '73211009',
+        descriptions: [
+          {
+            description_id: '751689012',
+            term: 'Diabetes mellitus',
+            type: 'SYN',
+            type_id: '900000000000013009',
+            lang: 'en',
+            active: true,
+            case_significance: 'CASE_INSENSITIVE',
+            acceptability_map: {
+              '900000000000509007': 'PREFERRED',
+              '900000000000508004': 'ACCEPTABLE',
+            },
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('descriptions output: empty list still valid', () => {
+    expect(
+      SNOMEDDescriptionsOutputSchema.safeParse({
+        sctid: '73211009',
+        descriptions: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('ecl output: typical results', () => {
+    expect(
+      SNOMEDECLOutputSchema.safeParse({
+        ecl: '<< 73211009',
+        total_count: 1,
+        concepts: [sampleSummary],
       }).success,
     ).toBe(true);
   });

@@ -29,8 +29,29 @@ import {
   SNOMEDBySctidParamsSchema,
   SNOMEDHierarchyParamsSchema,
   SNOMEDECLParamsSchema,
+  SNOMEDSearchOutputSchema,
+  SNOMEDConceptOutputSchema,
+  SNOMEDHierarchyOutputSchema,
+  SNOMEDDescriptionsOutputSchema,
+  SNOMEDECLOutputSchema,
+  SNOMEDSearchOutput,
+  SNOMEDConceptOutput,
+  SNOMEDHierarchyOutput,
+  SNOMEDDescriptionsOutput,
+  SNOMEDECLOutput,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
+import {
+  buildInputSchema,
+  buildOutputSchema,
+  handleToolError,
+  READ_ONLY_TOOL_ANNOTATIONS,
+} from '../utils/zod-schema.js';
+
+/** Normalize hierarchy fsn/pt — the API returns them as either string or { term } */
+function unwrapTerm(v: string | { term: string } | undefined): string {
+  if (typeof v === 'object' && v !== null) return v.term ?? '';
+  return v ?? '';
+}
 import { SNOMED_TOOLS_ENABLED } from '../utils/feature-flags.js';
 
 // ============================================================================
@@ -52,6 +73,7 @@ Returns matching concepts with SCTID, Fully Specified Name (FSN), and Preferred 
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDSearchParamsSchema),
+  outputSchema: buildOutputSchema(SNOMEDSearchOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -68,6 +90,7 @@ Provide a SCTID like "73211009" (Diabetes mellitus).
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDBySctidParamsSchema),
+  outputSchema: buildOutputSchema(SNOMEDConceptOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -84,6 +107,7 @@ Returns parent and/or child concepts based on IS-A relationships.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDHierarchyParamsSchema),
+  outputSchema: buildOutputSchema(SNOMEDHierarchyOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -100,6 +124,7 @@ Returns all active descriptions with their type and acceptability.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDBySctidParamsSchema),
+  outputSchema: buildOutputSchema(SNOMEDDescriptionsOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -117,6 +142,7 @@ ECL is a powerful query language for navigating SNOMED CT.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDECLParamsSchema),
+  outputSchema: buildOutputSchema(SNOMEDECLOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -293,8 +319,23 @@ async function handleSNOMEDSearch(args: Record<string, unknown>): Promise<CallTo
     const client = getSNOMEDClient();
     const results = await client.searchConcepts(params.query, params.active_only, params.max_results);
 
+    const structured: SNOMEDSearchOutput = {
+      query: params.query,
+      active_only: params.active_only,
+      total_count: results.length,
+      concepts: results.map((r) => ({
+        concept_id: r.conceptId,
+        fsn: r.fsn,
+        pt: r.pt,
+        active: r.active,
+        definition_status: r.definitionStatus,
+        module_id: r.moduleId,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatSearchResults(params.query, results) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -317,8 +358,19 @@ async function handleSNOMEDConcept(args: Record<string, unknown>): Promise<CallT
       };
     }
 
+    const structured: SNOMEDConceptOutput = {
+      concept_id: concept.conceptId,
+      fsn: concept.fsn,
+      pt: concept.pt,
+      active: concept.active,
+      effective_time: concept.effectiveTime,
+      definition_status: concept.definitionStatus,
+      module_id: concept.moduleId,
+    };
+
     return {
       content: [{ type: 'text', text: formatConcept(concept) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -341,11 +393,31 @@ async function handleSNOMEDHierarchy(args: Record<string, unknown>): Promise<Cal
       children = await client.getChildren(params.sctid, params.limit);
     }
 
+    const structured: SNOMEDHierarchyOutput = {
+      sctid: params.sctid,
+      direction: params.direction,
+      parents: parents.map((p) => ({
+        concept_id: p.conceptId,
+        fsn: unwrapTerm(p.fsn),
+        pt: unwrapTerm(p.pt),
+        active: p.active,
+        definition_status: p.definitionStatus,
+      })),
+      children: children.map((c) => ({
+        concept_id: c.conceptId,
+        fsn: unwrapTerm(c.fsn),
+        pt: unwrapTerm(c.pt),
+        active: c.active,
+        definition_status: c.definitionStatus,
+      })),
+    };
+
     return {
       content: [{
         type: 'text',
         text: formatHierarchy(params.sctid, parents, children, params.direction),
       }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -358,8 +430,23 @@ async function handleSNOMEDDescriptions(args: Record<string, unknown>): Promise<
     const client = getSNOMEDClient();
     const descriptions = await client.getDescriptions(params.sctid);
 
+    const structured: SNOMEDDescriptionsOutput = {
+      sctid: params.sctid,
+      descriptions: descriptions.map((d) => ({
+        description_id: d.descriptionId,
+        term: d.term,
+        type: d.type,
+        type_id: d.typeId,
+        lang: d.lang,
+        active: d.active,
+        case_significance: d.caseSignificance,
+        acceptability_map: d.acceptabilityMap,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatDescriptions(params.sctid, descriptions) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -372,8 +459,22 @@ async function handleSNOMEDECL(args: Record<string, unknown>): Promise<CallToolR
     const client = getSNOMEDClient();
     const results = await client.executeECL(params.ecl, params.max_results);
 
+    const structured: SNOMEDECLOutput = {
+      ecl: params.ecl,
+      total_count: results.length,
+      concepts: results.map((r) => ({
+        concept_id: r.conceptId,
+        fsn: r.fsn,
+        pt: r.pt,
+        active: r.active,
+        definition_status: r.definitionStatus,
+        module_id: r.moduleId,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatECLResults(params.ecl, results) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
