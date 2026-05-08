@@ -1,4 +1,7 @@
 import { AxiosError } from 'axios';
+import { logger } from './logger.js';
+
+const retryLogger = logger.child({ scope: 'retry' });
 
 /**
  * Configuration options for retry behavior
@@ -151,9 +154,9 @@ export async function withRetry<T>(
         options.onRetry(attempt, lastError, delay);
       }
 
-      // Log to stderr for debugging
-      process.stderr.write(
-        `[retry] Attempt ${attempt} failed, retrying in ${delay}ms: ${lastError.message}\n`
+      retryLogger.warn(
+        { attempt, delay_ms: delay, err: lastError.message },
+        'Retry attempt failed, will retry',
       );
 
       await sleep(delay);

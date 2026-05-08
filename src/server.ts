@@ -7,6 +7,7 @@ import {
   CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import pkg from '../package.json';
+import { logger } from './utils/logger.js';
 
 /**
  * Server metadata
@@ -114,7 +115,7 @@ export function createServer(): Server {
       return await handler(args ?? {});
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      process.stderr.write(`[error] Tool "${name}" failed: ${errorMessage}\n`);
+      logger.error({ tool: name, err: errorMessage }, 'Tool handler failed');
 
       return {
         content: [
@@ -139,6 +140,12 @@ export async function startServer(server: Server): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  process.stderr.write(`[info] ${SERVER_INFO.name} v${SERVER_INFO.version} started\n`);
-  process.stderr.write(`[info] ${toolRegistry.getTools().length} tools available\n`);
+  logger.info(
+    {
+      name: SERVER_INFO.name,
+      version: SERVER_INFO.version,
+      tool_count: toolRegistry.getTools().length,
+    },
+    'Server started over stdio',
+  );
 }
