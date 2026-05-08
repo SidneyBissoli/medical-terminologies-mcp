@@ -31,6 +31,7 @@ import {
   SNOMEDECLParamsSchema,
 } from '../types/index.js';
 import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
+import { SNOMED_TOOLS_ENABLED } from '../utils/feature-flags.js';
 
 // ============================================================================
 // Tool Definitions
@@ -377,9 +378,16 @@ async function handleSNOMEDECL(args: Record<string, unknown>): Promise<CallToolR
 // ============================================================================
 // Tool Registration
 // ============================================================================
+// Gated behind SNOMED_TOOLS_ENABLED. The public IHTSDO Snowstorm endpoint
+// the project historically pointed at was retired (HTTP 410 Gone for every
+// path). Without a working backend, registering these would surface 5
+// guaranteed-broken tools to every client. Operators with a self-hosted
+// Snowstorm enable them by setting ENABLE_SNOMED_TOOLS=true.
 
-toolRegistry.register(snomedSearchTool, handleSNOMEDSearch);
-toolRegistry.register(snomedConceptTool, handleSNOMEDConcept);
-toolRegistry.register(snomedHierarchyTool, handleSNOMEDHierarchy);
-toolRegistry.register(snomedDescriptionsTool, handleSNOMEDDescriptions);
-toolRegistry.register(snomedECLTool, handleSNOMEDECL);
+if (SNOMED_TOOLS_ENABLED) {
+  toolRegistry.register(snomedSearchTool, handleSNOMEDSearch);
+  toolRegistry.register(snomedConceptTool, handleSNOMEDConcept);
+  toolRegistry.register(snomedHierarchyTool, handleSNOMEDHierarchy);
+  toolRegistry.register(snomedDescriptionsTool, handleSNOMEDDescriptions);
+  toolRegistry.register(snomedECLTool, handleSNOMEDECL);
+}

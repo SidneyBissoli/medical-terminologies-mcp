@@ -63,14 +63,17 @@ Add to your Claude Desktop configuration file:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `WHO_CLIENT_ID` | Yes* | WHO ICD API Client ID |
-| `WHO_CLIENT_SECRET` | Yes* | WHO ICD API Client Secret |
+| `WHO_CLIENT_ID` | Yes¹ | WHO ICD API Client ID |
+| `WHO_CLIENT_SECRET` | Yes¹ | WHO ICD API Client Secret |
+| `ENABLE_SNOMED_TOOLS` | No² | Set to `true` to register the 6 SNOMED-dependent tools. Default off. |
+| `SNOMED_BASE_URL` | No² | Base URL for a Snowstorm instance, e.g. `https://my-snowstorm.example.com/snowstorm/snomed-ct`. |
+| `LOG_LEVEL` | No | pino log level (`debug`, `info`, `warn`, `error`, `fatal`). Default `info`. |
 
-*Required for ICD-11 tools. Get credentials at: https://icd.who.int/icdapi
+¹ Required for ICD-11 tools. Get credentials at: https://icd.who.int/icdapi.
 
-Other APIs (LOINC, RxNorm, MeSH, SNOMED CT) do not require authentication.
+² See [SNOMED CT setup (advanced)](#snomed-ct-setup-advanced) below. LOINC, RxNorm, and MeSH need no configuration.
 
-## Available Tools (27)
+## Available Tools (21 by default, 27 with SNOMED enabled)
 
 ### ICD-11 Tools (5)
 
@@ -110,7 +113,9 @@ Other APIs (LOINC, RxNorm, MeSH, SNOMED CT) do not require authentication.
 | `mesh_tree` | Get tree hierarchy location | `mesh_id: "D006973"` |
 | `mesh_qualifiers` | Get allowed qualifiers | `mesh_id: "D006973"` |
 
-### SNOMED CT Tools (5)
+### SNOMED CT Tools (5, disabled by default)
+
+These are only registered when `ENABLE_SNOMED_TOOLS=true`. See [SNOMED CT setup (advanced)](#snomed-ct-setup-advanced).
 
 | Tool | Description | Example |
 |------|-------------|---------|
@@ -120,14 +125,14 @@ Other APIs (LOINC, RxNorm, MeSH, SNOMED CT) do not require authentication.
 | `snomed_descriptions` | Get all descriptions | `sctid: "22298006"` |
 | `snomed_ecl` | Execute ECL queries | `ecl: "<< 73211009"` |
 
-### Crosswalk Tools (4)
+### Crosswalk Tools (4 — `map_snomed_to_icd10` requires SNOMED)
 
 | Tool | Description | Example |
 |------|-------------|---------|
-| `map_icd10_to_icd11` | Map ICD-10 to ICD-11 | `icd10_code: "E11"` |
-| `map_snomed_to_icd10` | SNOMED to ICD-10 guidance | `sctid: "73211009"` |
-| `map_loinc_to_snomed` | LOINC to SNOMED guidance | `loinc_code: "2339-0"` |
-| `find_equivalent` | Cross-terminology search | `term: "diabetes"` |
+| `map_icd10_to_icd11` | Text search ICD-11 using an ICD-10 code (not authoritative; see [WHO transition tables](https://icd.who.int/browse11/Downloads/Download)) | `icd10_code: "E11"` |
+| `map_snomed_to_icd10` | SNOMED CT → ICD-10 guidance (only when `ENABLE_SNOMED_TOOLS=true`) | `sctid: "73211009"` |
+| `map_loinc_to_snomed` | LOINC ↔ SNOMED guidance | `loinc_code: "2339-0"` |
+| `find_equivalent` | Cross-terminology search; SNOMED branch is skipped when SNOMED tools are disabled | `term: "diabetes"` |
 
 ## Usage Examples
 
@@ -161,6 +166,43 @@ Use find_equivalent with term "diabetes" to search ICD-11, SNOMED, LOINC, RxNorm
 Use map_icd10_to_icd11 with icd10_code "E11" to find ICD-11 equivalents
 ```
 
+## SNOMED CT setup (advanced)
+
+The 5 SNOMED tools (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) plus the SNOMED-dependent crosswalk tool (`map_snomed_to_icd10`) are **disabled by default**. With them disabled, the server registers 21 tools instead of 27; `find_equivalent` still works and skips the SNOMED branch with an explanatory note.
+
+The reason: as of 2026-05-08, the public IHTSDO Snowstorm endpoint that this project historically called (`https://browser.ihtsdotools.org/snowstorm/snomed-ct/...`) returns HTTP 410 Gone for every path. Without a working backend, registering these tools surfaces 6 guaranteed-broken tools to every client.
+
+To enable the SNOMED tools:
+
+1. **Confirm your SNOMED CT license.** SNOMED CT use requires an SNOMED International (IHTSDO) license. Member country residents typically have one through their national release center; non-members can obtain an Affiliate license. See https://www.snomed.org/snomed-ct/get-snomed.
+
+2. **Run a Snowstorm instance.** SNOMED International publishes Snowstorm as open source ([IHTSDO/snowstorm](https://github.com/IHTSDO/snowstorm)) and as a Docker image ([`snomedinternational/snowstorm`](https://hub.docker.com/r/snomedinternational/snowstorm)). Self-hosting requires importing an RF2 release file (provided to license holders).
+
+3. **Configure this server:**
+
+   ```json
+   {
+     "mcpServers": {
+       "medical-terminologies": {
+         "command": "npx",
+         "args": ["-y", "medical-terminologies-mcp"],
+         "env": {
+           "WHO_CLIENT_ID": "...",
+           "WHO_CLIENT_SECRET": "...",
+           "ENABLE_SNOMED_TOOLS": "true",
+           "SNOMED_BASE_URL": "https://my-snowstorm.example.com/snowstorm/snomed-ct"
+         }
+       }
+     }
+   }
+   ```
+
+   `SNOMED_BASE_URL` should point at the base under which Snowstorm exposes its `/MAIN/concepts` and related endpoints.
+
+4. **Restart the MCP client** so the server picks up the env vars.
+
+If you set `ENABLE_SNOMED_TOOLS=true` without configuring a working Snowstorm, the SNOMED tools will register but every call will fail at the network layer.
+
 ## Terminology Licenses
 
 ### ICD-11 (WHO)
@@ -173,7 +215,7 @@ ICD-11 content is provided under the [Creative Commons Attribution-NoDerivatives
 
 ### SNOMED CT
 
-**SNOMED CT content is for reference purposes only. Production use requires an IHTSDO (SNOMED International) license.**
+SNOMED CT use requires an IHTSDO (SNOMED International) license. The SNOMED tools in this server are disabled by default and only enabled by operators with a valid license and a self-hosted Snowstorm instance — see [SNOMED CT setup (advanced)](#snomed-ct-setup-advanced).
 
 - Member countries have national licenses
 - Affiliate licenses available for others

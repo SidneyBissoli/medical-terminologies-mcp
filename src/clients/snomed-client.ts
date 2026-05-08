@@ -25,10 +25,16 @@ export const SNOMED_DISCLAIMER = `⚠️ SNOMED CT content is for reference purp
 
 /**
  * SNOMED CT API Configuration
+ *
+ * Base URL is read from SNOMED_BASE_URL so operators can point at a
+ * self-hosted Snowstorm instance. The historical default
+ * (browser.ihtsdotools.org) was retired and now returns 410 Gone for
+ * all paths; that default is kept here only as a placeholder so the
+ * client constructs without crashing when the tools are disabled.
  */
 const SNOMED_CONFIG = {
-  /** Base URL for Snowstorm browser API */
-  baseUrl: 'https://browser.ihtsdotools.org/snowstorm/snomed-ct',
+  baseUrl:
+    process.env.SNOMED_BASE_URL ?? 'https://browser.ihtsdotools.org/snowstorm/snomed-ct',
   /** Default branch (International Edition) */
   branch: 'MAIN',
 } as const;

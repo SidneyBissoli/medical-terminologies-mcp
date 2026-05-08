@@ -28,6 +28,7 @@ import {
   FindEquivalentParamsSchema,
 } from '../types/index.js';
 import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
+import { SNOMED_TOOLS_ENABLED, SNOMED_DISABLED_NOTE } from '../utils/feature-flags.js';
 
 // ============================================================================
 // Tool Definitions
@@ -296,25 +297,33 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
     }
 
     if (targets.includes('snomed')) {
-      searches.push(
-        (async () => {
-          try {
-            const client = getSNOMEDClient();
-            const snomedResults = await client.searchConcepts(term, true, 5);
-            results['SNOMED CT'] = {
-              found: snomedResults.length > 0,
-              items: snomedResults.map((r) => `${r.conceptId} - ${r.pt}`),
-            };
-          } catch (e) {
-            const errMsg = e instanceof Error ? e.message : 'Error';
-            results['SNOMED CT'] = {
-              found: false,
-              items: [],
-              error: errMsg.includes('ETIMEDOUT') ? 'Server unavailable' : errMsg,
-            };
-          }
-        })(),
-      );
+      if (!SNOMED_TOOLS_ENABLED) {
+        results['SNOMED CT'] = {
+          found: false,
+          items: [],
+          error: SNOMED_DISABLED_NOTE,
+        };
+      } else {
+        searches.push(
+          (async () => {
+            try {
+              const client = getSNOMEDClient();
+              const snomedResults = await client.searchConcepts(term, true, 5);
+              results['SNOMED CT'] = {
+                found: snomedResults.length > 0,
+                items: snomedResults.map((r) => `${r.conceptId} - ${r.pt}`),
+              };
+            } catch (e) {
+              const errMsg = e instanceof Error ? e.message : 'Error';
+              results['SNOMED CT'] = {
+                found: false,
+                items: [],
+                error: errMsg.includes('ETIMEDOUT') ? 'Server unavailable' : errMsg,
+              };
+            }
+          })(),
+        );
+      }
     }
 
     if (targets.includes('loinc')) {
@@ -399,7 +408,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       lines.push('**No matches found in any terminology.**');
     }
 
-    if (targets.includes('snomed')) {
+    if (targets.includes('snomed') && SNOMED_TOOLS_ENABLED) {
       lines.push('');
       lines.push(SNOMED_DISCLAIMER);
     }
@@ -417,6 +426,12 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
 // ============================================================================
 
 toolRegistry.register(mapICD10ToICD11Tool, handleMapICD10ToICD11);
-toolRegistry.register(mapSNOMEDToICD10Tool, handleMapSNOMEDToICD10);
 toolRegistry.register(mapLOINCToSNOMEDTool, handleMapLOINCToSNOMED);
 toolRegistry.register(findEquivalentTool, handleFindEquivalent);
+
+// map_snomed_to_icd10 only works against a live Snowstorm; it's gated
+// alongside the snomed_* tools. find_equivalent stays registered and
+// reports SNOMED as unavailable when the flag is off.
+if (SNOMED_TOOLS_ENABLED) {
+  toolRegistry.register(mapSNOMEDToICD10Tool, handleMapSNOMEDToICD10);
+}
