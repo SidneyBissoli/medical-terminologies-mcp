@@ -16,8 +16,37 @@ import { getNLMClient, LOINCItem, LOINCAnswer, LOINCPanel } from '../clients/nlm
 import {
   LOINCSearchParamsSchema,
   LOINCByCodeParamsSchema,
+  LOINCSearchOutputSchema,
+  LOINCDetailsOutputSchema,
+  LOINCAnswersOutputSchema,
+  LOINCPanelsOutputSchema,
+  LOINCSearchOutput,
+  LOINCDetailsOutput,
+  LOINCAnswersOutput,
+  LOINCPanelsOutput,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
+import {
+  buildInputSchema,
+  buildOutputSchema,
+  handleToolError,
+  READ_ONLY_TOOL_ANNOTATIONS,
+} from '../utils/zod-schema.js';
+
+function loincItemToOutput(item: LOINCItem): LOINCDetailsOutput {
+  return {
+    loinc_num: item.LOINC_NUM,
+    long_common_name: item.LONG_COMMON_NAME,
+    short_name: item.SHORTNAME ?? '',
+    component: item.COMPONENT ?? '',
+    property: item.PROPERTY ?? '',
+    time_aspect: item.TIME_ASPCT ?? '',
+    system: item.SYSTEM ?? '',
+    scale_type: item.SCALE_TYP ?? '',
+    method_type: item.METHOD_TYP ?? '',
+    class: item.CLASS ?? '',
+    status: item.STATUS ?? '',
+  };
+}
 
 // ============================================================================
 // Tool Definitions
@@ -34,6 +63,7 @@ Use this tool to:
 
 Returns matching LOINC codes with names, components, and properties.`,
   inputSchema: buildInputSchema(LOINCSearchParamsSchema),
+  outputSchema: buildOutputSchema(LOINCSearchOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -48,6 +78,7 @@ Use this tool to:
 
 Provide a LOINC number in format "XXXXX-X" (e.g., "2339-0" for Glucose).`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
+  outputSchema: buildOutputSchema(LOINCDetailsOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -62,6 +93,7 @@ Use this tool to:
 
 Only applicable to LOINC codes that represent questions with defined answer sets.`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
+  outputSchema: buildOutputSchema(LOINCAnswersOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -76,6 +108,7 @@ Use this tool to:
 
 Returns the list of LOINC codes that make up the panel.`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
+  outputSchema: buildOutputSchema(LOINCPanelsOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -206,9 +239,17 @@ async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToo
     const client = getNLMClient();
     const results = await client.searchLOINC(params.query, params.max_results);
 
+    const structured: LOINCSearchOutput = {
+      query: params.query,
+      total_count: results.totalCount,
+      shown_count: results.items.length,
+      items: results.items.map(loincItemToOutput),
+    };
+
     if (results.items.length === 0) {
       return {
         content: [{ type: 'text', text: `No LOINC codes found for "${params.query}".` }],
+        structuredContent: structured,
       };
     }
 
@@ -220,6 +261,7 @@ async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToo
 
     return {
       content: [{ type: 'text', text: header + formatted }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -242,8 +284,11 @@ async function handleLOINCDetails(args: Record<string, unknown>): Promise<CallTo
       };
     }
 
+    const structured: LOINCDetailsOutput = loincItemToOutput(item);
+
     return {
       content: [{ type: 'text', text: formatLOINCDetails(item) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -256,8 +301,18 @@ async function handleLOINCAnswers(args: Record<string, unknown>): Promise<CallTo
     const client = getNLMClient();
     const answers = await client.getLOINCAnswers(params.loinc_num);
 
+    const structured: LOINCAnswersOutput = {
+      loinc_num: params.loinc_num,
+      answers: answers.map((a) => ({
+        sequence: a.sequence,
+        answer_code: a.answerCode,
+        answer_string: a.answerString,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatLOINCAnswers(params.loinc_num, answers) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -270,8 +325,25 @@ async function handleLOINCPanels(args: Record<string, unknown>): Promise<CallToo
     const client = getNLMClient();
     const panel = await client.getLOINCPanel(params.loinc_num);
 
+    const structured: LOINCPanelsOutput = {
+      loinc_num: params.loinc_num,
+      panel: panel
+        ? {
+            loinc_num: panel.loincNum,
+            name: panel.name,
+            items: panel.items.map((it) => ({
+              sequence: it.sequence,
+              loinc_num: it.loincNum,
+              name: it.name,
+              required: it.required,
+            })),
+          }
+        : null,
+    };
+
     return {
       content: [{ type: 'text', text: formatLOINCPanel(panel, params.loinc_num) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);

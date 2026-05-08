@@ -15,6 +15,14 @@ import {
   ICD11HierarchyOutputSchema,
   ICD11ChaptersOutputSchema,
   ICD11PostcoordinationOutputSchema,
+  LOINCSearchOutputSchema,
+  LOINCDetailsOutputSchema,
+  LOINCAnswersOutputSchema,
+  LOINCPanelsOutputSchema,
+  MeSHSearchOutputSchema,
+  MeSHDescriptorOutputSchema,
+  MeSHTreeOutputSchema,
+  MeSHQualifiersOutputSchema,
 } from './index.js';
 
 describe('input param schemas — strict validators run', () => {
@@ -292,6 +300,184 @@ describe('ICD-11 output schemas — fixtures parse cleanly', () => {
             allow_multiple: true,
             value_count: null,
           },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('LOINC output schemas — fixtures parse cleanly', () => {
+  const sampleItem = {
+    loinc_num: '2339-0',
+    long_common_name: 'Glucose [Mass/volume] in Blood',
+    short_name: 'Glucose Bld-mCnc',
+    component: 'Glucose',
+    property: 'MCnc',
+    time_aspect: 'Pt',
+    system: 'Bld',
+    scale_type: 'Qn',
+    method_type: '',
+    class: 'CHEM',
+    status: 'ACTIVE',
+  };
+
+  it('search output: typical hit', () => {
+    expect(
+      LOINCSearchOutputSchema.safeParse({
+        query: 'glucose',
+        total_count: 152,
+        shown_count: 1,
+        items: [sampleItem],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('search output: empty result still has shape', () => {
+    expect(
+      LOINCSearchOutputSchema.safeParse({
+        query: 'zzz',
+        total_count: 0,
+        shown_count: 0,
+        items: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('details output: single item', () => {
+    expect(LOINCDetailsOutputSchema.safeParse(sampleItem).success).toBe(true);
+  });
+
+  it('details output: rejects missing required field', () => {
+    const broken: Record<string, unknown> = { ...sampleItem };
+    delete broken.long_common_name;
+    expect(LOINCDetailsOutputSchema.safeParse(broken).success).toBe(false);
+  });
+
+  it('answers output: list of answers', () => {
+    expect(
+      LOINCAnswersOutputSchema.safeParse({
+        loinc_num: '44249-1',
+        answers: [
+          { sequence: 1, answer_code: 'LA6568-5', answer_string: 'Not at all' },
+          { sequence: 2, answer_code: 'LA6569-3', answer_string: 'Several days' },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('answers output: empty answer list still valid', () => {
+    expect(
+      LOINCAnswersOutputSchema.safeParse({ loinc_num: '2339-0', answers: [] }).success,
+    ).toBe(true);
+  });
+
+  it('panels output: panel found', () => {
+    expect(
+      LOINCPanelsOutputSchema.safeParse({
+        loinc_num: '24331-1',
+        panel: {
+          loinc_num: '24331-1',
+          name: 'Lipid panel',
+          items: [
+            { sequence: 1, loinc_num: '2093-3', name: 'Cholesterol', required: true },
+            { sequence: 2, loinc_num: '2571-8', name: 'Triglyceride', required: true },
+          ],
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('panels output: panel null is the explicit "not a panel" signal', () => {
+    expect(
+      LOINCPanelsOutputSchema.safeParse({ loinc_num: '2339-0', panel: null }).success,
+    ).toBe(true);
+  });
+});
+
+describe('MeSH output schemas — fixtures parse cleanly', () => {
+  it('search output: typical hits', () => {
+    expect(
+      MeSHSearchOutputSchema.safeParse({
+        query: 'diabetes',
+        match: 'contains',
+        total_count: 2,
+        descriptors: [
+          { id: 'D003920', uri: 'http://id.nlm.nih.gov/mesh/D003920', label: 'Diabetes Mellitus' },
+          { id: 'D003922', uri: 'http://id.nlm.nih.gov/mesh/D003922', label: 'Diabetes Mellitus, Type 2' },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('search output: rejects unknown match value', () => {
+    expect(
+      MeSHSearchOutputSchema.safeParse({
+        query: 'x', match: 'fuzzy', total_count: 0, descriptors: [],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('descriptor output: full record', () => {
+    expect(
+      MeSHDescriptorOutputSchema.safeParse({
+        id: 'D015242',
+        uri: 'http://id.nlm.nih.gov/mesh/D015242',
+        label: 'Ofloxacin',
+        scope_note: 'A synthetic fluoroquinolone antibacterial agent...',
+        tree_numbers: [
+          { tree_number: 'D02.455.426.559.389.127.085.581', uri: 'http://...' },
+        ],
+        concepts: [
+          {
+            uri: 'http://id.nlm.nih.gov/mesh/M0024093',
+            label: 'Ofloxacin',
+            is_preferred: true,
+            terms: ['Ofloxacin', 'Floxin'],
+          },
+        ],
+        qualifiers: [
+          {
+            id: 'Q000008',
+            uri: 'http://id.nlm.nih.gov/mesh/Q000008',
+            label: 'administration & dosage',
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('descriptor output: empty arrays still valid', () => {
+    expect(
+      MeSHDescriptorOutputSchema.safeParse({
+        id: 'D000001',
+        uri: 'http://...',
+        label: 'something',
+        scope_note: '',
+        tree_numbers: [],
+        concepts: [],
+        qualifiers: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('tree output: list of tree numbers', () => {
+    expect(
+      MeSHTreeOutputSchema.safeParse({
+        mesh_id: 'D015242',
+        tree_numbers: [
+          { tree_number: 'D02.455.426.559.389.127.085.581', uri: 'http://...' },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('qualifiers output: list of qualifiers', () => {
+    expect(
+      MeSHQualifiersOutputSchema.safeParse({
+        mesh_id: 'D015242',
+        qualifiers: [
+          { id: 'Q000008', uri: 'http://...', label: 'administration & dosage' },
+          { id: 'Q000009', uri: 'http://...', label: 'adverse effects' },
         ],
       }).success,
     ).toBe(true);

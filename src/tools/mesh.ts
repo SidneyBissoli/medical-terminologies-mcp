@@ -22,8 +22,21 @@ import {
 import {
   MeSHSearchParamsSchema,
   MeSHByIdParamsSchema,
+  MeSHSearchOutputSchema,
+  MeSHDescriptorOutputSchema,
+  MeSHTreeOutputSchema,
+  MeSHQualifiersOutputSchema,
+  MeSHSearchOutput,
+  MeSHDescriptorOutput,
+  MeSHTreeOutput,
+  MeSHQualifiersOutput,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
+import {
+  buildInputSchema,
+  buildOutputSchema,
+  handleToolError,
+  READ_ONLY_TOOL_ANNOTATIONS,
+} from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
@@ -40,6 +53,7 @@ Use this tool to:
 
 Returns matching descriptors with MeSH IDs and labels.`,
   inputSchema: buildInputSchema(MeSHSearchParamsSchema),
+  outputSchema: buildOutputSchema(MeSHSearchOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -54,6 +68,7 @@ Use this tool to:
 
 Provide a MeSH Descriptor ID like "D015242" (Ofloxacin).`,
   inputSchema: buildInputSchema(MeSHByIdParamsSchema),
+  outputSchema: buildOutputSchema(MeSHDescriptorOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -68,6 +83,7 @@ Use this tool to:
 
 MeSH tree numbers show the hierarchical path (e.g., C14.280.647 for Myocardial Infarction).`,
   inputSchema: buildInputSchema(MeSHByIdParamsSchema),
+  outputSchema: buildOutputSchema(MeSHTreeOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -82,6 +98,7 @@ Use this tool to:
 
 Qualifiers refine descriptors (e.g., "Diabetes Mellitus/drug therapy").`,
   inputSchema: buildInputSchema(MeSHByIdParamsSchema),
+  outputSchema: buildOutputSchema(MeSHQualifiersOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -257,8 +274,20 @@ async function handleMeSHSearch(args: Record<string, unknown>): Promise<CallTool
     const client = getMeSHClient();
     const results = await client.searchDescriptors(params.query, params.match, params.max_results);
 
+    const structured: MeSHSearchOutput = {
+      query: params.query,
+      match: params.match,
+      total_count: results.length,
+      descriptors: results.map((r) => ({
+        id: r.id,
+        uri: r.uri,
+        label: r.label,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatSearchResults(params.query, results) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -281,8 +310,31 @@ async function handleMeSHDescriptor(args: Record<string, unknown>): Promise<Call
       };
     }
 
+    const structured: MeSHDescriptorOutput = {
+      id: descriptor.id,
+      uri: descriptor.uri,
+      label: descriptor.label,
+      scope_note: descriptor.scopeNote,
+      tree_numbers: descriptor.treeNumbers.map((tn) => ({
+        tree_number: tn.treeNumber,
+        uri: tn.uri,
+      })),
+      concepts: descriptor.concepts.map((c) => ({
+        uri: c.uri,
+        label: c.label,
+        is_preferred: c.isPreferred,
+        terms: c.terms,
+      })),
+      qualifiers: descriptor.qualifiers.map((q) => ({
+        id: q.id,
+        uri: q.uri,
+        label: q.label,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatDescriptor(descriptor) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -295,8 +347,17 @@ async function handleMeSHTree(args: Record<string, unknown>): Promise<CallToolRe
     const client = getMeSHClient();
     const treeNumbers = await client.getTreeNumbers(params.mesh_id);
 
+    const structured: MeSHTreeOutput = {
+      mesh_id: params.mesh_id,
+      tree_numbers: treeNumbers.map((tn) => ({
+        tree_number: tn.treeNumber,
+        uri: tn.uri,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatTreeNumbers(params.mesh_id, treeNumbers) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -309,8 +370,18 @@ async function handleMeSHQualifiers(args: Record<string, unknown>): Promise<Call
     const client = getMeSHClient();
     const qualifiers = await client.getAllowedQualifiers(params.mesh_id);
 
+    const structured: MeSHQualifiersOutput = {
+      mesh_id: params.mesh_id,
+      qualifiers: qualifiers.map((q) => ({
+        id: q.id,
+        uri: q.uri,
+        label: q.label,
+      })),
+    };
+
     return {
       content: [{ type: 'text', text: formatQualifiers(params.mesh_id, qualifiers) }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);

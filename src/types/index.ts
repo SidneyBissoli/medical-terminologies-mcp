@@ -178,6 +178,67 @@ export const LOINCByCodeParamsSchema = z.object({
 });
 
 // ============================================================================
+// LOINC output schemas (structuredContent)
+// ============================================================================
+
+const LOINCItemOutputSchema = z.object({
+  loinc_num: z.string(),
+  long_common_name: z.string(),
+  short_name: z.string(),
+  component: z.string(),
+  property: z.string(),
+  time_aspect: z.string(),
+  system: z.string(),
+  scale_type: z.string(),
+  method_type: z.string(),
+  class: z.string(),
+  status: z.string(),
+});
+
+export const LOINCSearchOutputSchema = z.object({
+  query: z.string(),
+  total_count: z.number().int(),
+  shown_count: z.number().int(),
+  items: z.array(LOINCItemOutputSchema),
+});
+
+export const LOINCDetailsOutputSchema = LOINCItemOutputSchema;
+
+export const LOINCAnswersOutputSchema = z.object({
+  loinc_num: z.string(),
+  answers: z.array(
+    z.object({
+      sequence: z.number().int(),
+      answer_code: z.string(),
+      answer_string: z.string(),
+    }),
+  ),
+});
+
+const LOINCPanelOutputSchema = z.object({
+  loinc_num: z.string(),
+  name: z.string(),
+  items: z.array(
+    z.object({
+      sequence: z.number().int(),
+      loinc_num: z.string(),
+      name: z.string(),
+      required: z.boolean(),
+    }),
+  ),
+});
+
+export const LOINCPanelsOutputSchema = z.object({
+  loinc_num: z.string(),
+  panel: LOINCPanelOutputSchema.nullable(),
+});
+
+export type LOINCSearchOutput = z.infer<typeof LOINCSearchOutputSchema>;
+export type LOINCDetailsOutput = z.infer<typeof LOINCDetailsOutputSchema>;
+export type LOINCAnswersOutput = z.infer<typeof LOINCAnswersOutputSchema>;
+export type LOINCPanelsOutput = z.infer<typeof LOINCPanelsOutputSchema>;
+
+// ============================================================================
 // RxNorm params
 // ============================================================================
 
@@ -231,6 +292,66 @@ export const MeSHSearchParamsSchema = z.object({
 export const MeSHByIdParamsSchema = z.object({
   mesh_id: MeSHIdSchema.describe('MeSH Descriptor ID (e.g., D015242, D003920)'),
 });
+
+// ============================================================================
+// MeSH output schemas (structuredContent)
+// ============================================================================
+
+const MeSHTreeNumberOutputSchema = z.object({
+  tree_number: z.string(),
+  uri: z.string(),
+});
+
+const MeSHQualifierOutputSchema = z.object({
+  id: z.string(),
+  uri: z.string(),
+  label: z.string(),
+});
+
+export const MeSHSearchOutputSchema = z.object({
+  query: z.string(),
+  match: z.enum(['exact', 'contains', 'startswith']),
+  total_count: z.number().int(),
+  descriptors: z.array(
+    z.object({
+      id: z.string(),
+      uri: z.string(),
+      label: z.string(),
+    }),
+  ),
+});
+
+export const MeSHDescriptorOutputSchema = z.object({
+  id: z.string(),
+  uri: z.string(),
+  label: z.string(),
+  scope_note: z.string(),
+  tree_numbers: z.array(MeSHTreeNumberOutputSchema),
+  concepts: z.array(
+    z.object({
+      uri: z.string(),
+      label: z.string(),
+      is_preferred: z.boolean(),
+      terms: z.array(z.string()),
+    }),
+  ),
+  qualifiers: z.array(MeSHQualifierOutputSchema),
+});
+
+export const MeSHTreeOutputSchema = z.object({
+  mesh_id: z.string(),
+  tree_numbers: z.array(MeSHTreeNumberOutputSchema),
+});
+
+export const MeSHQualifiersOutputSchema = z.object({
+  mesh_id: z.string(),
+  qualifiers: z.array(MeSHQualifierOutputSchema),
+});
+
+export type MeSHSearchOutput = z.infer<typeof MeSHSearchOutputSchema>;
+export type MeSHDescriptorOutput = z.infer<typeof MeSHDescriptorOutputSchema>;
+export type MeSHTreeOutput = z.infer<typeof MeSHTreeOutputSchema>;
+export type MeSHQualifiersOutput = z.infer<typeof MeSHQualifiersOutputSchema>;
 
 // ============================================================================
 // SNOMED CT params
