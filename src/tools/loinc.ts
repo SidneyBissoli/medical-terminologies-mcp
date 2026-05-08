@@ -17,7 +17,7 @@ import {
   LOINCSearchParamsSchema,
   LOINCByCodeParamsSchema,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
+import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
@@ -34,6 +34,7 @@ Use this tool to:
 
 Returns matching LOINC codes with names, components, and properties.`,
   inputSchema: buildInputSchema(LOINCSearchParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const loincDetailsTool: Tool = {
@@ -47,6 +48,7 @@ Use this tool to:
 
 Provide a LOINC number in format "XXXXX-X" (e.g., "2339-0" for Glucose).`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const loincAnswersTool: Tool = {
@@ -60,6 +62,7 @@ Use this tool to:
 
 Only applicable to LOINC codes that represent questions with defined answer sets.`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const loincPanelsTool: Tool = {
@@ -73,6 +76,7 @@ Use this tool to:
 
 Returns the list of LOINC codes that make up the panel.`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 // ============================================================================

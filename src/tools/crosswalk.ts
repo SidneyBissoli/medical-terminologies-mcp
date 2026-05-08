@@ -27,7 +27,7 @@ import {
   MapLOINCToSNOMEDParamsSchema,
   FindEquivalentParamsSchema,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
+import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
 import { SNOMED_TOOLS_ENABLED, SNOMED_DISABLED_NOTE } from '../utils/feature-flags.js';
 
 // ============================================================================
@@ -44,6 +44,7 @@ Use this tool for exploratory lookups: confirming a code exists in ICD-11 text, 
 
 Provide a code like "E11" (Type 2 diabetes) or "I21" (Acute MI).`,
   inputSchema: buildInputSchema(MapICD10ToICD11ParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const mapSNOMEDToICD10Tool: Tool = {
@@ -59,6 +60,7 @@ Provide a SNOMED CT ID like "73211009" (Diabetes mellitus).
 
 ⚠️ SNOMED CT content requires IHTSDO license for production use.`,
   inputSchema: buildInputSchema(MapSNOMEDToICD10ParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const mapLOINCToSNOMEDTool: Tool = {
@@ -71,6 +73,7 @@ For programmatic LOINC → SNOMED mapping, use UMLS or the LOINC Expression Asso
 
 Provide a LOINC code like "2339-0" (Glucose) or "718-7" (Hemoglobin).`,
   inputSchema: buildInputSchema(MapLOINCToSNOMEDParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const findEquivalentTool: Tool = {
@@ -84,6 +87,7 @@ Use this tool to:
 
 Searches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH. Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets.`,
   inputSchema: buildInputSchema(FindEquivalentParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 // ============================================================================

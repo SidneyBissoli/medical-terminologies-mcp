@@ -22,7 +22,7 @@ import {
   ICD11PostcoordinationParamsSchema,
   ApiError,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
+import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
@@ -39,6 +39,7 @@ Use this tool to:
 
 Returns matching entities with codes, titles, and relevance scores.`,
   inputSchema: buildInputSchema(ICD11SearchParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const icd11LookupTool: Tool = {
@@ -52,6 +53,7 @@ Use this tool to:
 
 Provide either an ICD-11 code (e.g., "BA00") or a full foundation URI.`,
   inputSchema: buildInputSchema(ICD11LookupParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const icd11HierarchyTool: Tool = {
@@ -65,6 +67,7 @@ Use this tool to:
 
 Direction 'parents' returns ancestor categories, 'children' returns subcategories.`,
   inputSchema: buildInputSchema(ICD11HierarchyParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const icd11ChaptersTool: Tool = {
@@ -78,6 +81,7 @@ Use this tool to:
 
 ICD-11 has 28 chapters covering all areas of medicine.`,
   inputSchema: buildInputSchema(ICD11ChaptersParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const icd11PostcoordinationTool: Tool = {
@@ -91,6 +95,7 @@ Use this tool to:
 
 Postcoordination allows adding severity, laterality, anatomy, etc.`,
   inputSchema: buildInputSchema(ICD11PostcoordinationParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 // ============================================================================

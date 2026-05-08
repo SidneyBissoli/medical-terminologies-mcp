@@ -28,7 +28,7 @@ import {
   RxNormByRxcuiParamsSchema,
   RxNormNDCParamsSchema,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
+import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
@@ -45,6 +45,7 @@ Use this tool to:
 
 Returns matching drugs with RxCUI identifiers, names, and term types.`,
   inputSchema: buildInputSchema(RxNormSearchParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const rxnormConceptTool: Tool = {
@@ -58,6 +59,7 @@ Use this tool to:
 
 Provide an RxCUI (RxNorm Concept Unique Identifier) like "161".`,
   inputSchema: buildInputSchema(RxNormConceptParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const rxnormIngredientsTool: Tool = {
@@ -71,6 +73,7 @@ Use this tool to:
 
 Returns ingredient RxCUIs and names.`,
   inputSchema: buildInputSchema(RxNormByRxcuiParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const rxnormClassesTool: Tool = {
@@ -84,6 +87,7 @@ Use this tool to:
 
 Returns class IDs, names, and classification sources.`,
   inputSchema: buildInputSchema(RxNormByRxcuiParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const rxnormNDCTool: Tool = {
@@ -97,6 +101,7 @@ Use this tool to:
 
 Provide either an RxCUI to get NDCs, or an NDC to get the RxCUI.`,
   inputSchema: buildInputSchema(RxNormNDCParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 // ============================================================================

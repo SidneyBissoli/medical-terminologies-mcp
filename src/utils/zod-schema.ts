@@ -4,6 +4,23 @@ import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { ApiError } from '../types/index.js';
 
 /**
+ * MCP behavioral hints applied to every tool in this server. They all read
+ * from external terminology APIs, never write — so they're read-only,
+ * non-destructive, and idempotent (same input → same output, modulo upstream
+ * data changes). openWorldHint=true reflects that they reach out to APIs
+ * not under this server's control.
+ *
+ * Clients that honor these hints (e.g. Claude Desktop) can skip
+ * confirmation prompts and let LLMs call them more freely.
+ */
+export const READ_ONLY_TOOL_ANNOTATIONS: NonNullable<Tool['annotations']> = {
+  readOnlyHint: true,
+  idempotentHint: true,
+  openWorldHint: true,
+  destructiveHint: false,
+};
+
+/**
  * Converts a Zod schema into the JSON Schema shape MCP expects for
  * Tool.inputSchema. Strips the $schema metadata key (MCP doesn't need it)
  * and inlines all references so clients see a flat object schema.

@@ -30,7 +30,7 @@ import {
   SNOMEDHierarchyParamsSchema,
   SNOMEDECLParamsSchema,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
+import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
 import { SNOMED_TOOLS_ENABLED } from '../utils/feature-flags.js';
 
 // ============================================================================
@@ -52,6 +52,7 @@ Returns matching concepts with SCTID, Fully Specified Name (FSN), and Preferred 
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDSearchParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const snomedConceptTool: Tool = {
@@ -67,6 +68,7 @@ Provide a SCTID like "73211009" (Diabetes mellitus).
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDBySctidParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const snomedHierarchyTool: Tool = {
@@ -82,6 +84,7 @@ Returns parent and/or child concepts based on IS-A relationships.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDHierarchyParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const snomedDescriptionsTool: Tool = {
@@ -97,6 +100,7 @@ Returns all active descriptions with their type and acceptability.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDBySctidParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const snomedECLTool: Tool = {
@@ -113,6 +117,7 @@ ECL is a powerful query language for navigating SNOMED CT.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDECLParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 // ============================================================================

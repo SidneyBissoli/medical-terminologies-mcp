@@ -23,7 +23,7 @@ import {
   MeSHSearchParamsSchema,
   MeSHByIdParamsSchema,
 } from '../types/index.js';
-import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
+import { buildInputSchema, handleToolError, READ_ONLY_TOOL_ANNOTATIONS } from '../utils/zod-schema.js';
 
 // ============================================================================
 // Tool Definitions
@@ -40,6 +40,7 @@ Use this tool to:
 
 Returns matching descriptors with MeSH IDs and labels.`,
   inputSchema: buildInputSchema(MeSHSearchParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const meshDescriptorTool: Tool = {
@@ -53,6 +54,7 @@ Use this tool to:
 
 Provide a MeSH Descriptor ID like "D015242" (Ofloxacin).`,
   inputSchema: buildInputSchema(MeSHByIdParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const meshTreeTool: Tool = {
@@ -66,6 +68,7 @@ Use this tool to:
 
 MeSH tree numbers show the hierarchical path (e.g., C14.280.647 for Myocardial Infarction).`,
   inputSchema: buildInputSchema(MeSHByIdParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 const meshQualifiersTool: Tool = {
@@ -79,6 +82,7 @@ Use this tool to:
 
 Qualifiers refine descriptors (e.g., "Diabetes Mellitus/drug therapy").`,
   inputSchema: buildInputSchema(MeSHByIdParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
 // ============================================================================
