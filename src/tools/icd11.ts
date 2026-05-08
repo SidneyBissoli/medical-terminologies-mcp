@@ -298,19 +298,21 @@ async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallT
     lines.push('The International Classification of Diseases, 11th Revision (ICD-11) is organized into the following chapters:');
     lines.push('');
 
-    let chapterNum = 1;
-    for (const chapterUri of chaptersResponse.child) {
-      try {
-        const chapter = await client.getEntity(chapterUri, params.language);
+    const settled = await Promise.allSettled(
+      chaptersResponse.child.map((uri) => client.getEntity(uri, params.language)),
+    );
+
+    settled.forEach((result, i) => {
+      const num = i + 1;
+      if (result.status === 'fulfilled') {
+        const chapter = result.value;
         const title = chapter.title?.['@value'] || 'Unknown';
         const code = chapter.code || chapter.codeRange || '';
-        lines.push(`${chapterNum}. **${code}** - ${title}`);
-        chapterNum++;
-      } catch {
-        lines.push(`${chapterNum}. (Unable to load chapter)`);
-        chapterNum++;
+        lines.push(`${num}. **${code}** - ${title}`);
+      } else {
+        lines.push(`${num}. (Unable to load chapter)`);
       }
-    }
+    });
 
     return {
       content: [{ type: 'text', text: lines.join('\n') }],

@@ -312,15 +312,18 @@ export class WHOClient {
       return [];
     }
 
+    const settled = await Promise.allSettled(
+      entity.parent.map((parentUri) => this.getEntity(parentUri, language)),
+    );
+
     const parents: ICD11EntityResponse[] = [];
-    for (const parentUri of entity.parent) {
-      try {
-        const parent = await this.getEntity(parentUri, language);
-        parents.push(parent);
-      } catch (error) {
-        log.warn({ parentUri, error: String(error) }, 'Failed to fetch parent');
+    settled.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        parents.push(result.value);
+      } else {
+        log.warn({ parentUri: entity.parent![i], error: String(result.reason) }, 'Failed to fetch parent');
       }
-    }
+    });
 
     return parents;
   }
@@ -339,15 +342,18 @@ export class WHOClient {
       return [];
     }
 
+    const settled = await Promise.allSettled(
+      entity.child.map((childUri) => this.getEntity(childUri, language)),
+    );
+
     const children: ICD11EntityResponse[] = [];
-    for (const childUri of entity.child) {
-      try {
-        const child = await this.getEntity(childUri, language);
-        children.push(child);
-      } catch (error) {
-        log.warn({ childUri, error: String(error) }, 'Failed to fetch child');
+    settled.forEach((result, i) => {
+      if (result.status === 'fulfilled') {
+        children.push(result.value);
+      } else {
+        log.warn({ childUri: entity.child![i], error: String(result.reason) }, 'Failed to fetch child');
       }
-    }
+    });
 
     return children;
   }
