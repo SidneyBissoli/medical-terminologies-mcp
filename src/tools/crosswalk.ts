@@ -35,14 +35,21 @@ import { buildInputSchema, handleToolError } from '../utils/zod-schema.js';
 
 const mapICD10ToICD11Tool: Tool = {
   name: 'map_icd10_to_icd11',
-  description: `Map an ICD-10 code to ICD-11.
+  description: `Search the ICD-11 catalog using an ICD-10 code as the query string.
 
-Use this tool to:
-- Find the ICD-11 equivalent of an ICD-10 code
-- Migrate from ICD-10 to ICD-11 coding
-- Understand how classifications changed between versions
+⚠️ NOT an authoritative mapping. This performs a text-similarity search
+against the ICD-11 index — results are search hits, not curated
+ICD-10 → ICD-11 equivalents. The same ICD-10 code may surface ICD-11
+entities whose descriptions happen to mention the code, with no clinical
+correspondence guaranteed.
 
-Provide an ICD-10 code like "E11" (Type 2 diabetes) or "I21" (Acute MI).`,
+For real ICD-10 → ICD-11 mappings, consult WHO's official transition
+tables: https://icd.who.int/browse11/Downloads/Download (registration
+required).
+
+Use this tool only as a starting point for manual review. Provide a code
+like "E11" (Type 2 diabetes) or "I21" (Acute MI) and treat the output
+as candidates to investigate, not answers to copy.`,
   inputSchema: buildInputSchema(MapICD10ToICD11ParamsSchema),
 };
 
@@ -102,35 +109,41 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
     const results = response.destinationEntities || [];
 
     const lines: string[] = [];
-    lines.push(`# ICD-10 to ICD-11 Mapping`);
+    lines.push(`# ICD-11 search results for ICD-10 code "${code}"`);
     lines.push('');
-    lines.push(`**ICD-10 Code:** ${code}`);
+    lines.push(
+      '⚠️ **This is a text-similarity search, not an authoritative ICD-10 → ICD-11 mapping.**',
+    );
+    lines.push(
+      'Results below come from running the ICD-10 code as a query string against the ICD-11 index. They may include unrelated entities whose descriptions happen to contain the code. For real mappings, see WHO transition tables: https://icd.who.int/browse11/Downloads/Download',
+    );
     lines.push('');
 
     if (results.length === 0) {
-      lines.push('## No Direct Mapping Found');
+      lines.push('## No search hits');
       lines.push('');
-      lines.push('No direct ICD-11 equivalent found for this ICD-10 code.');
+      lines.push('Nothing in the ICD-11 catalog matched this code as a text query.');
       lines.push('');
-      lines.push('**Suggestions:**');
-      lines.push('- Try searching by the condition name in ICD-11');
-      lines.push('- The concept may have been restructured in ICD-11');
-      lines.push('- Check the WHO ICD-11 coding tool for manual mapping');
+      lines.push('**Next steps:**');
+      lines.push('- Try `icd11_search` with the condition name instead of the ICD-10 code');
+      lines.push('- The concept may have been restructured between revisions');
+      lines.push('- Consult the WHO transition tables linked above');
     } else {
-      lines.push('## Potential ICD-11 Matches');
+      lines.push(`## Search hits (${Math.min(results.length, 10)} shown)`);
       lines.push('');
-      lines.push('| ICD-11 Code | Title | Match Score |');
-      lines.push('|-------------|-------|-------------|');
+      lines.push('| ICD-11 Code | Title |');
+      lines.push('|-------------|-------|');
 
       for (const result of results.slice(0, 10)) {
         const code11 = result.theCode || 'N/A';
         const title = result.title || 'N/A';
-        const score = result.score !== undefined ? `${Math.round(result.score * 100)}%` : 'N/A';
-        lines.push(`| ${code11} | ${title} | ${score} |`);
+        lines.push(`| ${code11} | ${title} |`);
       }
 
       lines.push('');
-      lines.push('*Note: These are potential matches based on search. Verify mapping accuracy for clinical use.*');
+      lines.push(
+        '*These are candidates for manual review, not verified mappings. Do not use for clinical or billing decisions without consulting the official WHO crosswalk.*',
+      );
     }
 
     return {

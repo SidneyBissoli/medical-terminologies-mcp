@@ -186,7 +186,10 @@ export const SNOMEDECLParamsSchema = z.object({
 // ============================================================================
 
 export const MapICD10ToICD11ParamsSchema = z.object({
-  icd10_code: z.string().min(1).describe('ICD-10 code to map (e.g., E11, I21.0, J18.9)'),
+  icd10_code: z
+    .string()
+    .min(1)
+    .describe('ICD-10 code to look up in ICD-11 (e.g., E11, I21.0, J18.9)'),
 });
 
 export const MapSNOMEDToICD10ParamsSchema = z.object({
