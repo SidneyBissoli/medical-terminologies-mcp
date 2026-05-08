@@ -3,6 +3,7 @@ import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError, CachedToken, OAuthTokenResponse } from '../types/index.js';
+import { extractErrorMessage } from '../utils/extract-error-message.js';
 import { createClientLogger } from '../utils/logger.js';
 
 const log = createClientLogger('who');
@@ -175,7 +176,7 @@ export class WHOClient {
           if (error instanceof AxiosError) {
             const status = error.response?.status;
             const responseData = error.response?.data;
-            const message = responseData?.message || error.message;
+            const message = extractErrorMessage(error);
 
             log.error({ status, data: responseData }, 'HTTP error response');
 

@@ -17,6 +17,7 @@ import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError } from '../types/index.js';
 import { SERVER_INFO } from '../server.js';
+import { extractErrorMessage } from '../utils/extract-error-message.js';
 
 /**
  * SNOMED CT license disclaimer
@@ -87,7 +88,7 @@ export class SNOMEDClient {
         } catch (error) {
           if (error instanceof AxiosError) {
             const status = error.response?.status;
-            const message = error.response?.data?.message || error.message;
+            const message = extractErrorMessage(error);
 
             if (status === 404) {
               throw new ApiError('Resource not found', 'NOT_FOUND', status);

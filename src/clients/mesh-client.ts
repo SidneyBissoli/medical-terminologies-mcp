@@ -13,6 +13,7 @@ import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError } from '../types/index.js';
+import { extractErrorMessage } from '../utils/extract-error-message.js';
 
 /**
  * MeSH API Configuration
@@ -60,7 +61,7 @@ export class MeSHClient {
         } catch (error) {
           if (error instanceof AxiosError) {
             const status = error.response?.status;
-            const message = error.response?.data?.message || error.message;
+            const message = extractErrorMessage(error);
 
             if (status === 404) {
               throw new ApiError('Resource not found', 'NOT_FOUND', status);
