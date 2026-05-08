@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question about a specific terminology
+    url: https://github.com/SidneyBissoli/medical-terminologies-mcp/discussions
+    about: For "how do I look up X in this terminology?"-style questions, use Discussions instead of opening an issue.
