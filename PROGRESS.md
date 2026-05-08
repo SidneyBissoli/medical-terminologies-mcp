@@ -205,81 +205,12 @@ This document tracks the implementation progress of the Medical Terminologies MC
 - [x] package.json with full metadata
 - [x] .github/workflows/publish.yml
 
+
 ---
 
 ## Changelog
 
-### 2026-01-19 - Phase 7 Complete (v1.0.0 Ready)
-
-- Complete documentation (README.md)
-- MCP Registry configuration (server.json)
-- MIT License with terminology notices
-- GitHub Actions workflow for npm publishing
-- Package metadata updated
-- All 27 tools ready for production!
-
-### 2026-01-19 - Phase 6 Complete
-
-- Crosswalk (mapping) tools implemented
-- 4 crosswalk tools implemented:
-  - map_icd10_to_icd11: Search-based ICD-10 to ICD-11 mapping
-  - map_snomed_to_icd10: Guidance for SNOMED-ICD mapping (requires license)
-  - map_loinc_to_snomed: Guidance for LOINC-SNOMED mapping (requires UMLS)
-  - find_equivalent: Cross-terminology parallel search
-- All 27 tools complete!
-
-### 2026-01-19 - Phase 5 Complete
-
-- SNOMED CT Snowstorm API client implemented
-- 5 SNOMED CT tools implemented:
-  - snomed_search: Search concepts with active filter
-  - snomed_concept: Get full concept details (FSN, PT, status)
-  - snomed_hierarchy: Navigate IS-A relationships (parents/children)
-  - snomed_descriptions: Get all descriptions with types
-  - snomed_ecl: Execute ECL queries for advanced searches
-- Added IHTSDO license disclaimer to all SNOMED outputs
-
-### 2026-01-19 - Phase 4 Complete
-
-- MeSH Linked Data API client implemented
-- 4 MeSH tools implemented:
-  - mesh_search: Search descriptors with match types (exact, contains, startswith)
-  - mesh_descriptor: Get full descriptor details with scope note and concepts
-  - mesh_tree: Get tree hierarchy locations with category names
-  - mesh_qualifiers: Get allowed qualifiers for a descriptor
-
-### 2026-01-19 - Phase 3 Complete
-
-- RxNorm REST API client implemented
-- 5 RxNorm tools implemented:
-  - rxnorm_search: Search drugs with approximate matching
-  - rxnorm_concept: Get full concept details with related concepts
-  - rxnorm_ingredients: Get active ingredients (IN/MIN)
-  - rxnorm_classes: Get therapeutic/pharmacologic classes
-  - rxnorm_ndc: Bidirectional NDC-RxCUI mapping
-
-### 2026-01-19 - Phase 2 Complete
-
-- NLM Clinical Tables API client implemented
-- 4 LOINC tools implemented:
-  - loinc_search: Search lab tests and observations
-  - loinc_details: Get full code details
-  - loinc_answers: Get questionnaire answer lists
-  - loinc_panels: Get panel/form structure
-
-### 2026-01-19 - Phase 1 Complete
-
-- WHO OAuth2 client with token caching
-- 5 ICD-11 tools implemented:
-  - icd11_search: Text search with multi-language support
-  - icd11_lookup: Entity details by code or URI
-  - icd11_hierarchy: Navigate parent/child relationships
-  - icd11_chapters: List all 28 chapters
-  - icd11_postcoordination: Extension axes info
-
-### 2026-01-18 - Phase 0 Complete
-
-- Initial project setup
-- Core utilities implemented
-- Base types defined
-- MCP server skeleton ready
+Versioned release notes have been moved to [CHANGELOG.md](./CHANGELOG.md)
+in the standard Keep-a-Changelog format. PROGRESS.md is preserved as the
+phase-by-phase implementation diary; CHANGELOG.md is the consumer-facing
+release log.
