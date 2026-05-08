@@ -36,22 +36,40 @@ import './tools/crosswalk.js';
 async function main(): Promise<void> {
   try {
     logger.info({ server: SERVER_INFO.name }, 'Initializing server...');
-    
+
     const server = createServer();
     await startServer(server);
-    
+
     logger.info({ server: SERVER_INFO.name, version: SERVER_INFO.version }, 'Server started');
 
-    // Handle graceful shutdown
-    process.on('SIGINT', () => {
-      logger.info('Received SIGINT, shutting down...');
-      process.exit(0);
-    });
+    // Graceful shutdown: close the server's stdio transport so any in-flight
+    // requests resolve, then flush pino's async destination, then exit.
+    // Idempotent on repeated signals; bounded by a 5s timeout so a stuck
+    // server.close() never blocks teardown indefinitely.
+    let shuttingDown = false;
+    const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      logger.info({ signal }, 'Shutting down...');
 
-    process.on('SIGTERM', () => {
-      logger.info('Received SIGTERM, shutting down...');
+      try {
+        await Promise.race([
+          server.close(),
+          new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+        ]);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        logger.warn({ err: msg }, 'Error closing server, continuing shutdown');
+      }
+
+      // pino is configured with sync: false, so async writes can still be
+      // buffered when we get here. flush() drains the buffer.
+      logger.flush();
       process.exit(0);
-    });
+    };
+
+    process.on('SIGINT', () => void shutdown('SIGINT'));
+    process.on('SIGTERM', () => void shutdown('SIGTERM'));
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.fatal({ error: errorMessage }, 'Failed to start server');
