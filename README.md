@@ -65,6 +65,7 @@ Add to your Claude Desktop configuration file:
 |----------|----------|-------------|
 | `WHO_CLIENT_ID` | Yes¹ | WHO ICD API Client ID |
 | `WHO_CLIENT_SECRET` | Yes¹ | WHO ICD API Client Secret |
+| `WHO_ICD11_RELEASE_ID` | No | ICD-11 release to query (e.g. `2024-01`, `2025-01`). Default `2024-01`. |
 | `ENABLE_SNOMED_TOOLS` | No² | Set to `true` to register the 6 SNOMED-dependent tools. Default off. |
 | `SNOMED_BASE_URL` | No² | Base URL for a Snowstorm instance, e.g. `https://my-snowstorm.example.com/snowstorm/snomed-ct`. |
 | `LOG_LEVEL` | No | pino log level (`debug`, `info`, `warn`, `error`, `fatal`). Default `info`. |

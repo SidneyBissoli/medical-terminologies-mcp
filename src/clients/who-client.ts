@@ -9,6 +9,12 @@ const log = createClientLogger('who');
 
 /**
  * WHO ICD-11 API Configuration
+ *
+ * `releaseId` is read from WHO_ICD11_RELEASE_ID at module load so operators
+ * can pin to a specific release (e.g., '2024-01', '2025-01') without
+ * waiting for a package update. WHO publishes a new release roughly
+ * yearly; the default tracks the release this version of the package was
+ * tested against.
  */
 const WHO_CONFIG = {
   /** Base URL for ICD-11 API */
@@ -17,8 +23,7 @@ const WHO_CONFIG = {
   tokenUrl: 'https://icdaccessmanagement.who.int/connect/token',
   /** OAuth2 scope */
   scope: 'icdapi_access',
-  /** Release ID (use 2024-01 for latest stable release) */
-  releaseId: '2024-01',
+  releaseId: process.env.WHO_ICD11_RELEASE_ID ?? '2024-01',
   /** Linearization for MMS (Mortality and Morbidity Statistics) */
   linearization: 'mms',
 } as const;
