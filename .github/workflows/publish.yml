@@ -38,6 +38,12 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    # id-token: write is required for npm --provenance: GitHub Actions
+    # mints an OIDC token that npm uses to sign the SLSA attestation
+    # asserting the package was built from this repo at this commit.
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +64,7 @@ jobs:
         run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
