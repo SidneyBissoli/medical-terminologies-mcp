@@ -67,24 +67,31 @@ Probabilidade temporal: (a) primeiro, depois (c), depois talvez (b). Quando atac
 
 ---
 
-## [P3 — Lacunas de cobertura de terminologias] Status: deliberadamente diferido (revisão 2026-05-08)
+## [P3 — Lacunas de cobertura de terminologias] Status: ENTREGUE em 2026-05-09 (era deferral 2026-05-08)
 
-**Estado atual:**
+**O que foi feito (commit `bf13fde`):**
 
-- 5 terminologias suportadas (ICD-11, LOINC, RxNorm, MeSH, SNOMED). Sem ATC, CID-10, DSM-5, OPCS-4, CPT, OMIM, CID-O, DICOM SR.
-- Decisão tomada conjuntamente no início do Batch B; ficou registrada apenas em conversação até esta nota (mesmo caso da deferral do Streamable HTTP transport acima).
+- **ATC (3 tools)** via NLM RxClass — `atc_classify`, `atc_lookup`, `atc_members`. Decisão de ir por RxClass (e não pelo WHOCC direto) confirmada por verificação operacional: WHOCC distribui a base sob subscrição paga sem API pública, RxClass envelopa as mesmas pares código/nome free e roda no mesmo host que o RxNorm proper, então reusa o `RxNormClient` (rate limiter, retry, cache). Limitação descoberta empiricamente e documentada: o endpoint `byId` só resolve ATC1-4 (1-5 chars); códigos substance-level (7 chars) só vêm via `byDrugName`.
+- **CID-10 (4 tools)** via dataset DataSUS V2008 bundled — `cid10_search`, `cid10_lookup`, `cid10_chapters`, `cid10_chapter`. ~14.800 entradas (22 capítulos, 275 grupos, 2.045 categorias, 12.451 subcategorias) servidas in-memory. Esforço de empacotamento foi maior que o estimado por causa do encoding ISO-8859-1 e da decisão consciente de gerar JSON tabular (header+rows) em vez de array-de-objetos — reduziu de 3.27 MB para 1.94 MB. Script reproduzível em `scripts/build-cid10-dataset.mjs`.
+- Tool count: 28 default / 34 com SNOMED (era 21 / 27).
 
-**Por que diferido (não "faltando"):**
+**O que NÃO foi feito (e segue fora do escopo, por design):**
 
-A própria auditoria diferenciou explicitamente esse item dos outros: *"Risco de não fazer: Não é risco — é oportunidade."* Distinto qualitativamente das outras duas deferrals deste arquivo:
+- DSM-5 (licença APA), OPCS-4, CPT (licenças restritivas), OMIM/CID-O/DICOM SR (nicho insuficiente). A triagem original da auditoria que excluiu esses itens continua válida.
+
+**Por que entregamos antes dos triggers dispararem:**
+
+Os 3 gatilhos originais (decisão de posicionamento br / sinal qualitativo de uso / decisão de propor institucionalmente) foram pensados como condições suficientes para reavaliar — não como condições necessárias para implementar. O autor optou por antecipar com base em duas observações: (i) o esforço real (~10h) ficou abaixo da estimativa (~12h) e do custo de oportunidade aceito; (ii) ATC + CID-10 viram pré-requisito de qualquer caminho de adoção brasileira, então fazê-los antes converte os triggers de "decisão de posicionar" em "ação imediata possível assim que decidir" — diferença que importa quando a janela de decisão for curta.
+
+**Histórico do raciocínio original** (preservado para auditoria futura entender o estado pré-entrega):
+
+A nota original (auditoria 2026-05-08) classificou esse item como **roadmap, não débito**: *"Risco de não fazer: Não é risco — é oportunidade."* Distinguia:
 
 - P1 testes = **risco** (regressão silenciosa em produção)
 - P3 Streamable HTTP = **oportunidade de adoção** (canal de distribuição)
 - P3 cobertura de terminologias = **oportunidade de cobertura funcional** (caso de uso brasileiro fora hoje)
 
-Esse é o único dos três que é genuinamente roadmap, não débito. Sustentar a distinção evita que futuro auditor (humano ou IA) trate os três como equivalentes.
-
-**Triagem interna (auditoria já fez):**
+Triagem que selecionou ATC + CID-10 como os dois únicos worth implementing:
 
 - **ATC**: implementar (WHO Collaborating Centre)
 - **CID-10**: implementar (DataSUS / CDC XML)
@@ -92,20 +99,16 @@ Esse é o único dos três que é genuinamente roadmap, não débito. Sustentar 
 - **OPCS-4, CPT**: fora (licenças restritivas)
 - **OMIM, CID-O, DICOM SR**: fora (nicho insuficiente)
 
-ATC + CID-10 = ~12h. São os dois únicos worth implementing.
+Precisões sobre o framing brasileiro que orientaram a implementação:
 
-**Precisões sobre o framing brasileiro** (importantes para futura implementação):
+- **CID-10 não é "equivalente brasileiro" do ICD-11.** É a tradução brasileira oficial (CBCD/USP) da ICD-10 — versão anterior. ICD-11 é a internacional mais nova; o Brasil ainda não adotou oficialmente. Implementar CID-10 não foi adicionar "equivalente regional" — foi cobrir a versão da ICD que SUS/ANVISA usam operacionalmente hoje.
+- **ATC não tem equivalente brasileiro.** É a classificação internacional WHO Collaborating Centre adotada diretamente por ANVISA, RENAME, Farmácia Popular. Sem camada de adaptação brasileira — só acesso à classificação WHO. Simplificou a implementação (não precisou parser de variante local).
 
-- **CID-10 não é "equivalente brasileiro" do ICD-11.** É a tradução brasileira oficial (CBCD/USP) da ICD-10 — versão anterior. ICD-11 é a internacional mais nova; o Brasil ainda não adotou oficialmente. Implementar CID-10 não é adicionar "equivalente regional" — é cobrir a versão da ICD que SUS/ANVISA usam operacionalmente hoje. Reforça o argumento de impacto.
-- **ATC não tem equivalente brasileiro.** É a classificação internacional WHO Collaborating Centre adotada diretamente por ANVISA, RENAME, Farmácia Popular. Sem camada de adaptação brasileira — só acesso à classificação WHO. Simplifica a implementação (não precisa parser de variante local).
+Os 3 triggers originais ficam como contexto morto agora que o trabalho foi feito, mas vale registrar o que eram para futuros contribuintes entenderem por que essa entrega não exigiu sinal externo:
 
-**Reavaliar quando:**
-
-- (a) **Decisão de submeter ao MCP Registry com tag `region:brazil` ou `country:br`**, ou de listar em catálogos brasileiros de software de saúde (GitHub topic `saude-publica-brasil`, blog post na rede brasileira de saúde digital). Operacionaliza a intenção abstrata "posicionar para mercado brasileiro" em ação concreta com data.
-- (b) **Pelo menos 1 pedido formal de usuário OU 1 issue no GitHub mencionando uso clínico/governamental brasileiro.** Sinal qualitativo (uso institucional) > quantitativo (contagem de pedidos) — usuários de MCPs raramente abrem issues pedindo features; tipicamente abandonam e procuram alternativa, então threshold de N pedidos pode nunca ser atingido mesmo com demanda real.
-- (c) **Decisão de propor o pacote como ferramenta auxiliar em projeto institucional do DataSenado, IBGE, Ministério da Saúde ou similar.** Trigger com maior probabilidade dado o contexto profissional do autor (Analista Legislativo do DataSenado, acesso natural a esses canais). ATC + CID-10 viram pré-requisitos imediatos se o pacote for proposto institucionalmente.
-
-Probabilidade temporal estimada: (c) primeiro, depois (a), depois (b). Esse item, no contexto específico do autor, provavelmente tem retorno por hora maior que vários itens P1/P2 fechados — mas só se materializar via canal institucional. Sem isso, são 12h num projeto solo de ~160 dl/mês com retorno marginal baixo.
+- (a) decisão de posicionar pra mercado br (MCP Registry tag, catálogos de saúde digital)
+- (b) sinal qualitativo de uso clínico/governamental brasileiro
+- (c) decisão de propor ao DataSenado/IBGE/MS — o trigger que era mais provável dado o contexto profissional do autor
 
 ---
 
@@ -578,19 +581,17 @@ Projeto com arquitetura de baixo nível sólida e cobertura funcional ampla (27 
 
 ---
 
-### [P3] Lacunas em cobertura de terminologias — vale considerar
+### [P3] Lacunas em cobertura de terminologias — ✅ RESOLVIDO em 2026-05-09
 
 - **Categoria:** Cobertura funcional
-- **Evidência:** README e `package.json:13-31` listam 5 terminologias. Não há ATC, OPCS-4, CPT, DSM-5, OMIM, CID-10 (ICD-10 nativo), CID-O (oncologia), DICOM SR codes.
-- **Problema:** Para um pacote chamado "medical-terminologies-mcp", a ausência de ICD-10 nativo (vs. apenas ICD-11) é notável — muitos sistemas brasileiros e europeus ainda usam CID-10. ATC é a referência padrão para classificação de medicamentos no SUS, ANVISA, e farmacologia internacional.
-- **Sugestão (priorizada por impacto-esforço para o contexto do autor):**
-  - **ATC** via WHO Collaborating Centre API ou pacote de dados estático (~M esforço).
-  - **CID-10** via SUS/CID10 do DataSUS (`http://www2.datasus.gov.br/cid10/V2008/cid10.htm`) ou XML estático do CDC (~M).
-  - **DSM-5** restrição de licença APA — provável "documentação apenas" (~P).
-  - OPCS-4, CPT: licenças restritivas, deixar fora.
-  - DICOM SR codes: nicho, baixa prioridade.
-- **Esforço estimado:** Variável; ATC + CID-10 = G no total (~12 h).
-- **Risco de não fazer:** Não é risco — é oportunidade. Atende caso de uso brasileiro que está fora hoje.
+- **Evidência (no estado da auditoria):** README e `package.json:13-31` listavam 5 terminologias. Sem ATC, OPCS-4, CPT, DSM-5, OMIM, CID-10 (ICD-10 nativo), CID-O (oncologia), DICOM SR codes.
+- **Problema:** Para um pacote chamado "medical-terminologies-mcp", a ausência de ICD-10 nativo (vs. apenas ICD-11) era notável — muitos sistemas brasileiros e europeus ainda usam CID-10. ATC é a referência padrão para classificação de medicamentos no SUS, ANVISA, e farmacologia internacional.
+- **Resolução:**
+  - **ATC implementado** via NLM RxClass (não WHOCC — WHOCC não tem API pública e cobra subscrição; RxClass envelopa o mesmo dataset free). 3 tools: `atc_classify`, `atc_lookup`, `atc_members`. Reusa `RxNormClient` (mesma host).
+  - **CID-10 implementado** via DataSUS V2008 bundled como `src/data/cid10.json` (~1.94 MB tabular). 4 tools: `cid10_search` (diacritic-insensitive), `cid10_lookup`, `cid10_chapters`, `cid10_chapter`. Sem HTTP em runtime.
+  - **DSM-5, OPCS-4, CPT, OMIM, CID-O, DICOM SR**: continuam fora por design (licenças restritivas ou nicho insuficiente). Triagem original mantida.
+- **Esforço real:** ~10 h (estimativa era ~12 h); ver detalhamento na deferral correspondente no topo deste arquivo, agora marcada como ENTREGUE.
+- **Commit:** `bf13fde feat: add ATC and CID-10 terminologies, fix LOINC lookup edge case`.
 
 ---
 
