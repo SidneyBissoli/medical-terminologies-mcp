@@ -30,3 +30,17 @@ coverage/
 
 # Temp area used by scripts/build-cid10-dataset.mjs
 scripts/_tmp/
+
+# R session log
+.Rhistory
+
+# Claude Code per-developer permissions (settings.local.json is the
+# documented "local override" file; settings.json would be shareable
+# if this project ever needs one)
+.claude/settings.local.json
+
+# Pandoc-generated HTML companions of the project's .md docs. The .md
+# files are the source of truth; rebuild locally with `pandoc x.md -o x.html`.
+/PROGRESS.html
+/improvements.html
+/roadmap.html
