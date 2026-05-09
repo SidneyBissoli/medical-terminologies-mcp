@@ -1,0 +1,46 @@
+
+
+{
+  "@id" : "http://id.nlm.nih.gov/mesh/T020937",
+  "@type" : "http://id.nlm.nih.gov/mesh/vocab#Term",
+  "http://id.nlm.nih.gov/mesh/vocab#active" : true,
+  "dateCreated" : "1999-01-01",
+  "identifier" : "T020937",
+  "lexicalTag" : {
+    "@language" : "en",
+    "@value" : "NON"
+  },
+  "prefLabel" : {
+    "@language" : "en",
+    "@value" : "Hypertension"
+  },
+  "thesaurusID" : [ {
+    "@language" : "en",
+    "@value" : "NLM (1963)"
+  }, {
+    "@language" : "en",
+    "@value" : "BIOETHICS (1989)"
+  } ],
+  "@context" : {
+    "prefLabel" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#prefLabel"
+    },
+    "dateCreated" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#dateCreated",
+      "@type" : "http://www.w3.org/2001/XMLSchema#date"
+    },
+    "thesaurusID" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#thesaurusID"
+    },
+    "lexicalTag" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#lexicalTag"
+    },
+    "identifier" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#identifier"
+    },
+    "active" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#active",
+      "@type" : "http://www.w3.org/2001/XMLSchema#boolean"
+    }
+  }
+}

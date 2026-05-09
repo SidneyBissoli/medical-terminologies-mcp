@@ -1,0 +1,56 @@
+
+
+{
+  "@id" : "http://id.nlm.nih.gov/mesh/T020938",
+  "@type" : "http://id.nlm.nih.gov/mesh/vocab#Term",
+  "http://id.nlm.nih.gov/mesh/vocab#active" : true,
+  "altLabel" : [ {
+    "@language" : "en",
+    "@value" : "Blood Pressures, High"
+  }, {
+    "@language" : "en",
+    "@value" : "High Blood Pressure"
+  }, {
+    "@language" : "en",
+    "@value" : "High Blood Pressures"
+  } ],
+  "dateCreated" : "1974-03-30",
+  "identifier" : "T020938",
+  "lexicalTag" : {
+    "@language" : "en",
+    "@value" : "NON"
+  },
+  "prefLabel" : {
+    "@language" : "en",
+    "@value" : "Blood Pressure, High"
+  },
+  "thesaurusID" : {
+    "@language" : "en",
+    "@value" : "BIOETHICS (1989)"
+  },
+  "@context" : {
+    "altLabel" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#altLabel"
+    },
+    "lexicalTag" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#lexicalTag"
+    },
+    "dateCreated" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#dateCreated",
+      "@type" : "http://www.w3.org/2001/XMLSchema#date"
+    },
+    "active" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#active",
+      "@type" : "http://www.w3.org/2001/XMLSchema#boolean"
+    },
+    "prefLabel" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#prefLabel"
+    },
+    "thesaurusID" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#thesaurusID"
+    },
+    "identifier" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#identifier"
+    }
+  }
+}

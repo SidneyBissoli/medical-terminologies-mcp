@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Contract tests with `nock` + captured live fixtures** for the 5
+  HTTP clients (MeSH, NLM/LOINC, RxNorm/ATC, WHO, SNOMED). 57 new
+  tests across `src/clients/*.contract.test.ts`. Fixtures captured
+  from the real APIs live in `src/__fixtures__/<api>/`. These pin
+  the parsers to current upstream shapes and would have caught the
+  MeSH JSON-LD regression that was silently shipping empty data.
+- **Integration tests against live APIs** at
+  `src/integration/live-apis.integration.test.ts`. Skipped by default;
+  enabled with `INTEGRATION_TESTS=1`. Daily cron CI workflow at
+  `.github/workflows/integration.yml` runs them and surfaces upstream
+  drift close to when it happens. WHO and SNOMED tests skip cleanly
+  when their respective creds / flags are absent.
 - **ATC (Anatomical Therapeutic Chemical) terminology** via NLM RxClass:
   `atc_classify` (drug name → ATC codes), `atc_lookup` (ATC code at
   level 1-4 → name + level type), `atc_members` (ATC class → member
@@ -84,6 +96,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **MeSH client rewrite** for the new compact JSON-LD response shape.
+  NLM stopped returning `@graph`-wrapped descriptors at some point
+  before 2026-05-09; the old parser silently returned empty
+  treeNumbers/concepts/qualifiers. The new fan-out architecture
+  fetches the descriptor + preferred concept + each term + each
+  qualifier as separate cached resources, in parallel under the
+  shared rate limiter. `mesh_descriptor`, `mesh_tree`, and
+  `mesh_qualifiers` tools now return populated data again.
+- WHO `lookup` by URI no longer doubles the `/icd` prefix in the
+  request path. The axios baseURL already includes `/icd`, but the
+  URI parser was passing the full pathname (including its own
+  `/icd`) through, producing `https://id.who.int/icd/icd/...` which
+  404s. Matched the correct stripping that `getEntity` already used.
 - WHO OAuth token cache TTL now honors the API's real `expires_in` minus
   60s margin (was hardcoded to 50 minutes; would have served stale tokens
   if WHO ever shortened the lifetime).

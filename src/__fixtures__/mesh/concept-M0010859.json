@@ -1,0 +1,41 @@
+
+
+{
+  "@id" : "http://id.nlm.nih.gov/mesh/M0010859",
+  "@type" : "http://id.nlm.nih.gov/mesh/vocab#Concept",
+  "http://id.nlm.nih.gov/mesh/vocab#active" : true,
+  "identifier" : "M0010859",
+  "preferredTerm" : "http://id.nlm.nih.gov/mesh/T020937",
+  "scopeNote" : {
+    "@language" : "en",
+    "@value" : "Persistently high systemic arterial BLOOD PRESSURE. Based on multiple readings (BLOOD PRESSURE DETERMINATION), hypertension is currently defined as when SYSTOLIC PRESSURE is consistently greater than 140 mm Hg or when DIASTOLIC PRESSURE is consistently 90 mm Hg or more."
+  },
+  "term" : "http://id.nlm.nih.gov/mesh/T020938",
+  "label" : {
+    "@language" : "en",
+    "@value" : "Hypertension"
+  },
+  "@context" : {
+    "preferredTerm" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#preferredTerm",
+      "@type" : "@id"
+    },
+    "label" : {
+      "@id" : "http://www.w3.org/2000/01/rdf-schema#label"
+    },
+    "active" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#active",
+      "@type" : "http://www.w3.org/2001/XMLSchema#boolean"
+    },
+    "scopeNote" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#scopeNote"
+    },
+    "term" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#term",
+      "@type" : "@id"
+    },
+    "identifier" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#identifier"
+    }
+  }
+}

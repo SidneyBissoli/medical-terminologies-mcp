@@ -1,0 +1,25 @@
+
+
+{
+  "@id" : "http://id.nlm.nih.gov/mesh/C14.907.489",
+  "@type" : "http://id.nlm.nih.gov/mesh/vocab#TreeNumber",
+  "http://id.nlm.nih.gov/mesh/vocab#active" : true,
+  "parentTreeNumber" : "http://id.nlm.nih.gov/mesh/C14.907",
+  "label" : {
+    "@language" : "en",
+    "@value" : "C14.907.489"
+  },
+  "@context" : {
+    "active" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#active",
+      "@type" : "http://www.w3.org/2001/XMLSchema#boolean"
+    },
+    "label" : {
+      "@id" : "http://www.w3.org/2000/01/rdf-schema#label"
+    },
+    "parentTreeNumber" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#parentTreeNumber",
+      "@type" : "@id"
+    }
+  }
+}

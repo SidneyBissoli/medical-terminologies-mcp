@@ -265,9 +265,12 @@ export class WHOClient {
     // Determine if it's a code or URI
     let path: string;
     if (codeOrUri.startsWith('http')) {
-      // Extract path from full URI
+      // The axios baseURL already includes `/icd`; URIs from WHO start
+      // with that prefix too, so strip it before passing to axios or the
+      // request hits a doubled `/icd/icd/...` path that 404s. (Same
+      // mistake `getEntity` previously avoided; fixing it here too.)
       const url = new URL(codeOrUri);
-      path = url.pathname;
+      path = url.pathname.replace(/^\/icd/, '');
     } else {
       // Build path from code
       path = `/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/codeinfo/${codeOrUri}`;

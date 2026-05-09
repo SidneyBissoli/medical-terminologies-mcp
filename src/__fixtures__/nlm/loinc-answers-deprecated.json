@@ -1,0 +1,1 @@
+{"deprecated_endpoint": "loinc_answers returns 404 since at least 2026-05-09; client catches and returns [] — captured as a marker for the test"}

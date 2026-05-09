@@ -1,0 +1,54 @@
+name: Integration tests (live APIs)
+
+# These tests hit real upstream terminology APIs (NLM Clinical Tables,
+# RxNav, MeSH Linked Data, optionally WHO ICD-11 and a self-hosted
+# Snowstorm). They're slow and depend on third-party uptime, so they
+# don't gate PR merges. Instead, they run on a daily cron and surface
+# upstream API drift close to when it happens.
+#
+# History motivating this workflow:
+#  - 2026-05-09: A silent MeSH JSON-LD shape change had been masking
+#    descriptor data loss for an unknown amount of time. Daily cron +
+#    explicit shape assertions catches that class of regression.
+#
+# To run locally: `INTEGRATION_TESTS=1 npm test`.
+
+on:
+  # 09:00 UTC = 06:00 BRT, before the working day in Brazil.
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+# Don't pile up runs if a previous one is still going (e.g., upstream
+# is slow and a manual dispatch overlaps the cron).
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration tests
+        run: npm test -- src/integration/
+        env:
+          INTEGRATION_TESTS: '1'
+          # WHO_CLIENT_ID / WHO_CLIENT_SECRET are read by the test file
+          # if present; absence makes WHO tests skip cleanly.
+          WHO_CLIENT_ID: ${{ secrets.WHO_CLIENT_ID }}
+          WHO_CLIENT_SECRET: ${{ secrets.WHO_CLIENT_SECRET }}
+          # SNOMED self-hosted Snowstorm — typically not configured for
+          # public CI, so SNOMED tests will skip.
+          ENABLE_SNOMED_TOOLS: ${{ vars.ENABLE_SNOMED_TOOLS }}
+          SNOMED_BASE_URL: ${{ vars.SNOMED_BASE_URL }}

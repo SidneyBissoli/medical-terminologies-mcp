@@ -1,0 +1,75 @@
+
+
+{
+  "@id" : "http://id.nlm.nih.gov/mesh/Q000503",
+  "@type" : "http://id.nlm.nih.gov/mesh/vocab#Qualifier",
+  "http://id.nlm.nih.gov/mesh/vocab#active" : true,
+  "annotation" : {
+    "@language" : "en",
+    "@value" : "subhead only; for function of organs in disease states only; not a synonym for \"disease\"; indexing policy: Manual 19.8.56; DF: /physiopathology or /PP"
+  },
+  "broaderQualifier" : "http://id.nlm.nih.gov/mesh/Q000502",
+  "dateIntroduced" : "1966-01-01",
+  "historyNote" : {
+    "@language" : "en",
+    "@value" : "66; used with Category A, C & F 1966-74; A, C & F3 1975-87; A, C, F3 & SMOKING 1988; A, C, F3 & SMOKING+ 1989; A1-10, A13-16, C & F3 1990 forward"
+  },
+  "identifier" : "Q000503",
+  "lastUpdated" : "2003-07-22",
+  "onlineNote" : {
+    "@language" : "en",
+    "@value" : "search policy: Online Manual; use: main heading/PP or PP (SH) or SUBS APPLY PP"
+  },
+  "preferredConcept" : "http://id.nlm.nih.gov/mesh/M0030707",
+  "preferredTerm" : "http://id.nlm.nih.gov/mesh/T061127",
+  "treeNumber" : "http://id.nlm.nih.gov/mesh/Y08.050",
+  "label" : {
+    "@language" : "en",
+    "@value" : "physiopathology"
+  },
+  "@context" : {
+    "lastUpdated" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#lastUpdated",
+      "@type" : "http://www.w3.org/2001/XMLSchema#date"
+    },
+    "treeNumber" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#treeNumber",
+      "@type" : "@id"
+    },
+    "preferredConcept" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#preferredConcept",
+      "@type" : "@id"
+    },
+    "annotation" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#annotation"
+    },
+    "broaderQualifier" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#broaderQualifier",
+      "@type" : "@id"
+    },
+    "onlineNote" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#onlineNote"
+    },
+    "dateIntroduced" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#dateIntroduced",
+      "@type" : "http://www.w3.org/2001/XMLSchema#date"
+    },
+    "preferredTerm" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#preferredTerm",
+      "@type" : "@id"
+    },
+    "active" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#active",
+      "@type" : "http://www.w3.org/2001/XMLSchema#boolean"
+    },
+    "historyNote" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#historyNote"
+    },
+    "label" : {
+      "@id" : "http://www.w3.org/2000/01/rdf-schema#label"
+    },
+    "identifier" : {
+      "@id" : "http://id.nlm.nih.gov/mesh/vocab#identifier"
+    }
+  }
+}

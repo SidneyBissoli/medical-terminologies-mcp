@@ -6,36 +6,33 @@
 
 ---
 
-## [P1 — Testes] Status: parcialmente entregue, contract+integration tests deliberadamente diferidos (revisão 2026-05-08)
+## [P1 — Testes] Status: ENTREGUE em 2026-05-09 (era deferral parcial 2026-05-08)
 
-**Entregue (commit `790eefc`):**
+**Trabalho original (commit `790eefc`):**
 
 - Vitest setup zero-config, `npm test` script, CI workflow rodando em PR + push to main.
-- 116 tests across 5 files, ~330ms:
-  - `src/utils/cache.test.ts` — 8 tests (get/set, prefix namespacing, getOrSet semantics)
-  - `src/utils/rate-limiter.test.ts` — 8 tests (token bucket, queue, refill)
-  - `src/utils/retry.test.ts` — 7 tests (retryable vs non-retryable, exhaustion, callbacks)
-  - `src/utils/zod-schema.test.ts` — 9 tests (buildInputSchema/Output, handleToolError, annotations)
-  - `src/types/schemas.test.ts` — 58 tests (input validators table-driven, output schemas com fixtures)
+- 116 tests across 5 files: cache, rate-limiter, retry, zod-schema, types/schemas.
 
-**Cobertura prática que isso entrega:**
+**Adicionado em 2026-05-09:**
 
-- Os 58 schema tests cobrem regressões nos 24 handlers que constroem `structuredContent` — qualquer typo de mapeamento camelCase→snake_case falha no TS compile-time (handler usa o tipo inferido) e nos schema tests em runtime se a forma divergir.
-- Validação dos regex strict (LOINC, SCTID, MeSH ID, RxCUI) e dos refines (ICD-11 lookup, RxNorm NDC).
+- **Contract tests com `nock` + fixtures live** para os 5 clients HTTP. 57 testes novos em `src/clients/*.contract.test.ts`. Fixtures capturadas das APIs reais ficam em `src/__fixtures__/<api>/`. Pinam o parser ao shape upstream atual.
+- **Integration tests contra APIs reais** em `src/integration/live-apis.integration.test.ts`. Skipped por default; gated por `INTEGRATION_TESTS=1`. CI workflow diário em `.github/workflows/integration.yml` roda no cron e captura drift upstream perto do incidente.
+- WHO + SNOMED tests fazem skip elegante quando creds/flags ausentes, então CI público não precisa de secrets pra rodar a suite.
+- Total: **243 tests across 13 files**, suite roda em ~20s.
 
-**Diferido deliberadamente:**
+**Por que entregamos antes dos triggers dispararem:**
 
-- Contract tests com `nock`/`msw` para os 5 clients (estimado ~6-8h).
-- Integration tests com env flag contra APIs reais (estimado ~4-6h).
+A motivação original do diferimento era "ROI marginal porque nenhum bug real reportado ainda". A premissa caiu durante a captura de fixtures: descobri **três regressões silenciosas em produção**, todas no padrão "API mudou shape, cliente devolve dados vazios sem crashar":
 
-**Por que diferido (não "faltando"):** O cenário que motivou o P1 — "se a NLM mudar o formato JSON-LD do MeSH amanhã" — não é capturado por contract tests com snapshots, porque o snapshot é frozen e continua passando. Para esse cenário, integration tests contra APIs reais são necessários. Contract tests sozinhos detectam apenas bugs introduzidos por refatoração interna, classe que TypeScript strict + os 58 schema tests existentes já cobrem parcialmente. Para a faixa de adoção atual (~160 dl/mês), o ROI marginal de 10-14h adicionais não se justifica.
+1. **MeSH `/{id}.json`** — NLM trocou de JSON-LD com `@graph` array para JSON-LD compacto flat. O parser do `MeSHClient` traversava `@graph` e nunca casava nada. `mesh_descriptor`, `mesh_tree`, `mesh_qualifiers` retornavam `label`, `scope_note`, `tree_numbers`, `concepts`, `qualifiers` todos vazios. Reescrita do client com fan-out paralelo (descriptor + concept + terms + qualifiers como recursos separados).
+2. **NLM `/loinc_answers`** — endpoint inteiro retorna HTTP 404. O cliente cata silenciosamente como "sem respostas" e retorna `[]`. `loinc_answers` está, em produção, sempre vazio. Não corrigido neste sweep — é P1 separado (precisa redesenhar via `loinc_form_definitions` para forms ou descobrir o novo endpoint canônico).
+3. **WHO `lookup` por URI** — duplicava `/icd` no path (`https://id.who.int/icd/icd/entity/...` → 404). `getEntity` já fazia o stripping correto; `lookup` não. Fix de 1 linha.
 
-**Reavaliar quando:**
+A regressão MeSH justifica retroativamente o investimento — schema tests do `Schema.parse()` não pegam, contract tests com fixtures congelados também não, **só integration tests com chamada real à API capturam**. O custo (~10h) ficou pago pela descoberta + fix das três regressões + a infraestrutura para detectar a próxima close-to-incident.
 
-- (a) Primeira regressão real reportada por usuário (sinal de que a rede de proteção runtime via `Schema.parse()` está deixando bugs passarem em produção), OU
-- (b) Downloads cruzarem 1.000/mês sustentados (mais usuários = maior custo de regressão por incidente).
+**Próximo trigger relacionado:**
 
-Quando reavaliar, fazer o conjunto completo: contract tests + integration tests + cron diário em CI. Não fazer só contract tests — resolve a classe errada de bug.
+- `loinc_answers` 404 ainda não tem fix de produção — só pin de comportamento via contract test. Worth abrir issue separado quando alguém quiser indexar a fonte alternativa (provavelmente `loinc_form_definitions` para forms; investigar para single observations).
 
 ---
 
