@@ -79,19 +79,23 @@ Conventional Commits style — the repo's history uses
 `perf:` prefixes. Body should explain *why*, not *what* (the diff
 shows the what).
 
-If your change addresses an item from `improvements.md`, reference it
-explicitly in the body so future readers can map the commit to the
-audit context.
+If your change addresses an item from `PROGRESS.md` (audit findings or
+active deferrals), reference it explicitly in the body so future readers
+can map the commit to that context.
 
 ## Tests philosophy
 
-Initial test surface (as of this writing) covers utils and Zod schemas.
-Contract tests for the 5 clients (mocking upstream HTTP) and integration
-tests against real APIs are *deliberately deferred* until the project
-hits one of two triggers documented in `improvements.md`. If you want
-to add either, please open an issue first to discuss scope before
-filing the PR — there are real trade-offs around fixture maintenance
-and CI cost.
+Tests cover three layers: utils + Zod schemas (unit), HTTP clients
+against captured fixtures (contract — `src/clients/*.contract.test.ts`,
+using nock), and live API smoke tests (integration —
+`src/integration/`, gated by `INTEGRATION_TESTS=1`). The integration
+suite runs daily on cron (`.github/workflows/integration.yml`) so
+upstream API drift surfaces close to when it happens.
+
+When adding a new HTTP-backed feature, capture a live fixture into
+`src/__fixtures__/<api>/` and write a contract test pinning the parser
+against it. WHO + SNOMED tests use inline mocks because their public
+hosts don't ship test creds.
 
 ## Reporting issues
 

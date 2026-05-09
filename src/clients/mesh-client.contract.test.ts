@@ -6,7 +6,7 @@
  * descriptor / concept / term / qualifier endpoint shapes again, these
  * tests fail close to the change instead of letting tools silently
  * return empty data (which is exactly what shipped before commit
- * before this rewrite — see improvements.md P1 about MeSH JSON-LD
+ * before this rewrite — see PROGRESS.md Phase 10 about MeSH JSON-LD
  * drift).
  */
 

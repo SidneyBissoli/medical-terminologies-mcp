@@ -4,8 +4,9 @@
 
 ## Why
 
-<!-- The user-visible motivation. If addressing an audit item, link
-     it (e.g. "improvements.md P1: getLOINCDetails false-null bug"). -->
+<!-- The user-visible motivation. If addressing an item from PROGRESS.md
+     (audit findings or active deferrals), reference it (e.g.
+     "PROGRESS.md Phase 8: getLOINCDetails false-null bug"). -->
 
 ## Type
 

@@ -107,7 +107,7 @@ distribuição.
 
 1. **Sem Streamable HTTP transport.** O servidor só fala stdio. Isso
    **bloqueia Smithery.ai, Cloudflare Workers, LobeHub, MCP hosted
-   directories**. Conforme `improvements.md`, o projeto irmão `bcb-br-mcp`
+   directories**. Conforme `PROGRESS.md` (Active Deferrals), o projeto irmão `bcb-br-mcp`
    tem ~501 dl/mês com distribuição multi-canal vs. ~160 dl/mês deste
    pacote em npm-only — diferença que provavelmente reflete canal mais
    que qualidade. **O item de maior alavancagem do roadmap inteiro é

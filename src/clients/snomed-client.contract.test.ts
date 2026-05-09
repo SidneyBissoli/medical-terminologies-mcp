@@ -2,7 +2,7 @@
  * Contract tests for SNOMEDClient.
  *
  * No live fixtures (the public IHTSDO Snowstorm endpoint was retired —
- * see improvements.md P0). All responses are synthesized inline based
+ * see PROGRESS.md Active Deferrals). All responses are synthesized inline based
  * on the documented Snowstorm REST shape, so when an operator points
  * `SNOMED_BASE_URL` at a self-hosted Snowstorm, these tests validate
  * the parser the operator's traffic will go through.
