@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **ATC (Anatomical Therapeutic Chemical) terminology** via NLM RxClass:
+  `atc_classify` (drug name → ATC codes), `atc_lookup` (ATC code at
+  level 1-4 → name + level type), `atc_members` (ATC class → member
+  drugs). The WHOCC distributes the official ATC base under a paid
+  subscription, but RxClass envelopes the same code/name pairs free —
+  reuses the existing rxnorm rate limiter, retry, and cache. Substance-
+  level codes (7 chars, e.g., `A10BA02`) are surfaced via `atc_classify`
+  since RxClass `byId` only exposes ATC1-4.
+- **CID-10 (Brazilian translation of ICD-10, DataSUS V2008)** via
+  bundled dataset: `cid10_search` (Portuguese text search, diacritic-
+  insensitive), `cid10_lookup` (code → official Portuguese name),
+  `cid10_chapters` (list 22 chapters), `cid10_chapter` (chapter detail
+  with constituent groups). Dataset is frozen — DataSUS has not updated
+  V2008 since 2008 — so it ships as `src/data/cid10.json` (~1.9 MB,
+  tabular header+rows shape) bundled into `dist/index.js`. No HTTP
+  calls; pure in-memory. `scripts/build-cid10-dataset.mjs` regenerates
+  the JSON from the DataSUS CSV release on demand.
 - `outputSchema` and `structuredContent` on 24 of 27 tools (all except the 3
   guidance-only `map_*` crosswalk tools). Clients that read `structuredContent`
   (MCP spec since 2024-11-05) now get typed objects alongside the markdown
@@ -51,9 +68,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   timeout) and flush pino's async destination before exit. Previously
   `process.exit(0)` was called directly, cutting in-flight requests and
   potentially losing buffered logs.
-- `getLOINCDetails` now scopes the Clinical Tables search to `sf=LOINC_NUM`,
-  eliminating false-null returns where ranked text search promoted an
-  unrelated entity above the exact code.
+- `getLOINCDetails` now requests up to 10 candidates from Clinical Tables
+  instead of 1 before locating the exact-code match. Even with the search
+  scoped to `sf=LOINC_NUM`, the API ranks by relevance and could outrank
+  the exact code (especially for codes that are prefixes of others, e.g.
+  `2-1`), causing `loinc_details` to return null for valid LOINC numbers.
 - `find_equivalent`'s `source_terminology` parameter is now consumed as
   documented (excludes that terminology from the search). Was an orphan
   parameter declared in the schema but never read.

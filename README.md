@@ -7,14 +7,16 @@
 A Model Context Protocol (MCP) server providing unified access to major global medical terminologies:
 
 - **ICD-11** - International Classification of Diseases (WHO)
-- **SNOMED CT** - Systematized Nomenclature of Medicine
+- **SNOMED CT** - Systematized Nomenclature of Medicine *(opt-in; requires self-hosted Snowstorm)*
 - **LOINC** - Logical Observation Identifiers Names and Codes
 - **RxNorm** - Normalized names for clinical drugs (NIH)
 - **MeSH** - Medical Subject Headings (NLM)
+- **ATC** - Anatomical Therapeutic Chemical classification (WHO Collaborating Centre, served via NLM RxClass)
+- **CID-10** - Brazilian Portuguese translation of ICD-10 (DataSUS V2008, bundled)
 
 ## Features
 
-- 27 specialized tools for medical terminology lookup
+- 28 default tools (34 with SNOMED enabled) for medical terminology lookup
 - Multi-terminology support in a single server
 - Cross-terminology mapping and search
 - Built-in caching for improved performance
@@ -75,7 +77,7 @@ Add to your Claude Desktop configuration file:
 
 ² See [SNOMED CT setup (advanced)](#snomed-ct-setup-advanced) below. LOINC, RxNorm, and MeSH need no configuration.
 
-## Available Tools (21 by default, 27 with SNOMED enabled)
+## Available Tools (28 by default, 34 with SNOMED enabled)
 
 ### ICD-11 Tools (5)
 
@@ -135,6 +137,27 @@ These are only registered when `ENABLE_SNOMED_TOOLS=true`. See [SNOMED CT setup 
 | `map_snomed_to_icd10` | SNOMED CT → ICD-10 guidance (only when `ENABLE_SNOMED_TOOLS=true`) | `sctid: "73211009"` |
 | `map_loinc_to_snomed` | LOINC ↔ SNOMED guidance | `loinc_code: "2339-0"` |
 | `find_equivalent` | Cross-terminology search; SNOMED branch is skipped when SNOMED tools are disabled | `term: "diabetes"` |
+
+### ATC Tools (3)
+
+WHO Anatomical Therapeutic Chemical classification, served through NLM RxClass (free, no auth). The WHOCC base itself requires a paid subscription, but RxClass envelopes the same code/name pairs.
+
+| Tool | Description | Example |
+|------|-------------|---------|
+| `atc_classify` | Drug name → ATC code(s) | `drug_name: "metformin"` |
+| `atc_lookup` | ATC code (level 1-4) → name + level type | `atc_code: "A10BA"` |
+| `atc_members` | ATC class → member drugs | `atc_code: "A10BA"` |
+
+### CID-10 Tools (4)
+
+Brazilian Portuguese translation of ICD-10 (DataSUS V2008). Bundled as a static dataset — no HTTP calls. The Brazilian SUS uses CID-10 V2008 operationally; for the international ICD-11 (current WHO revision), use the ICD-11 tools above.
+
+| Tool | Description | Example |
+|------|-------------|---------|
+| `cid10_search` | Portuguese text search (diacritic-insensitive) | `query: "diabetes"` |
+| `cid10_lookup` | Code → official Portuguese name | `code: "I21"` or `"A00.1"` |
+| `cid10_chapters` | List the 22 CID-10 chapters | - |
+| `cid10_chapter` | Chapter detail with constituent groups | `num: 9` |
 
 ## Usage Examples
 

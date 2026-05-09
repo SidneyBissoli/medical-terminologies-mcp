@@ -9,6 +9,10 @@ import {
   RxNormConceptParamsSchema,
   RxNormNDCParamsSchema,
   FindEquivalentParamsSchema,
+  ATCByCodeParamsSchema,
+  ATCMembersParamsSchema,
+  CID10LookupParamsSchema,
+  CID10ChapterParamsSchema,
   // output schemas — established as a pattern by the ICD-11 commit
   ICD11SearchOutputSchema,
   ICD11LookupOutputSchema,
@@ -34,6 +38,13 @@ import {
   RxNormClassesOutputSchema,
   RxNormNDCOutputSchema,
   FindEquivalentOutputSchema,
+  ATCClassifyOutputSchema,
+  ATCLookupOutputSchema,
+  ATCMembersOutputSchema,
+  CID10SearchOutputSchema,
+  CID10LookupOutputSchema,
+  CID10ChaptersOutputSchema,
+  CID10ChapterDetailOutputSchema,
 } from './index.js';
 
 describe('input param schemas — strict validators run', () => {
@@ -836,6 +847,250 @@ describe('find_equivalent output schema — aggregator with mixed results', () =
         source_terminology: 'icd11',
         searched_terminologies: [],
         results: {},
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('ATC schemas', () => {
+  describe('ATC code regex', () => {
+    it.each([
+      ['A', true],
+      ['A10', true],
+      ['A10B', true],
+      ['A10BA', true],
+      ['A10BA02', true],
+      // Wrong shape
+      ['1', false],
+      ['AA', false],
+      ['A1', false],
+      ['A100', false],
+      ['A10BAA', false],
+      ['A10BA0', false],
+      ['A10BA022', false],
+      ['', false],
+      // Out-of-range first letter (ATC uses A-V, not W-Z)
+      ['Z', false],
+    ])('%s → valid=%s', (input, valid) => {
+      expect(ATCByCodeParamsSchema.safeParse({ atc_code: input }).success).toBe(valid);
+      // Members tool reuses the same code regex
+      expect(ATCMembersParamsSchema.safeParse({ atc_code: input }).success).toBe(valid);
+    });
+  });
+
+  it('classify output round-trips an empty matches array', () => {
+    expect(
+      ATCClassifyOutputSchema.safeParse({
+        drug_name: 'unknown_drug',
+        matches: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('classify output round-trips a populated match', () => {
+    expect(
+      ATCClassifyOutputSchema.safeParse({
+        drug_name: 'metformin',
+        matches: [
+          {
+            rxcui: '6809',
+            drug_name: 'metformin',
+            tty: 'IN',
+            atc_code: 'A10BA02',
+            atc_name: 'metformin',
+            atc_level_type: 'ATC1-4',
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('lookup output: found=false requires details=null but accepts the shape', () => {
+    expect(
+      ATCLookupOutputSchema.safeParse({
+        atc_code: 'A10BA02',
+        found: false,
+        details: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('members output: empty members allowed', () => {
+    expect(
+      ATCMembersOutputSchema.safeParse({
+        atc_code: 'A10BA',
+        members: [],
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe('CID-10 schemas', () => {
+  describe('CID-10 code regex', () => {
+    it.each([
+      ['A00', true],
+      ['I21', true],
+      ['R092', true],
+      ['A00.1', true],
+      ['z00', true], // case-insensitive
+      // Wrong shape
+      ['A0', false],
+      ['A0001', false],
+      ['AAA', false],
+      ['A00.', false],
+      ['A00..1', false],
+      ['', false],
+    ])('%s → valid=%s', (input, valid) => {
+      expect(CID10LookupParamsSchema.safeParse({ code: input }).success).toBe(valid);
+    });
+  });
+
+  describe('chapter param: bounded 1-22', () => {
+    it.each([
+      [1, true],
+      [22, true],
+      [11, true],
+      [0, false],
+      [23, false],
+      [-1, false],
+      [1.5, false],
+    ])('chapter num=%s → valid=%s', (num, valid) => {
+      expect(CID10ChapterParamsSchema.safeParse({ num }).success).toBe(valid);
+    });
+  });
+
+  it('search output: hit shape with chapter_num and group_range nullable', () => {
+    expect(
+      CID10SearchOutputSchema.safeParse({
+        query: 'diabetes',
+        level: 'all',
+        total_count: 1,
+        shown_count: 1,
+        hits: [
+          {
+            level: 'category',
+            code: 'E11',
+            display: 'E11',
+            classif: '',
+            title: 'Diabetes mellitus não-insulino-dependente',
+            title_short: 'Diabetes mellitus NID',
+            refer: '',
+            excluidos: '',
+            restr_sexo: '',
+            causa_obito: '',
+            chapter_num: 4,
+            group_range: 'E10-E14',
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('search output: hit with null chapter_num/group_range allowed', () => {
+    expect(
+      CID10SearchOutputSchema.safeParse({
+        query: 'x',
+        level: 'all',
+        total_count: 0,
+        shown_count: 0,
+        hits: [],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      CID10SearchOutputSchema.safeParse({
+        query: 'x',
+        level: 'all',
+        total_count: 1,
+        shown_count: 1,
+        hits: [
+          {
+            level: 'subcategory',
+            code: 'A001',
+            display: 'A00.1',
+            classif: '',
+            title: 'foo',
+            title_short: 'foo',
+            refer: '',
+            excluidos: '',
+            restr_sexo: '',
+            causa_obito: '',
+            chapter_num: null,
+            group_range: null,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('chapters output: empty allowed (degenerate dataset)', () => {
+    expect(CID10ChaptersOutputSchema.safeParse({ chapters: [] }).success).toBe(true);
+  });
+
+  it('lookup output: not-found shape is found=false + hit=null', () => {
+    expect(
+      CID10LookupOutputSchema.safeParse({
+        code: 'Z99',
+        found: false,
+        hit: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('lookup output: found subcategory shape', () => {
+    expect(
+      CID10LookupOutputSchema.safeParse({
+        code: 'A001',
+        found: true,
+        hit: {
+          level: 'subcategory',
+          code: 'A001',
+          display: 'A00.1',
+          classif: '',
+          title: 'Cólera devida a Vibrio cholerae 01, biótipo El Tor',
+          title_short: 'Colera...',
+          refer: '',
+          excluidos: '',
+          restr_sexo: '',
+          causa_obito: '',
+          chapter_num: 1,
+          group_range: 'A00-A09',
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('chapter detail output: not-found shape is found=false + chapter=null', () => {
+    expect(
+      CID10ChapterDetailOutputSchema.safeParse({
+        num: 5,
+        found: false,
+        chapter: null,
+        groups: [],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('chapter detail output: in-range chapter found shape', () => {
+    expect(
+      CID10ChapterDetailOutputSchema.safeParse({
+        num: 9,
+        found: true,
+        chapter: {
+          num: 9,
+          code_start: 'I00',
+          code_end: 'I99',
+          title: 'Doenças do aparelho circulatório',
+          title_short: 'Doenças aparelho circulatório',
+        },
+        groups: [
+          {
+            code_start: 'I00',
+            code_end: 'I02',
+            title: 'Febre reumática aguda',
+            title_short: 'Febre reumática aguda',
+          },
+        ],
       }).success,
     ).toBe(true);
   });

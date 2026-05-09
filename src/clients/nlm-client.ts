@@ -179,10 +179,16 @@ export class NLMClient {
       cacheKey,
       async () => {
         const url = `${NLM_CONFIG.clinicalTablesUrl}/loinc_items/v3/search`;
+        // maxList: 10 because the Clinical Tables search ranks by relevance,
+        // not by exact-code match. Codes that are prefixes of others (e.g.
+        // "2-1") can be outranked by longer codes that share the prefix, so
+        // a maxList of 1 silently returned null for valid LOINC numbers.
+        // 10 is large enough to surface the exact match while keeping the
+        // payload small.
         const response = await this.request<[number, string[], null, Array<string[]>]>(url, {
           terms: loincNum,
           sf: 'LOINC_NUM',
-          maxList: 1,
+          maxList: 10,
           df: DEFAULT_LOINC_FIELDS.join(','),
           ef: 'LOINC_NUM,LONG_COMMON_NAME,COMPONENT,PROPERTY,TIME_ASPCT,SYSTEM,SCALE_TYP,METHOD_TYP,CLASS,STATUS,SHORTNAME,EXAMPLE_UNITS,EXAMPLE_UCUM_UNITS,ORDER_OBS,HL7_FIELD_SUBFIELD_ID,RELATEDNAMES2,CONSUMER_NAME,CLASSTYPE',
         });
@@ -193,7 +199,6 @@ export class NLMClient {
           return null;
         }
 
-        // Find exact match
         const exactIndex = codes.findIndex(code => code === loincNum);
         if (exactIndex === -1) {
           return null;

@@ -29,6 +29,10 @@ import './tools/mesh.js';
 import './tools/snomed.js';
 // Phase 6: Crosswalk
 import './tools/crosswalk.js';
+// Phase 7: ATC (via NLM RxClass)
+import './tools/atc.js';
+// Phase 8: CID-10 (Brazilian, DataSUS V2008, bundled dataset)
+import './tools/cid10.js';
 
 /**
  * Main entry point

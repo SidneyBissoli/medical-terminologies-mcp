@@ -623,6 +623,208 @@ export const FindEquivalentOutputSchema = z.object({
 export type FindEquivalentOutput = z.infer<typeof FindEquivalentOutputSchema>;
 
 // ============================================================================
+// ATC params (Anatomical Therapeutic Chemical, served via NLM RxClass)
+// ============================================================================
+
+// ATC has 5 levels: anatomical (1 letter) → therapeutic (3 chars) →
+// pharmacological (4 chars) → chemical (5 chars) → substance (7 chars).
+// Examples: "A", "A10", "A10B", "A10BA", "A10BA02".
+const ATCCodeSchema = z
+  .string()
+  .regex(
+    /^[A-V](\d{2}([A-Z]([A-Z](\d{2})?)?)?)?$/,
+    'Invalid ATC code; expected formats: A, A10, A10B, A10BA, or A10BA02',
+  );
+
+export const ATCClassifyParamsSchema = z.object({
+  drug_name: z
+    .string()
+    .min(1)
+    .describe('Drug name to classify (brand or generic, e.g., "metformin")'),
+});
+
+export const ATCByCodeParamsSchema = z.object({
+  atc_code: ATCCodeSchema.describe(
+    'ATC code at level 1-4 (1-5 chars). Substance-level codes (7 chars, e.g., A10BA02) are not exposed by this endpoint — use atc_classify with the drug name instead.',
+  ),
+});
+
+export const ATCMembersParamsSchema = z.object({
+  atc_code: ATCCodeSchema.describe(
+    'ATC code at any level. Higher levels (1-4) return all member substances; level 5 returns the single substance.',
+  ),
+});
+
+// ============================================================================
+// ATC output schemas (structuredContent)
+// ============================================================================
+
+const ATCClassEntrySchema = z.object({
+  atc_code: z.string(),
+  atc_name: z.string(),
+  atc_level_type: z.string(),
+});
+
+export const ATCClassifyOutputSchema = z.object({
+  drug_name: z.string(),
+  matches: z.array(
+    z.object({
+      rxcui: z.string(),
+      drug_name: z.string(),
+      tty: z.string(),
+      atc_code: z.string(),
+      atc_name: z.string(),
+      atc_level_type: z.string(),
+    }),
+  ),
+});
+
+export const ATCLookupOutputSchema = z.object({
+  atc_code: z.string(),
+  found: z.boolean(),
+  // Populated when found=true. Null when the code is unknown or
+  // substance-level (RxClass byId doesn't expose the 7-char codes).
+  details: ATCClassEntrySchema.nullable(),
+});
+
+export const ATCMembersOutputSchema = z.object({
+  atc_code: z.string(),
+  members: z.array(
+    z.object({
+      rxcui: z.string(),
+      name: z.string(),
+      tty: z.string(),
+      // The substance-level (7-char) ATC code RxClass attaches per drug.
+      // When the queried class is at level 5, this matches atc_code.
+      source_atc_code: z.string(),
+    }),
+  ),
+});
+
+export type ATCClassifyOutput = z.infer<typeof ATCClassifyOutputSchema>;
+export type ATCLookupOutput = z.infer<typeof ATCLookupOutputSchema>;
+export type ATCMembersOutput = z.infer<typeof ATCMembersOutputSchema>;
+
+// ============================================================================
+// CID-10 params (Brazilian translation of ICD-10, DataSUS V2008)
+// ============================================================================
+
+// CID-10 codes use two display conventions:
+//   - 3-char categories: A00, B99, R09
+//   - 4-char subcategories: A001, A009, R092 (no dot, as stored in DataSUS CSV)
+//   - With dot for display: A00.1, A00.9, R09.2
+// We accept both 4-char (A001) and dotted (A00.1) forms in inputs.
+const CID10CodeSchema = z
+  .string()
+  .regex(
+    /^[A-Z]\d{2}(\.?\d)?$/i,
+    'Invalid CID-10 code; expected formats: A00, A001, or A00.1',
+  );
+
+export const CID10SearchParamsSchema = z.object({
+  query: z
+    .string()
+    .min(2)
+    .describe('Search term in Portuguese (e.g., "diabetes", "infarto", "tuberculose")'),
+  level: z
+    .enum(['categories', 'subcategories', 'all'])
+    .optional()
+    .default('all')
+    .describe(
+      'Restrict search to 3-char categories, 4-char subcategories, or both. Default: all',
+    ),
+  max_results: maxResults(25),
+});
+
+export const CID10LookupParamsSchema = z.object({
+  code: CID10CodeSchema.describe(
+    'CID-10 code (e.g., "A00", "A00.1", "A001", "I21"). Dotted and undotted forms both accepted.',
+  ),
+});
+
+// ============================================================================
+// CID-10 output schemas (structuredContent)
+// ============================================================================
+
+const CID10ChapterEntrySchema = z.object({
+  num: z.number().int(),
+  code_start: z.string(),
+  code_end: z.string(),
+  title: z.string(),
+  title_short: z.string(),
+});
+
+const CID10GroupEntrySchema = z.object({
+  code_start: z.string(),
+  code_end: z.string(),
+  title: z.string(),
+  title_short: z.string(),
+});
+
+// Categories (3-char) and subcategories (4-char) share these fields.
+// Subcategories add `display` (dotted form) and gender/cause-of-death
+// restriction flags.
+const CID10HitSchema = z.object({
+  level: z.enum(['category', 'subcategory']),
+  code: z.string(),
+  // Dotted display form. For 3-char categories this equals `code`; for
+  // 4-char subcategories it's like "A00.1".
+  display: z.string(),
+  classif: z.string(),
+  title: z.string(),
+  title_short: z.string(),
+  refer: z.string(),
+  excluidos: z.string(),
+  // Only meaningful for subcategories. Categories return empty strings.
+  restr_sexo: z.string(),
+  causa_obito: z.string(),
+  // Chapter and group containing this code. Useful for hierarchical
+  // navigation without an extra lookup.
+  chapter_num: z.number().int().nullable(),
+  group_range: z.string().nullable(),
+});
+
+export const CID10SearchOutputSchema = z.object({
+  query: z.string(),
+  level: z.enum(['categories', 'subcategories', 'all']),
+  total_count: z.number().int(),
+  shown_count: z.number().int(),
+  hits: z.array(CID10HitSchema),
+});
+
+export const CID10LookupOutputSchema = z.object({
+  code: z.string(),
+  found: z.boolean(),
+  // Populated when found=true; null otherwise.
+  hit: CID10HitSchema.nullable(),
+});
+
+export const CID10ChaptersOutputSchema = z.object({
+  chapters: z.array(CID10ChapterEntrySchema),
+});
+
+export const CID10ChapterDetailOutputSchema = z.object({
+  num: z.number().int(),
+  found: z.boolean(),
+  chapter: CID10ChapterEntrySchema.nullable(),
+  groups: z.array(CID10GroupEntrySchema),
+});
+
+export const CID10ChapterParamsSchema = z.object({
+  num: z
+    .number()
+    .int()
+    .min(1)
+    .max(22)
+    .describe('Chapter number (1-22). CID-10 V2008 has 22 chapters.'),
+});
+
+export type CID10SearchOutput = z.infer<typeof CID10SearchOutputSchema>;
+export type CID10LookupOutput = z.infer<typeof CID10LookupOutputSchema>;
+export type CID10ChaptersOutput = z.infer<typeof CID10ChaptersOutputSchema>;
+export type CID10ChapterDetailOutput = z.infer<typeof CID10ChapterDetailOutputSchema>;
+
+// ============================================================================
 // Runtime types used by clients (kept here because who-client and the OAuth
 // flow consume them)
 // ============================================================================

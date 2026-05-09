@@ -122,6 +122,42 @@ Probabilidade temporal estimada: (c) primeiro, depois (a), depois (b). Esse item
 
 ---
 
+## [P1 — `map_snomed_to_icd10` real via refset 447562003] Status: deliberadamente diferido (revisão 2026-05-09)
+
+**Estado atual:**
+
+- A tool `map_snomed_to_icd10` está gated atrás de `ENABLE_SNOMED_TOOLS=true` (P0 acima). Mesmo quando habilitada, o handler em `src/tools/crosswalk.ts:157-214` chama `client.getConcept(sctid)` e retorna **texto-guia** ("Reference Set ID: 447562003... Available via Snowstorm API"), não consulta o refset.
+- Originalmente classificado P1 no detalhamento da auditoria de 2026-05-08 ("`map_snomed_to_icd10` e `map_loinc_to_snomed` retornam apenas texto descritivo, sem mapeamento"). A sugestão era implementar via `/MAIN/concepts/{sctid}/refset-members?referenceSet=447562003` no Snowstorm.
+- A entrada P0 acima (linha 121) menciona implicitamente que essa implementação foi colateral da queda do endpoint público — mas nunca foi explicitada como deferral. Esta nota fecha a lacuna.
+
+**Por que diferido (não "faltando"):**
+
+A intersecção de operadores que (a) tem licença IHTSDO, (b) rodou Snowstorm self-hosted, (c) usa MCP servers, e (d) escolheu *este* especificamente é minúscula no estado atual:
+
+- Brasil não é membro IHTSDO; acesso aqui é via affiliate license (pesquisa não-comercial) ou comercial pago. Países-membro (UK, AU, países nórdicos) tipicamente usam terminology server nacional (NHS Terminology Server, Ontoserver, Snomed-Lite), não levantam Snowstorm próprio.
+- Snowstorm self-host é Java + Elasticsearch + import RF2 (10–50 GB) + manutenção. Não é trabalho que se faz para usar uma ferramenta MCP de ~160 dl/mês.
+- Equipes com Snowstorm rodando consomem direto via REST/FHIR. Um wrapper MCP agrega valor para usuário LLM-mediado e não-técnico — perfil que tipicamente *não* tem Snowstorm próprio.
+
+Adicionalmente: refset 447562003 chama-se **"ICD-10 Complex Map"** por design — não é tabela 1:1. Cada concept SNOMED pode ter múltiplos `ReferenceSetMember` com `mapGroup`, `mapPriority`, `mapRule` (ECL-like, requer avaliação de contexto), `mapAdvice` (string semi-estruturada como `MAP IS CONTEXT DEPENDENT FOR GENDER`) e `mapCategoryId` para fallback. Implementação naïve que faz `members[0].mapTarget` reproduz exatamente o problema que a auditoria flaggou em `map_icd10_to_icd11`: parece funcionar, mas mente em casos não-triviais. Implementação honesta (~5-6 h, retornando estrutura completa + contract tests com fixture JSON, já que não há Snowstorm pública para integration test) otimiza para um usuário que provavelmente não existe hoje.
+
+**Reavaliar quando (qualquer um destes):**
+
+- (a) **IHTSDO ou equivalente subir novo public host com refset Complex Map acessível.** O caminho mais provável de SNOMED voltar a ter utilidade real neste projeto não passa por self-host operador-único — passa por infraestrutura compartilhada disponível.
+- (b) **Pivot do `SNOMEDClient` para FHIR terminology server.** Ontoserver (CSIRO Australia), NHS Terminology Server e similares expõem `$translate` via FHIR, são públicos para algumas operações, e cobrem o caso multi-tenant. Mudança de transporte não-trivial — mas se acontecer por outro motivo, leva o refset map junto.
+- (c) **Streamable HTTP transport implementado e licença SNOMED da hospedagem cobrindo todos os clientes** (cenário multi-tenant via Smithery / Cloudflare Worker — ver deferral correspondente acima). Nesse cenário, o operador não é mais o usuário final; é quem hospeda. Probabilidade de existir Snowstorm próprio cresce nesse perfil.
+- (d) **Demanda explícita de um operador específico que confirme: tem Snowstorm rodando + pretende usar `ENABLE_SNOMED_TOOLS=true` + precisa do mapping refset.** Issue no GitHub ou e-mail. Sinal qualitativo > quantitativo (operadores raramente abrem issues; tipicamente abandonam).
+
+Probabilidade temporal estimada: (a) baixa-média no horizonte de 12-24 meses (depende da política IHTSDO); (b) média se o projeto crescer institucionalmente; (c) ligado à deferral do Streamable HTTP; (d) baixa, mas é o trigger mais barato de detectar — se aparecer, vale ouvir antes de implementar.
+
+**Quando atacar, escopo certo é:**
+
+- Método novo no `SNOMEDClient`: `getICD10MapTargets(sctid)` retornando estrutura completa (todos os groups, com `mapTarget`, `mapGroup`, `mapPriority`, `mapRule`, `mapAdvice`, `mapCategoryId`). Não colapsar para "primeiro target".
+- Handler reescrito que renderiza a estrutura literalmente — rules e advice em texto puro, deixando o LLM/operador interpretar. Mesmo padrão de "honestidade nominal" usado em `map_icd10_to_icd11` (descrição explícita sobre Complex Map ≠ 1:1).
+- Contract test com fixture JSON de uma resposta Snowstorm conhecida (extrair da doc oficial), já que não há endpoint vivo para integration test até que (a) ou (b) acontecem.
+- Esforço total: ~5-6 h. Não fazer a versão naïve de ~2-3 h: reproduz a classe de bug que a auditoria já flaggou em outro tool.
+
+---
+
 ## Arquivos lidos
 
 Inspecionados integralmente:

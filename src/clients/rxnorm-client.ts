@@ -367,6 +367,142 @@ export class RxNormClient {
     );
   }
 
+  // ===========================================================================
+  // ATC (Anatomical Therapeutic Chemical) Methods
+  //
+  // ATC is the WHO Collaborating Centre's classification of drugs by organ
+  // system + therapeutic + pharmacological + chemical properties. WHOCC
+  // distributes the official base under a paid subscription, but NLM's
+  // RxClass exposes the same code/name pairs free via REST. These methods
+  // wrap the relevant RxClass endpoints (same host as RxNorm proper, so
+  // they reuse the rxnorm rate limiter, retry, and cache).
+  //
+  // Code shape: "A10BA02" → A (anatomical) / A10 (therapeutic) / A10B
+  // (pharmacological) / A10BA (chemical) / A10BA02 (substance). RxClass
+  // returns ATC1-4 codes and the full 7-char substance code; both are
+  // surfaced.
+  // ===========================================================================
+
+  /**
+   * Looks up ATC classifications for a drug by name. Returns one entry
+   * per ATC code the drug belongs to (a single drug typically maps to one
+   * substance code; combination products map to multiple).
+   *
+   * @param drugName - Free-text drug name (brand or generic)
+   * @returns Array of ATC matches, or empty if drug is unknown
+   */
+  async getATCByDrugName(drugName: string): Promise<RxNormATCMatch[]> {
+    const cacheKey = `atc:bydrug:${drugName.toLowerCase()}`;
+
+    return cache.getOrSet(
+      CACHE_PREFIX.RXNORM,
+      cacheKey,
+      async () => {
+        const response = await this.request<RxClassResponse>(
+          '/rxclass/class/byDrugName.json',
+          { drugName, relaSource: 'ATC' },
+        );
+
+        const list = response.rxclassDrugInfoList?.rxclassDrugInfo ?? [];
+        return list.map((info) => ({
+          rxcui: info.minConcept?.rxcui ?? '',
+          drug_name: info.minConcept?.name ?? '',
+          tty: info.minConcept?.tty ?? '',
+          atc_code: info.rxclassMinConceptItem.classId,
+          atc_name: info.rxclassMinConceptItem.className,
+          atc_level_type: info.rxclassMinConceptItem.classType,
+        }));
+      },
+      DEFAULT_TTL.LOOKUP,
+    );
+  }
+
+  /**
+   * Looks up an ATC code's name and level type. Works for ATC levels 1-4
+   * (1-5 character codes: e.g., `A`, `A10`, `A10B`, `A10BA`). Returns
+   * null for level-5 substance codes (7 chars, e.g., `A10BA02`) — the
+   * RxClass `byId` endpoint doesn't expose them and they should be looked
+   * up via `getATCByDrugName` instead.
+   *
+   * @param atcCode - ATC code at level 1-4
+   * @returns Code details or null if not found / wrong level
+   */
+  async getATCByCode(atcCode: string): Promise<RxNormATCClass | null> {
+    const cacheKey = `atc:bycode:${atcCode.toUpperCase()}`;
+
+    return cache.getOrSet(
+      CACHE_PREFIX.RXNORM,
+      cacheKey,
+      async () => {
+        try {
+          const response = await this.request<RxClassByIdResponse>(
+            '/rxclass/class/byId.json',
+            { classId: atcCode },
+          );
+          const item = response.rxclassMinConceptList?.rxclassMinConcept?.[0];
+          if (!item) return null;
+          return {
+            atc_code: item.classId,
+            atc_name: item.className,
+            atc_level_type: item.classType,
+          };
+        } catch (error) {
+          if (error instanceof ApiError && error.code === 'NOT_FOUND') {
+            return null;
+          }
+          throw error;
+        }
+      },
+      DEFAULT_TTL.LOOKUP,
+    );
+  }
+
+  /**
+   * Lists drugs (RxNorm ingredients/multi-ingredient concepts) that belong
+   * to a given ATC class. RxClass returns `nodeAttr` per drug with the
+   * substance-level ATC code (`SourceId`); we surface that as
+   * `source_atc_code` so callers can disambiguate when the input is an
+   * ATC1-4 class containing multiple substances.
+   *
+   * @param atcCode - ATC code at any level (level 1-4 returns multiple
+   *                  substances; level 5 returns a single substance)
+   * @returns Array of drug members
+   */
+  async getATCMembers(atcCode: string): Promise<RxNormATCMember[]> {
+    const cacheKey = `atc:members:${atcCode.toUpperCase()}`;
+
+    return cache.getOrSet(
+      CACHE_PREFIX.RXNORM,
+      cacheKey,
+      async () => {
+        try {
+          const response = await this.request<RxClassMembersResponse>(
+            '/rxclass/classMembers.json',
+            { classId: atcCode, relaSource: 'ATC' },
+          );
+          const list = response.drugMemberGroup?.drugMember ?? [];
+          return list.map((m) => {
+            const sourceId = m.nodeAttr?.find(
+              (a) => a.attrName === 'SourceId',
+            )?.attrValue;
+            return {
+              rxcui: m.minConcept.rxcui,
+              name: m.minConcept.name,
+              tty: m.minConcept.tty,
+              source_atc_code: sourceId ?? '',
+            };
+          });
+        } catch (error) {
+          if (error instanceof ApiError && error.code === 'NOT_FOUND') {
+            return [];
+          }
+          throw error;
+        }
+      },
+      DEFAULT_TTL.LOOKUP,
+    );
+  }
+
   /**
    * Gets RxCUI by NDC code
    *
@@ -479,6 +615,43 @@ export interface RxNormNDC {
   rxcui: string;
 }
 
+/**
+ * ATC classification match for a drug (one row per ATC code the drug
+ * belongs to). The drug fields come from RxNorm; the atc_* fields come
+ * from RxClass.
+ */
+export interface RxNormATCMatch {
+  rxcui: string;
+  drug_name: string;
+  tty: string;
+  atc_code: string;
+  atc_name: string;
+  atc_level_type: string;
+}
+
+/**
+ * ATC class details for lookup by code (no drug context).
+ */
+export interface RxNormATCClass {
+  atc_code: string;
+  atc_name: string;
+  atc_level_type: string;
+}
+
+/**
+ * Drug that belongs to an ATC class. `source_atc_code` is the
+ * substance-level (5th level, 7-char) ATC code RxClass attaches via
+ * nodeAttr; useful for disambiguating when the queried class is at
+ * ATC1-4 (e.g., `A10BA` returns metformin and phenformin, each with
+ * its own substance-level code).
+ */
+export interface RxNormATCMember {
+  rxcui: string;
+  name: string;
+  tty: string;
+  source_atc_code: string;
+}
+
 // =============================================================================
 // API Response Types
 // =============================================================================
@@ -562,12 +735,42 @@ interface RxNormRelatedResponse {
 interface RxClassResponse {
   rxclassDrugInfoList?: {
     rxclassDrugInfo?: Array<{
+      // Present when the query is byDrugName / byRxcui (the drug context
+      // is part of the response). Absent for other RxClass shapes.
+      minConcept?: {
+        rxcui: string;
+        name: string;
+        tty: string;
+      };
       rxclassMinConceptItem: {
         classId: string;
         className: string;
         classType: string;
       };
       rela?: string;
+    }>;
+  };
+}
+
+interface RxClassByIdResponse {
+  rxclassMinConceptList?: {
+    rxclassMinConcept?: Array<{
+      classId: string;
+      className: string;
+      classType: string;
+    }>;
+  };
+}
+
+interface RxClassMembersResponse {
+  drugMemberGroup?: {
+    drugMember?: Array<{
+      minConcept: {
+        rxcui: string;
+        name: string;
+        tty: string;
+      };
+      nodeAttr?: Array<{ attrName: string; attrValue: string }>;
     }>;
   };
 }

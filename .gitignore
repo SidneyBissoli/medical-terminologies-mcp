@@ -27,3 +27,6 @@ npm-debug.log*
 coverage/
 
 .mcpregistry_*_token
+
+# Temp area used by scripts/build-cid10-dataset.mjs
+scripts/_tmp/
