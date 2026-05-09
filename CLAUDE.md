@@ -8,12 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run build       # esbuild bundle: src/index.ts -> dist/index.js (ESM, node20)
 npm start           # node dist/index.js (runs the MCP server over stdio)
 npm run dev         # build + start
-npm test            # vitest run (one-shot)
+npm test            # vitest run (skips integration tests by default)
 npm run test:watch  # vitest in watch mode
 npm run typecheck   # tsc --noEmit (strict; not invoked by `npm run build`)
 ```
 
 Run a single test: `npx vitest run src/utils/cache.test.ts` (or `-t '<name pattern>'` for a single case).
+
+Run integration tests against live APIs: `INTEGRATION_TESTS=1 npm test`. They live in `src/integration/` and skip by default. WHO and SNOMED integration tests skip cleanly when their respective creds/flags (`WHO_CLIENT_ID`/`WHO_CLIENT_SECRET`, `ENABLE_SNOMED_TOOLS`/`SNOMED_BASE_URL`) are absent. The daily cron CI workflow at `.github/workflows/integration.yml` runs them and surfaces upstream API drift close to when it happens.
 
 The build is a single `esbuild` invocation that bundles everything except `@modelcontextprotocol/sdk` (kept external) and injects a `createRequire` shim so the ESM bundle can still `require()` CJS deps. `tree-shaking=false` is intentional — see "Tool registration" below.
 
@@ -66,13 +68,37 @@ The clients are accessed via lazy singletons (`getWHOClient()`, `getNLMClient()`
 `src/utils/logger.ts` configures pino to write to fd 2 (stderr). **Never log to stdout** — stdout is the MCP stdio transport. Use `createClientLogger('<api>')` and `createToolLogger('<tool>')` to get scoped child loggers. Pino runs with `sync: false`, so `logger.flush()` is called during graceful shutdown (`src/index.ts`) before `process.exit(0)`.
 
 ### WHO OAuth specifics
-`who-client.ts` does the OAuth2 client_credentials dance against `icdaccessmanagement.who.int/connect/token` and caches the bearer token under `CACHE_PREFIX.TOKEN` for 50 min (tokens expire at 60). The release ID (`2024-01`) and linearization (`mms`) are pinned constants in `WHO_CONFIG` — bump them deliberately.
+`who-client.ts` does the OAuth2 client_credentials dance against `icdaccessmanagement.who.int/connect/token` and caches the bearer token under `CACHE_PREFIX.TOKEN`. TTL is computed from the API's `expires_in` field as `max(60, expires_in - 60)` seconds — honors what the server actually returns instead of a hardcoded value. The release ID (default `'2024-01'`, overridable via `WHO_ICD11_RELEASE_ID`) and linearization (`mms`) are pinned constants in `WHO_CONFIG` — bump deliberately. Note: `lookup` by URI strips the leading `/icd` from the path before passing to axios (the baseURL already includes it); same with `getEntity`. Don't undo that.
+
+### MeSH client fan-out
+The NLM MeSH `/{id}.json` endpoint returns compact JSON-LD with no `@graph` wrapper — flat top-level fields (`label`, `treeNumber` URI(s), `preferredConcept` URI, `allowableQualifier` URI[s], `annotation`). To assemble a full descriptor, `mesh-client.ts` fans out: descriptor + each tree number + the preferred concept + each term URI on that concept + each qualifier URI, all fetched in parallel under the shared NLM rate limiter and cached separately (descriptor at `LOOKUP` TTL, sub-resources at `STATIC` TTL since they rarely change). `getDescriptor`/`getTreeNumbers`/`getAllowedQualifiers` share the same cached descriptor fetch — calling all three on one MeSH ID in sequence triggers exactly one descriptor HTTP. The "scope note" surfaced to tool consumers comes from the *preferred concept's* `scopeNote`, not the descriptor's `annotation` (which is an indexer note).
 
 ### Crosswalk caveat
-`src/tools/crosswalk.ts` does *not* have authoritative mapping tables for everything (e.g., LOINC↔SNOMED). When a true mapping isn't freely available, the tool returns an explanatory text result rather than throwing — read the existing handlers before adding a new mapping to match this convention.
+`src/tools/crosswalk.ts` doesn't have authoritative mapping tables yet — `map_icd10_to_icd11` does honest text search (description explicitly says so), `map_loinc_to_snomed` returns guidance only, and `map_snomed_to_icd10` returns guidance only (gated behind `ENABLE_SNOMED_TOOLS=true`). Real mappings are planned in PROGRESS.md Phase 13. When adding a new crosswalk handler today, match the existing convention: rewrite the description honestly if the implementation isn't authoritative, return explanatory text rather than throwing when a mapping isn't available.
+
+### Known upstream-degraded behavior
+`/loinc_answers` at `clinicaltables.nlm.nih.gov` returns HTTP 404 in production (verified 2026-05-09). The client catches and returns `[]`, so `loinc_answers` reports "no answers available" for every input. Pinned in a contract test so it doesn't change without notice. Real fix is tracked as PROGRESS.md Phase 14.1 — likely uses `loinc_form_definitions` for form-type LOINCs.
+
+### Testing layers
+
+Three layers, all under `src/`:
+
+- **Unit tests** (`src/utils/*.test.ts`, `src/types/schemas.test.ts`, `src/index.test.ts`, `src/clients/cid10-client.test.ts`) — pure-logic coverage of utils, Zod input/output validators, and the CID-10 in-memory client. The meta-test in `src/index.test.ts` asserts every `src/tools/*.ts` is imported by `src/index.ts` (cheap defense against forgetting the side-effect import).
+- **Contract tests** (`src/clients/*.contract.test.ts`) — use `nock` (^14, devDep) to intercept axios calls, replaying captured live fixtures from `src/__fixtures__/<api>/`. Pin parser behavior against the actual upstream response shapes. WHO and SNOMED tests use inline mocks because their public hosts don't ship test creds. When adding a new HTTP client method, capture a live fixture and write a contract test pinning the parser.
+- **Integration tests** (`src/integration/*.integration.test.ts`) — hit live APIs. Gated by `INTEGRATION_TESTS=1`; otherwise the `describe` blocks become `describe.skip`. WHO + SNOMED sub-suites skip cleanly when their creds/flags are absent. CI runs them daily on cron — production regressions surface close to when they happen.
+
+Total: 243 unit + contract tests, 11 integration tests (skipped by default).
 
 ## Conventions worth knowing
 
 - All tool handlers return `CallToolResult` with `content: [{ type: 'text', text: ... }]` for human/LLM display, plus `structuredContent` matching the `outputSchema` whenever the result is structured. Errors flow through `handleToolError` (sets `isError: true`); only unexpected errors propagate.
 - Zod schemas in `src/types/index.ts` are the single source of truth — both runtime validation and the `Tool.inputSchema` / `Tool.outputSchema` JSON Schemas are derived from them. There is no hand-maintained JSON Schema to keep in sync.
 - `src/server.ts` reads `SERVER_INFO.version` from `package.json` (`resolveJsonModule: true`) — bump the version in `package.json` only.
+
+## Forward-looking work
+
+`PROGRESS.md` is the implementation diary: Phases 0-10 ✅ complete (the work that built the current 28/34-tool surface), Phases 11-14 📋 planned (Distribution & Discovery, Content & Outreach, Coverage Expansion, Quality & Maintenance). Each planned phase has sub-tasks, requirements checklists, dependencies, and effort estimates. When picking up work, check there first — it captures rationale and triggers, not just task lists.
+
+`outreach-templates.md` holds copy-paste-ready drafts for Phase 12 (post drafts, email templates, submission text). Tool counts and version numbers there are kept in sync with the current state, but verify before publishing.
+
+`CHANGELOG.md` is consumer-facing release notes (Keep-a-Changelog format).
