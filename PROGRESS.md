@@ -7,15 +7,22 @@ Server: phase-by-phase scope, tool coverage, requirements checklist, and
 build status. Consumer-facing release notes live in [CHANGELOG.md](./CHANGELOG.md).
 
 The original Phases 0–7 (covering the initial 27 tools) shipped in early
-2026. Phase 8 absorbed an external audit conducted on 2026-05-07/08 and
-the resulting hardening sweep. Phase 9 expanded coverage with ATC + CID-10
-(7 new tools, totalling 34 with SNOMED enabled). Phase 10 added contract +
-integration tests, which surfaced three silent production regressions
-that were fixed in the same commit.
+2026. Phase 8 absorbed an external audit and the resulting hardening
+sweep. Phase 9 expanded coverage with ATC + CID-10. Phase 10 added
+contract + integration tests, surfacing three silent production
+regressions that were fixed in the same commit.
 
-The audit's full findings list and the rationale behind active deferrals
-live in `## Audit Reference` near the bottom — useful for future
-contributors to understand why something is or isn't done.
+Phases 11–14 are planned: distribution & discovery (hosted-deployment
+unblocks + multi-channel listing), content & outreach (turning
+technical readiness into adoption), coverage expansion (real crosswalks
++ new terminologies for international + Brazilian operational
+audiences), and ongoing quality & maintenance.
+
+The audit's full findings list and patterns to leave alone live in
+`## Audit Reference` near the bottom — useful for future contributors
+to understand why specific code patterns exist. Outreach copy
+(post drafts, email templates, submission text) lives separately in
+[outreach-templates.md](./outreach-templates.md).
 
 ## Phase Summary
 
@@ -32,111 +39,14 @@ contributors to understand why something is or isn't done.
 | 8 | Audit-driven hardening (2026-05-07 → 2026-05-09) | ✅ Complete | - |
 | 9 | ATC + CID-10 expansion (2026-05-09) | ✅ Complete | +7 tools |
 | 10 | Contract + integration testing (2026-05-09) | ✅ Complete | - |
+| 11 | Distribution & Discovery | 📋 Planned | - |
+| 12 | Content & Outreach | 📋 Planned | - |
+| 13 | Coverage Expansion | 📋 Planned | +9–11 tools |
+| 14 | Quality & Maintenance | 📋 Ongoing | - |
 
-**Total Tools:** 28 default / 34 with SNOMED enabled
-**Total Tests:** 243 across 13 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
-
----
-
-## Active Deferrals
-
-Three items are intentionally not done. The rationale is preserved here so
-future contributors don't re-discover and re-decide. Each deferral has
-explicit re-evaluation triggers.
-
-### [P3] Streamable HTTP transport (deferred 2026-05-08)
-
-**State:** `src/server.ts` instantiates only `StdioServerTransport`. No
-`--http` flag, no `StreamableHTTPServerTransport`, no hosted deploy.
-
-**Why deferred:** ~3-4 h of work that's orthogonal to internal-quality
-items. It's a *prerequisite* for hosted distribution channels (Smithery,
-Cloudflare Workers, LobeHub) but the implementation alone doesn't move
-adoption — that depends on the subsequent product decision to *apply* the
-multi-channel distribution.
-
-**Note on classification:** originally P3 ("limited adoption: install
-locally"). Subsequent empirical evidence suggests this was too low — the
-sister project `bcb-br-mcp` has ~501 dl/month with multi-channel
-distribution (npm + Smithery + Cloudflare Worker + LobeHub) versus this
-project's ~160 dl/month via npm-only. The ~3× gap likely reflects the
-distribution channel more than technical quality, and Streamable HTTP is
-a hard prerequisite for the channels driving that growth. **Don't read
-this deferral as "trivial, leave for later"** — it's probably the
-highest-leverage adoption item in the entire backlog.
-
-**Re-evaluate when:**
-
-- (a) **Decision to apply the `bcb-br-mcp` multi-channel strategy.** Most
-  likely trigger temporally — when "let's publish on Smithery" comes up,
-  the HTTP transport needs to be ready.
-- (b) Explicit user demand for shared deployment (multiple agents or
-  multiple machines hitting one instance).
-- (c) Downloads cross 500/month sustained — npm-only is saturating.
-
-**Cross-reference:** when this lands, re-evaluate the SNOMED
-`Accept-Language` env override. Multi-tenant deployment may need
-per-tool `language` parameters propagated from end-users, complementing
-the env var.
-
-### [P1] `map_snomed_to_icd10` real refset 447562003 (deferred 2026-05-09)
-
-**State:** the tool is gated behind `ENABLE_SNOMED_TOOLS=true`. Even
-when enabled, `src/tools/crosswalk.ts:157-214` calls `client.getConcept(sctid)`
-and returns guidance text — it does **not** consult the refset.
-
-**Why deferred:** the intersection of operators that (a) hold an IHTSDO
-license, (b) run self-hosted Snowstorm, (c) use MCP servers, and (d)
-chose this one is essentially zero today. Brazilian users in particular
-can't access SNOMED operationally — Brazil is not an IHTSDO member country.
-
-Additionally, refset 447562003 is the **ICD-10 Complex Map** by design —
-not a 1:1 lookup. Each SNOMED concept can have multiple
-`ReferenceSetMember` entries with `mapGroup`, `mapPriority`, `mapRule`
-(ECL-like, requires context evaluation), `mapAdvice` (semi-structured
-strings), and `mapCategoryId` for fallback. A naïve `members[0].mapTarget`
-implementation reproduces the same class of bug the audit flagged in
-`map_icd10_to_icd11`: appears to work, but lies in non-trivial cases.
-Honest implementation (~5-6 h) optimizes for a user that probably
-doesn't exist today.
-
-**Re-evaluate when (any of):**
-
-- (a) IHTSDO or equivalent stands up a new public host with the Complex
-  Map refset accessible.
-- (b) `SNOMEDClient` pivots to a FHIR terminology server (Ontoserver,
-  NHS TS, etc.) — multi-tenant-friendly and open for some operations.
-- (c) Streamable HTTP transport ships with hosted SNOMED licensing
-  (cross-references the deferral above) — operator stops being the end
-  user; becomes the host.
-- (d) An operator opens an issue confirming they have Snowstorm running
-  and need this mapping. Cheapest trigger to detect.
-
-**Scope when attacked:** new `getICD10MapTargets(sctid)` method on
-`SNOMEDClient` returning the full structure (all groups, all rules,
-advice, category). Don't collapse to "first target". Handler renders
-the structure literally so the LLM/operator interprets. Contract test
-with fixture JSON (no live Snowstorm to integration-test against).
-
-### [P1] NLM `/loinc_answers` endpoint replacement (discovered 2026-05-09)
-
-**State:** the upstream `/loinc_answers` endpoint at
-`clinicaltables.nlm.nih.gov` returns HTTP 404 in production (verified
-during Phase 10 fixture capture). The client's catch-all returns `[]`,
-so `loinc_answers` reports "no answers available" for every input —
-silently degraded.
-
-**Why deferred from Phase 10:** the Phase 10 work locked the current
-404 → `[]` behavior in a contract test (so it doesn't change without
-notice), but a real replacement requires investigating the new
-canonical source. For form-type LOINCs (PHQ-9, etc.), the answers are
-in the `/loinc_form_definitions` response. For single-observation
-LOINCs with discrete answer lists, the new source is unclear and may
-require crawling the LOINC release files directly.
-
-**Re-evaluate when:** any user asks for `loinc_answers` data. The
-absence of complaints across ~160 dl/month suggests low impact, but
-the bug is real and worth fixing when next someone reaches for it.
+**Tools today:** 28 default / 34 with SNOMED enabled
+**Tools projected after Phase 13:** ~38–40 default / ~44–46 with SNOMED
+**Tests today:** 243 across 13 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
 
 ---
 
@@ -195,7 +105,7 @@ the bug is real and worth fixing when next someone reaches for it.
 |------|-------------|--------|
 | loinc_search | Search by term or code | ✅ |
 | loinc_details | Full code details | ✅ |
-| loinc_answers | Form answers list | ⚠️ Upstream 404 (see deferrals) |
+| loinc_answers | Form answers list | ⚠️ Upstream 404 (see Phase 14.1) |
 | loinc_panels | Related panels | ✅ |
 
 ### Completed Requirements
@@ -295,15 +205,15 @@ the bug is real and worth fixing when next someone reaches for it.
 
 | Tool | Description | Status |
 |------|-------------|--------|
-| map_icd10_to_icd11 | Text search ICD-11 using ICD-10 code (not authoritative) | ✅ |
-| map_snomed_to_icd10 | SNOMED → ICD-10 guidance | ⚠️ Real refset deferred |
+| map_icd10_to_icd11 | Text search ICD-11 using ICD-10 code (not authoritative) | ✅ — real WHO transition tables planned in Phase 13.1 |
+| map_snomed_to_icd10 | SNOMED → ICD-10 guidance | ⚠️ — real refset planned in Phase 13.7 |
 | map_loinc_to_snomed | LOINC → SNOMED guidance | ✅ |
 | find_equivalent | Cross-terminology search | ✅ |
 
 ### Completed Requirements
 
 - [x] ICD-10 to ICD-11 mapping via WHO API search (description rewritten in Phase 8 to be honest about being text search, not authoritative mapping)
-- [x] SNOMED to ICD-10 mapping guidance (real refset 447562003 deferred — see Active Deferrals)
+- [x] SNOMED to ICD-10 mapping guidance (real refset 447562003 planned in Phase 13.7)
 - [x] LOINC to SNOMED mapping guidance (rewritten in Phase 8 to be explicit about not performing the mapping)
 - [x] Cross-terminology text search across all 5 systems
 - [x] Graceful handling when mappings unavailable
@@ -334,9 +244,9 @@ the bug is real and worth fixing when next someone reaches for it.
 ### Scope
 
 External audit conducted 2026-05-07/08 produced ~30 findings across
-P0/P1/P2/P3 priorities. Most resolved in this phase; coverage gaps and
-real-mapping deferrals tracked in Phases 9 and Active Deferrals
-respectively. Source: `improvements.md` (now folded into this file).
+P0/P1/P2/P3 priorities. Most resolved in this phase; coverage gaps
+went to Phase 9; contract+integration tests went to Phase 10. Source:
+`improvements.md` (folded into this file).
 
 ### Resolved findings
 
@@ -348,7 +258,7 @@ respectively. Source: `improvements.md` (now folded into this file).
 | P0 | Public IHTSDO Snowstorm endpoint 410 Gone — 6 SNOMED-dependent tools silently broken | Tools gated behind `ENABLE_SNOMED_TOOLS=true`; `SNOMED_BASE_URL` env override for self-host |
 | P1 | Strict Zod regex schemas (LOINC, SCTID, MeSH ID, RxCUI) defined in `types/` but never imported by tools — local loose copies used instead | Schemas centralized; tools call `buildInputSchema(...)` directly |
 | P1 | `@modelcontextprotocol/sdk` pinned as `"latest"` — non-deterministic builds | Pinned to `^1.25.2` |
-| P1 | `getParents`/`getChildren`/`icd11_chapters` did N+1 sequential fetches | Promise.allSettled — paralelism limited by rate limiter |
+| P1 | `getParents`/`getChildren`/`icd11_chapters` did N+1 sequential fetches | Promise.allSettled — parallelism limited by rate limiter |
 | P1 | OAuth token cache used fixed 50 min TTL, ignored `expires_in` from response | TTL = `max(60, expires_in - 60)` honors API value |
 | P1 | `inputSchema` JSON in snake_case, Zod in camelCase — manual mapping in every handler | snake_case throughout via `zod-to-json-schema` |
 | P1 | No `annotations` (read-only/idempotent/open-world hints) | `READ_ONLY_TOOL_ANNOTATIONS` on every tool |
@@ -372,11 +282,10 @@ respectively. Source: `improvements.md` (now folded into this file).
 
 ### Completed Requirements
 
-- [x] All P0/P1 findings resolved or explicitly deferred with rationale
+- [x] All P0/P1 findings resolved or routed to a planned phase with rationale
 - [x] All P2 findings resolved
-- [x] All P3 findings except Streamable HTTP and `map_snomed_to_icd10` refset resolved
+- [x] All P3 findings except Streamable HTTP and `map_snomed_to_icd10` refset resolved (planned in Phase 11.2 and Phase 13.7)
 - [x] Audit findings table preserved (this section)
-- [x] Active deferrals documented with re-evaluation triggers
 
 ### Build Status (after Phase 8)
 
@@ -452,9 +361,9 @@ gracefully returned empty data, no one noticed.
 
 | # | Bug | Status |
 |---|-----|--------|
-| 1 | MeSH `/D{id}.json` parser silently empty after NLM JSON-LD shape change (`@graph` → flat compact JSON-LD) | ✅ Fixed: rewrote `MeSHClient` with per-resource fan-out (descriptor + concept + terms + qualifiers as separate parallel fetches) |
+| 1 | MeSH `/D{id}.json` parser silently empty after NLM JSON-LD shape change (`@graph` → flat compact JSON-LD) | ✅ Fixed: rewrote `MeSHClient` with per-resource fan-out |
 | 2 | WHO `lookup` by URI doubled `/icd` in path → 404 | ✅ Fixed: path stripping aligned with `getEntity` |
-| 3 | NLM `/loinc_answers` endpoint 404 in production | ⚠️ Pinned current behavior in contract test; real fix tracked as deferral above |
+| 3 | NLM `/loinc_answers` endpoint 404 in production | ⚠️ Pinned current behavior in contract test; real fix planned in Phase 14.1 |
 
 ### Completed Requirements
 
@@ -473,6 +382,300 @@ gracefully returned empty data, no one noticed.
 - TypeScript: ✅ No errors
 - Tests: ✅ 243 passing across 13 files (+ 11 integration, gated)
 - CI: ✅ Green on Node 20 + 22
+
+---
+
+## Phase 11: Distribution & Discovery 📋 Planned
+
+### Scope
+
+Hosted-deployment unblocks plus multi-channel listing. Without these,
+the project's adoption is bounded by "user installs locally via npm" —
+a real ceiling at ~500 dl/month based on the sister project
+`bcb-br-mcp` data point. Streamable HTTP transport is the technical
+prerequisite for ~3 of the 4 hosted distribution channels (Smithery,
+Cloudflare Workers, LobeHub) and is the highest-leverage adoption work
+in the entire backlog.
+
+This phase also fixes the visible "front door" of the project — npm
+page, README — which today is text-only despite the server producing
+rich tabular outputs.
+
+### Sub-tasks
+
+| # | Sub-task | Effort | Depends on |
+|---|----------|--------|------------|
+| 11.1 | Sync `server.json` with `package.json` 1.1.0 + new env vars (`WHO_ICD11_RELEASE_ID`, `ENABLE_SNOMED_TOOLS`, `SNOMED_BASE_URL`, `SNOMED_LANGUAGE`, `LOG_LEVEL`); republish to MCP Registry | ~30 min | none |
+| 11.2 | Streamable HTTP transport (`--http --port` flag); `StreamableHTTPServerTransport` from SDK; `transport: { type: "streamable-http" }` alternative in `server.json` | ~3-4 h | none |
+| 11.3 | README polish — 3 real output samples (LOINC search, RxNorm ingredients, MeSH descriptor with tree numbers); audience matrix ("if you're X, start with Y") replacing implicit clinician framing with the actual audience (researchers, public-health analysts, devs, educators) | ~2-3 h | none |
+| 11.4 | Per-tool `language` parameter on SNOMED/ICD-11/MeSH search & lookup tools; complements env vars for hosted multi-tenant | ~2 h | 11.2 reduces ROI gap; not strict dep |
+| 11.5 | Submit to Glama.ai | ~20 min | 11.1 + 11.3 |
+| 11.6 | Submit to mcpservers.org | ~20-30 min | 11.1 + 11.3 |
+| 11.7 | PR to `awesome-mcp-servers` (punkpeye + wong2 lists) | ~30 min | 11.1 + 11.3 |
+| 11.8 | Submit to Smithery.ai (ships `smithery.yaml` config) | ~30-45 min | 11.2 |
+| 11.9 | Cloudflare Worker template + deployment guide | ~1-2 h | 11.2 |
+| 11.10 | LobeHub plugin manifest | ~30 min | 11.2 |
+
+### Planned Tools
+
+None — Phase 11 is transport, packaging, and metadata, not new tools.
+Per-tool `language` parameter (11.4) is a schema addition to existing
+tools, not a new tool.
+
+### Planned Requirements
+
+- [ ] `server.json` reflects 1.1.0 with all env vars documented
+- [ ] `--http --port N` boots Streamable HTTP transport; default remains stdio
+- [ ] MCP Inspector connects via `--transport streamable-http`
+- [ ] README has at least 3 real output samples + an audience matrix
+- [ ] `language` accepted as optional input on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` (and propagated to upstream Accept-Language)
+- [ ] Listed on Glama.ai with "Author verified" badge
+- [ ] Listed on mcpservers.org Healthcare category
+- [ ] PR merged in at least one `awesome-mcp-servers` list
+- [ ] Smithery.ai listing live
+- [ ] Cloudflare Worker template documented in README "Hosted deployment" section
+- [ ] LobeHub plugin manifest accepted
+- [ ] CHANGELOG entry for the version that ships HTTP transport (likely 1.2.0)
+- [ ] Contract test for HTTP transport boot + per-tool language acceptance
+
+### Triggers and Cross-references
+
+- **No external dependencies** — all sub-tasks are project-led.
+- **Recommended ordering:** 11.1 first (everything else points at the
+  Registry page; submitting Glama with an outdated Registry hurts
+  credibility); 11.2 + 11.3 + 11.4 in parallel; 11.5–11.10 after.
+- **Cross-reference:** when 11.2 + 11.4 ship, the SNOMED `Accept-Language`
+  env override gets a per-tool complement, useful for hosted multi-tenant
+  scenarios where the operator isn't the end user.
+
+### Status
+
+- Effort: ~10–15 h total
+- Effort window: ~3 weeks at 2–4 h/week
+- Build: 📋 Planned
+
+---
+
+## Phase 12: Content & Outreach 📋 Planned
+
+### Scope
+
+Convert technical readiness (Phases 8–11) into adoption via content +
+community engagement. Templates and copy-paste drafts live in
+[outreach-templates.md](./outreach-templates.md); this phase tracks
+which channels were engaged and the measurement framework.
+
+The audience framing matters here: this server isn't for
+practicing clinicians (they use specialized tools — UpToDate AI,
+OpenEvidence, EHR-integrated assistants). The actual audience is
+researchers, biomedical bibliographers, public-health analysts,
+clinical informatics devs, and educators. Outreach copy should
+target those audiences directly without cosplay as a clinical tool.
+
+### Sub-tasks
+
+| # | Sub-task | Effort | Notes |
+|---|----------|--------|-------|
+| 12.1 | Long-form post (Medium + Dev.to crosspost): three concrete clinical/research use cases | ~3-4 h | Draft in outreach-templates.md |
+| 12.2 | LinkedIn post (personal feed) + crosspost to AMIA / Healthcare Informatics groups | ~1 h | Draft in outreach-templates.md |
+| 12.3 | Reddit posts: r/medicalcoding, r/medicine (cautious framing — strict self-promo rules), r/healthIT | ~1-2 h | Drafts + risk notes in outreach-templates.md |
+| 12.4 | Mastodon + Bluesky variants (3 angles: clinical / research / dev) | ~30 min | Drafts in outreach-templates.md |
+| 12.5 | Show HN | ~30 min post + 2-3 h responding to comments | Tuesday/Wednesday morning EST. Draft in outreach-templates.md |
+| 12.6 | chat.fhir.org responsive engagement (HL7 Zulip) — only when context fits, not proactive | ~15 min/day for 2 weeks | NOT a proactive post |
+| 12.7 | Early-adopter outreach emails — Clinical Informatics fellows, MCP-server authors, health-tech bloggers (≤10 emails over 3 weeks; mandatory specific opener) | ~2-3 h total | Template in outreach-templates.md |
+| 12.8 | Discord MCP communities (Anthropic + community Discords) | ~1 h | Announce + monitor |
+| 12.9 | ResearchGate project entry (low priority) | ~30 min | Optional — academic adjacent SEO |
+| 12.10 | Anthropic MCP Catalog submission (low success probability) | ~20 min | Catalog prioritizes commercial productivity tools, not data APIs |
+| 12.11 | Baseline metrics captured before outreach + 60-day measurement | ~30 min capture + ~1 h review | metrics-baseline.txt format below |
+
+### Baseline metrics to capture before starting
+
+| Metric | Source |
+|--------|--------|
+| npm downloads/month | https://npm-stat.com/charts.html?package=medical-terminologies-mcp |
+| GitHub stars | repo header |
+| GitHub clones (traffic) | https://github.com/SidneyBissoli/medical-terminologies-mcp/graphs/traffic |
+| Glama.ai listing | check (expect: not listed) |
+| Smithery.ai listing | check (expect: not listed pre-11.8) |
+| mcpservers.org listing | check |
+| awesome-mcp-servers | grep both lists |
+| Open issues + PRs | repo |
+| Forks | repo |
+
+### Success criteria (60-day review)
+
+Outreach is successful if **at least 2 of 5** of these happen:
+
+- npm downloads cross from current ~160/month baseline to ≥400/month sustained
+- GitHub stars +30 over baseline
+- ≥2 external issues or PRs from outside the immediate circle
+- 1 third-party mention (blog, newsletter, video, other repo)
+- Listed in ≥3 of 4 directories (Glama, Smithery, mcpservers.org, awesome-mcp-servers)
+
+If zero of five trigger, the gap is product, not outreach. Likely
+candidates: HTTP transport (if 11.2 not done), or real demand smaller
+than estimated.
+
+### Anti-metrics (don't measure success by these)
+
+- LinkedIn likes on personal post (vanity metric)
+- Mastodon boosts (amplification ≠ usage)
+- Hours spent on outreach (if 30 h yields 2× downloads, hourly return is ~$0)
+- Positive comments without click-through
+
+### Planned Requirements
+
+- [ ] All 11 channels engaged or explicitly skipped with rationale recorded
+- [ ] `metrics-baseline.txt` captured before any outreach starts
+- [ ] 60-day review against the success criteria above
+- [ ] Honest framing throughout: research / public-health / dev / educator audiences, not clinical-care substitution
+
+### Triggers and Cross-references
+
+- **Hard prerequisite:** Phase 11.1 (server.json sync) — outreach pointing
+  at an outdated registry hurts credibility.
+- **Recommended sequencing:** 11.1 + 11.3 → 12.1 (long post) → 12.2-12.5
+  in parallel → 12.6-12.10 ongoing → 12.11 review at day 60.
+
+### Status
+
+- Effort: ~10–15 h spread over 4–6 weeks
+- Build: N/A (no code)
+- Templates: see [outreach-templates.md](./outreach-templates.md)
+
+---
+
+## Phase 13: Coverage Expansion 📋 Planned
+
+### Scope
+
+Real crosswalks (replacing text-search heuristics) plus new terminology
+coverage that benefits all audiences — international users get real
+ICD-10↔ICD-11 mapping and validation; Brazilian operational audiences
+get TUSS / SIGTAP / CID-O which they need day-to-day; everyone gets
+versioning + diff for pipeline maintenance.
+
+This phase deliberately does **not** rebrand the project as
+Brazilian — Brazilian content is a subset of international scope, not a
+turning point. Same audiences, broader coverage.
+
+### Sub-tasks
+
+| # | Sub-task | Effort | Notes |
+|---|----------|--------|-------|
+| 13.1 | Real `map_icd10_to_icd11` via WHO transition tables (open download from icd.who.int/browse11/Downloads/Download); bundle as JSON via build script (same pattern as CID-10) | ~6-8 h | Replaces current text-search behavior; description rewritten to claim authoritative |
+| 13.2 | `validate_codes` cross-terminology validator: accepts mixed list, returns per-item `{ code, valid, active, replaced_by, source }` | ~3-4 h | Useful for retrospective analysis of legacy databases |
+| 13.3 | CID-O (oncology) tools — dataset already in DataSUS CID10CSV.zip (`CID-O-CATEGORIAS.CSV`, `CID-O-GRUPOS.CSV`); add `cid_o_search`, `cid_o_lookup` | ~3-5 h | Audit excluded as "niche"; reversed because RHC/RCBP/INCA use it operationally |
+| 13.4 | TUSS (Terminologia Unificada da Saúde Suplementar — ANS/private health) tools: `tuss_search`, `tuss_lookup`, `tuss_chapters`. Bundled static dataset (~5k items, public ANS source) | ~5-6 h | Brazilian supplementary-health analysts |
+| 13.5 | SIGTAP (Sistema de Gerenciamento da Tabela de Procedimentos do SUS) tools: `sigtap_search`, `sigtap_lookup`, `sigtap_by_chapter`. Bundled with monthly refresh script (DataSUS publishes monthly) | ~6-7 h | Brazilian SUS operational analysts; larger dataset (~10k procedures with values) |
+| 13.6 | Versioning + diff tools: `terminology_versions` (current versions per terminology + release dates), `terminology_diff` (codes added/retired between versions) | ~4-5 h | All audiences with maintained pipelines |
+| 13.7 | Real `map_snomed_to_icd10` via Snowstorm refset 447562003 — full structure (`mapTarget`, `mapGroup`, `mapPriority`, `mapRule`, `mapAdvice`, `mapCategoryId`); contract test with fixture JSON | ~5-6 h | External dependency: needs (a) IHTSDO public host returning OR (b) FHIR pivot OR (c) hosted SNOMED scenario from Phase 11 |
+| 13.8 | `map_cid10_to_cid11` BR variant via CBCD transition table when published | ~3-4 h | External dependency: CBCD publishing the BR ICD-11 transition table |
+
+### Planned Tools
+
+| Tool | Description | Source |
+|------|-------------|--------|
+| (refactor) `map_icd10_to_icd11` | Real WHO transition table lookup, no longer text search | 13.1 |
+| validate_codes | Cross-terminology code validator | 13.2 |
+| cid_o_search | CID-O text search | 13.3 |
+| cid_o_lookup | CID-O code → details | 13.3 |
+| tuss_search | TUSS text search | 13.4 |
+| tuss_lookup | TUSS code → details | 13.4 |
+| tuss_chapters | TUSS chapter navigation | 13.4 |
+| sigtap_search | SIGTAP text search | 13.5 |
+| sigtap_lookup | SIGTAP code → details (with values) | 13.5 |
+| sigtap_by_chapter | SIGTAP chapter navigation | 13.5 |
+| terminology_versions | Per-terminology version + release date | 13.6 |
+| terminology_diff | Diff between two versions of a terminology | 13.6 |
+| (refactor) `map_snomed_to_icd10` | Real refset 447562003 lookup | 13.7 |
+| map_cid10_to_cid11 | CID-10 → CID-11 via CBCD BR transition table | 13.8 |
+
+**Total new + refactored:** ~12 tools; net new: 11 (two refactor existing).
+**Tool count after Phase 13:** ~38–40 default / ~44–46 with SNOMED.
+
+### Planned Requirements
+
+- [ ] WHO ICD-10 → ICD-11 transition tables bundled (build script + `src/data/icd10-to-icd11.json`)
+- [ ] CID-O dataset extracted from existing DataSUS zip (no new download)
+- [ ] TUSS dataset bundled with provenance documented
+- [ ] SIGTAP dataset bundled + monthly refresh build script
+- [ ] Versioning metadata maintained per terminology
+- [ ] Contract tests for every new tool (same coverage discipline as Phases 8–10)
+- [ ] Schema tests for input/output validators
+- [ ] Live integration tests for the upstream-dependent tools (skipped when upstream unavailable)
+- [ ] Tool count assertion in `.github/workflows/ci.yml` updated
+- [ ] CHANGELOG entry per release that ships a sub-task
+- [ ] README "Available Tools" section refreshed
+
+### Triggers and Cross-references
+
+- **13.1, 13.2, 13.3, 13.4, 13.5, 13.6:** project-led, no external blockers.
+- **13.7 — `map_snomed_to_icd10` real refset (formerly an active deferral):**
+  needs at least one of:
+  - (a) IHTSDO or equivalent stands up a new public host with the
+    Complex Map refset accessible.
+  - (b) `SNOMEDClient` pivots to a FHIR terminology server (Ontoserver,
+    NHS Terminology Server, etc.) — multi-tenant-friendly and open for
+    some operations. Non-trivial transport change.
+  - (c) Streamable HTTP transport (Phase 11.2) ships with hosted SNOMED
+    licensing — operator stops being end user, becomes host.
+  - (d) An operator opens an issue confirming they have Snowstorm
+    running and need this mapping. Cheapest trigger to detect.
+- **13.8 — `map_cid10_to_cid11` BR variant:** depends on CBCD publishing
+  the official Brazilian ICD-11 transition table (work in progress at
+  CBCD/USP).
+- **Naïve impl warning for 13.7:** the refset is the **ICD-10 Complex Map**
+  by design — not 1:1. Concepts have multiple `ReferenceSetMember`
+  entries with `mapGroup`, `mapPriority`, `mapRule` (ECL-like, requires
+  context evaluation), `mapAdvice` (semi-structured strings), and
+  `mapCategoryId` for fallback. Implementation must surface the full
+  structure literally; a `members[0].mapTarget` shortcut reproduces
+  exactly the class of bug Phase 8 fixed in `map_icd10_to_icd11`.
+
+### Status
+
+- Effort: ~30–40 h total (split: ~25–30 h project-led, rest external-dependency-gated)
+- Build: 📋 Planned
+
+---
+
+## Phase 14: Quality & Maintenance 📋 Ongoing
+
+### Scope
+
+Smaller open items + ongoing maintenance via the integration cron
+established in Phase 10. This phase has no firm end date — it absorbs
+upstream-drift triage and small fixes as they surface.
+
+### Sub-tasks
+
+| # | Sub-task | Effort | Trigger |
+|---|----------|--------|---------|
+| 14.1 | `loinc_answers` real fix — investigate canonical replacement (likely `loinc_form_definitions` for forms; unclear for single-observation answer lists). NLM `/loinc_answers` has been HTTP 404 in production since at least 2026-05-09 | ~3-4 h | Any user requests `loinc_answers` data |
+| 14.2 | Doc consolidation sweep after Phases 11–13 ship — verify cross-refs still resolve, deprecated bullet points removed | ~1-2 h | After Phase 13 lands |
+| 14.3 | Annual: WHO ICD-11 release bump when WHO publishes new release (default `WHO_ICD11_RELEASE_ID` advanced from `2024-01`) | ~30 min | WHO publication (yearly cycle) |
+| 14.4 | Continuous: triage upstream-drift failures from daily integration cron (`.github/workflows/integration.yml`) | Variable | Cron failure notification |
+| 14.5 | Annual: refresh `src/data/cid10.json` if DataSUS ever publishes a successor to V2008 (frozen since 2008) | ~30 min | DataSUS publishes V20XX |
+
+### Planned Requirements
+
+- [ ] `loinc_answers` populates from `loinc_form_definitions` for form-type LOINCs (single observations may remain empty if no canonical replacement exists)
+- [ ] Annual release-ID bump procedure documented in CONTRIBUTING.md
+- [ ] Cron failures triaged within 1 week of notification
+
+### Triggers
+
+- **14.1:** lazy — only when a user surfaces the gap, since current
+  ~160 dl/month suggests low impact.
+- **14.2:** post-Phase-13 cleanup, single sweep.
+- **14.3, 14.5:** upstream-driven, predictable cadence.
+- **14.4:** event-driven from CI notifications.
+
+### Status
+
+- Effort: ~5–8 h initial (mostly 14.1) + ongoing variable
+- Build: 📋 Ongoing
 
 ---
 
