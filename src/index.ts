@@ -13,7 +13,7 @@
  * @author Sidney Bissoli
  * @license MIT
  */
-import { createServer, startServer, SERVER_INFO } from './server.js';
+import { createServer, startServer, startHttpServer, SERVER_INFO } from './server.js';
 import { logger } from './utils/logger.js';
 
 // Tool imports - tools register themselves when imported (side-effect)
@@ -34,46 +34,78 @@ import './tools/atc.js';
 // Phase 8: CID-10 (Brazilian, DataSUS V2008, bundled dataset)
 import './tools/cid10.js';
 
+interface CliOptions {
+  http: boolean;
+  port: number;
+  host: string;
+}
+
+function parseArgs(argv: string[]): CliOptions {
+  const args = argv.slice(2);
+  const http = args.includes('--http') || process.env.MCP_HTTP === 'true';
+
+  const portIdx = args.indexOf('--port');
+  const portArg = portIdx >= 0 ? args[portIdx + 1] : process.env.PORT;
+  const port = portArg !== undefined ? Number.parseInt(portArg, 10) : 3000;
+  if (Number.isNaN(port) || port < 0 || port > 65535) {
+    throw new Error(`Invalid --port "${portArg}" — must be an integer in [0, 65535]`);
+  }
+
+  const hostIdx = args.indexOf('--host');
+  const host = hostIdx >= 0 ? (args[hostIdx + 1] ?? '127.0.0.1') : (process.env.HOST ?? '127.0.0.1');
+
+  return { http, port, host };
+}
+
 /**
- * Main entry point
+ * Installs SIGINT/SIGTERM handlers that call closeFn once, race it against
+ * a 5s timeout (so a stuck close() can't block teardown), flush pino's
+ * async buffer, then exit. Idempotent on repeated signals.
  */
+function installShutdown(closeFn: () => Promise<void>): void {
+  let shuttingDown = false;
+  const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.info({ signal }, 'Shutting down...');
+
+    try {
+      await Promise.race([
+        closeFn(),
+        new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+      ]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn({ err: msg }, 'Error closing server, continuing shutdown');
+    }
+
+    logger.flush();
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+}
+
 async function main(): Promise<void> {
   try {
-    logger.info({ server: SERVER_INFO.name }, 'Initializing server...');
+    const opts = parseArgs(process.argv);
+    logger.info({ server: SERVER_INFO.name, transport: opts.http ? 'http' : 'stdio' }, 'Initializing server...');
 
     const server = createServer();
-    await startServer(server);
+
+    if (opts.http) {
+      const { httpServer } = await startHttpServer(server, opts.port, opts.host);
+      installShutdown(async () => {
+        await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+        await server.close();
+      });
+    } else {
+      await startServer(server);
+      installShutdown(() => server.close());
+    }
 
     logger.info({ server: SERVER_INFO.name, version: SERVER_INFO.version }, 'Server started');
-
-    // Graceful shutdown: close the server's stdio transport so any in-flight
-    // requests resolve, then flush pino's async destination, then exit.
-    // Idempotent on repeated signals; bounded by a 5s timeout so a stuck
-    // server.close() never blocks teardown indefinitely.
-    let shuttingDown = false;
-    const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      logger.info({ signal }, 'Shutting down...');
-
-      try {
-        await Promise.race([
-          server.close(),
-          new Promise<void>((resolve) => setTimeout(resolve, 5000)),
-        ]);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        logger.warn({ err: msg }, 'Error closing server, continuing shutdown');
-      }
-
-      // pino is configured with sync: false, so async writes can still be
-      // buffered when we get here. flush() drains the buffer.
-      logger.flush();
-      process.exit(0);
-    };
-
-    process.on('SIGINT', () => void shutdown('SIGINT'));
-    process.on('SIGTERM', () => void shutdown('SIGTERM'));
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.fatal({ error: errorMessage }, 'Failed to start server');
@@ -81,5 +113,4 @@ async function main(): Promise<void> {
   }
 }
 
-// Run the server
 main();

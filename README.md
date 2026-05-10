@@ -22,6 +22,7 @@ A Model Context Protocol (MCP) server providing unified access to major global m
 - Built-in caching for improved performance
 - Rate limiting to respect API limits
 - Detailed responses with rich formatting
+- Two transports: **stdio** (default; for Claude Desktop, IDE clients) and **Streamable HTTP** (for hosted deployments — Cloudflare Workers, Smithery, Docker)
 
 ## Who is this for?
 
@@ -88,6 +89,38 @@ Add to your Claude Desktop configuration file:
 ¹ Required for ICD-11 tools. Get credentials at: https://icd.who.int/icdapi.
 
 ² See [SNOMED CT setup (advanced)](#snomed-ct-setup-advanced) below. LOINC, RxNorm, and MeSH need no configuration.
+
+### HTTP transport (hosted / shared deployments)
+
+The server runs over stdio by default — that's what Claude Desktop and IDE clients expect. For hosted deployments (Cloudflare Workers, Smithery, your own Docker container), pass `--http` to switch to Streamable HTTP transport instead:
+
+```bash
+medical-terminologies-mcp --http --port 3000
+# or, in Docker / containers:
+medical-terminologies-mcp --http --host 0.0.0.0 --port 3000
+```
+
+| Flag | Env var | Default | Description |
+|------|---------|---------|-------------|
+| `--http` | `MCP_HTTP=true` | off | Enable Streamable HTTP transport instead of stdio |
+| `--port N` | `PORT` | `3000` | TCP port to listen on (use `0` for an ephemeral port) |
+| `--host H` | `HOST` | `127.0.0.1` | Bind address. Pass `0.0.0.0` for container/hosted use |
+
+Endpoints:
+
+- `POST /mcp` — JSON-RPC over Streamable HTTP (the MCP protocol). Stateless mode: each request is independent, no session cookies.
+- `GET /health` — liveness probe returning `{ status, name, version, tool_count }` for load balancers and uptime monitors.
+- CORS is permissive (`*`) so browser clients (e.g. the MCP Inspector web UI) can connect directly.
+
+Quick smoke test from another terminal:
+
+```bash
+curl -sS http://localhost:3000/health
+# {"status":"ok","name":"medical-terminologies-mcp","version":"1.2.0","tool_count":28}
+
+# Inspector via HTTP
+npx @modelcontextprotocol/inspector --transport streamable-http --server-url http://localhost:3000/mcp
+```
 
 ## Available Tools (28 by default, 34 with SNOMED enabled)
 

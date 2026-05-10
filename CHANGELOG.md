@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-05-10
+
+Adds **Streamable HTTP transport** alongside the existing stdio transport.
+This unblocks hosted-deployment targets (Cloudflare Workers, Smithery,
+Docker, LobeHub) that expect HTTP endpoints rather than spawning a child
+process. Stdio remains the default — Claude Desktop, IDE integrations,
+and `npx`-installed clients continue to work unchanged.
+
+### Added
+
+- `--http` flag (or `MCP_HTTP=true`) boots the server on Streamable HTTP
+  via `StreamableHTTPServerTransport` from `@modelcontextprotocol/sdk` in
+  stateless mode. `--port N` (or `PORT`) defaults to `3000`; `--host H`
+  (or `HOST`) defaults to `127.0.0.1` (containers should pass
+  `--host 0.0.0.0`).
+- Endpoints: `POST /mcp` for JSON-RPC, `GET /health` for liveness
+  (returns `{ status, name, version, tool_count }`), CORS preflight on
+  `OPTIONS *`. CORS is permissive by design so browser clients (the MCP
+  Inspector web UI, hosted playgrounds) can connect directly.
+- `server.json` now declares a second package entry with
+  `transport: { type: "streamable-http" }` so MCP Registry consumers
+  see both install paths.
+- `src/server.http.test.ts` — 4 contract tests covering health probe,
+  CORS preflight, JSON-RPC initialize → tools/list round-trip, and
+  unknown-route 404.
+- README "HTTP transport (hosted / shared deployments)" section with
+  flag table, endpoint reference, and a curl + Inspector smoke test.
+
+### Changed
+
+- `src/index.ts` shutdown handler unified into a single `installShutdown`
+  helper that races a close function against a 5s timeout — same shape
+  for stdio and HTTP, so SIGINT/SIGTERM behavior is consistent across
+  transports.
+
 ## [1.1.1] - 2026-05-10
 
 Maintenance release — no changes to the published package contents

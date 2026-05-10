@@ -6,12 +6,12 @@
     "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
     "source": "github"
   },
-  "version": "1.1.1",
+  "version": "1.2.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "transport": {
         "type": "stdio"
       },
@@ -55,6 +55,77 @@
         {
           "name": "LOG_LEVEL",
           "description": "pino log level (debug, info, warn, error, fatal). Optional; defaults to 'info'. Logs go to stderr only — never stdout (which is the MCP stdio transport).",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    },
+    {
+      "registryType": "npm",
+      "identifier": "medical-terminologies-mcp",
+      "version": "1.2.0",
+      "transport": {
+        "type": "streamable-http",
+        "url": "http://localhost:3000/mcp"
+      },
+      "packageArguments": [
+        {
+          "type": "named",
+          "name": "--http"
+        },
+        {
+          "type": "named",
+          "name": "--port",
+          "value": "3000",
+          "description": "TCP port to listen on. Update the transport URL above if you change this."
+        },
+        {
+          "type": "named",
+          "name": "--host",
+          "value": "0.0.0.0",
+          "description": "Bind address. Defaults to 127.0.0.1 in CLI; 0.0.0.0 here so containers can route in."
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "WHO_CLIENT_ID",
+          "description": "WHO ICD-11 API Client ID. Required only for ICD-11 tools.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "WHO_CLIENT_SECRET",
+          "description": "WHO ICD-11 API Client Secret. Required only for ICD-11 tools.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "WHO_ICD11_RELEASE_ID",
+          "description": "ICD-11 release to query (e.g. 2024-01, 2025-01). Optional; defaults to 2024-01.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ENABLE_SNOMED_TOOLS",
+          "description": "Set to 'true' to register the 6 SNOMED-dependent tools. Requires SNOMED_BASE_URL.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SNOMED_BASE_URL",
+          "description": "Base URL of a self-hosted Snowstorm instance. Required only when ENABLE_SNOMED_TOOLS is true.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SNOMED_LANGUAGE",
+          "description": "Accept-Language tag(s) for SNOMED responses (e.g. pt, pt-BR, es). Optional; defaults to 'en'.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "LOG_LEVEL",
+          "description": "pino log level. Optional; defaults to 'info'.",
           "isRequired": false,
           "isSecret": false
         }
