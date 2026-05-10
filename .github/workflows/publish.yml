@@ -68,6 +68,10 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      # Trusted publishing requires npm >= 11.5.1; Node 20 ships with npm 10.x.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: npm ci
 
@@ -78,10 +82,9 @@ jobs:
         if: ${{ github.event.inputs.version != '' }}
         run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
 
+      # Auth via OIDC trusted publisher configured on npmjs.com — no token needed.
       - name: Publish to npm
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   publish-registry:
     needs: publish
