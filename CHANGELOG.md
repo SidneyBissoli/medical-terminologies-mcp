@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-05-10
+
+Maintenance release — no changes to the published package contents
+versus 1.1.0. Republished to validate the npm publish pipeline after
+switching to a Bypass-2FA granular access token (the OIDC trusted-
+publisher path was unreachable due to a 2FA enrollment gap).
+
 ## [1.1.0] - 2026-05-10
 
 This release bundles three threads of work: (1) resolution of an external
