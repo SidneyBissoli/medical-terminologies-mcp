@@ -94,11 +94,24 @@ Total: 243 unit + contract tests, 11 integration tests (skipped by default).
 - All tool handlers return `CallToolResult` with `content: [{ type: 'text', text: ... }]` for human/LLM display, plus `structuredContent` matching the `outputSchema` whenever the result is structured. Errors flow through `handleToolError` (sets `isError: true`); only unexpected errors propagate.
 - Zod schemas in `src/types/index.ts` are the single source of truth — both runtime validation and the `Tool.inputSchema` / `Tool.outputSchema` JSON Schemas are derived from them. There is no hand-maintained JSON Schema to keep in sync.
 - `src/server.ts` reads `SERVER_INFO.version` from `package.json` (`resolveJsonModule: true`) — bump the version in `package.json` only.
+- TypeScript strict mode is the linter. There is no ESLint, no Prettier, no Biome. `tsconfig.json` enables `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, etc. — match surrounding formatting in the file you're editing; don't introduce a formatter.
+
+## CI gates
+
+`.github/workflows/ci.yml` runs on every PR and gates merge on three checks:
+
+1. `npm run typecheck` clean.
+2. `npm test` passes (unit + contract; integration is skipped here).
+3. A source-level `toolRegistry.register` call-site count check (currently 34). Removing or adding tools requires updating that count in CI alongside the code change.
+
+`.github/workflows/integration.yml` runs the live-API integration suite on a daily cron (separate from PR gates) — that's how upstream API drift surfaces.
 
 ## Forward-looking work
 
 `PROGRESS.md` is the implementation diary: Phases 0-10 ✅ complete (the work that built the current 28/34-tool surface), Phases 11-14 📋 planned (Distribution & Discovery, Content & Outreach, Coverage Expansion, Quality & Maintenance). Each planned phase has sub-tasks, requirements checklists, dependencies, and effort estimates. When picking up work, check there first — it captures rationale and triggers, not just task lists.
 
 `outreach-templates.md` holds copy-paste-ready drafts for Phase 12 (post drafts, email templates, submission text). Tool counts and version numbers there are kept in sync with the current state, but verify before publishing.
+
+`CONTRIBUTING.md` has the PR checklist that complements the architectural notes here: typecheck-clean → tests-pass → build-succeeds → tool-count gate, plus the fixture-pinning convention for new HTTP client methods (capture into `src/__fixtures__/<api>/`, pin parser with a `nock`-backed contract test).
 
 `CHANGELOG.md` is consumer-facing release notes (Keep-a-Changelog format).
