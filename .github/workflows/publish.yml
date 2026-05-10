@@ -1,4 +1,19 @@
-name: Publish to npm
+name: Publish to npm and MCP Registry
+
+# Two trigger paths:
+# - release.created: someone runs `gh release create vX.Y.Z` and the
+#   workflow publishes the matching package.json version.
+# - workflow_dispatch: manual run with optional version input that bumps
+#   both package.json and server.json before publishing, then creates a
+#   GitHub release at the end.
+#
+# Job order: build (verification) -> publish (npm with provenance) ->
+# publish-registry (mcp-publisher publish via GitHub OIDC) ->
+# create-release (workflow_dispatch only).
+#
+# The registry publish never gates npm publish — if it fails, npm is
+# already at the new version and the operator can re-run mcp-publisher
+# locally or re-trigger this workflow on the same tag.
 
 on:
   release:
@@ -68,6 +83,68 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+  publish-registry:
+    needs: publish
+    runs-on: ubuntu-latest
+    # id-token: write is required for `mcp-publisher login github-oidc`,
+    # which exchanges the GitHub Actions OIDC token for a registry JWT
+    # bound to io.github.{owner}/* namespaces.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sync server.json's version with the version that was just
+      # published to npm. Without this, workflow_dispatch with a custom
+      # version input would publish package.json@X to npm but try to
+      # register server.json@(stale) in the registry.
+      - name: Sync server.json version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp
+          mv server.tmp server.json
+          echo "server.json now declares version $VERSION"
+
+      # The registry validates that the npm package exists at the
+      # declared version. npm's index can lag a few seconds behind a
+      # successful publish; poll for up to ~100s before giving up.
+      - name: Wait for npm to expose the new version
+        run: |
+          VERSION=$(node -p "require('./server.json').version")
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            PUBLISHED=$(npm view medical-terminologies-mcp@$VERSION version 2>/dev/null || true)
+            if [ "$PUBLISHED" = "$VERSION" ]; then
+              echo "npm version $VERSION confirmed"
+              exit 0
+            fi
+            echo "Attempt $i: npm version $VERSION not yet visible; sleeping 10s"
+            sleep 10
+          done
+          echo "ERROR: npm version $VERSION not visible after 100s"
+          exit 1
+
+      # Pull the latest mcp-publisher binary. Pinning a version risks
+      # "invalid audience" failures when the registry rotates its OIDC
+      # audience claim — the official guide recommends `latest`.
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher --help > /dev/null
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Authenticate to MCP Registry (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
+
   create-release:
     needs: publish
     runs-on: ubuntu-latest
@@ -95,8 +172,8 @@ jobs:
             ```
 
             ### What's included
-            - 27 tools for medical terminology lookup
-            - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH support
+            - 28 default tools (34 with SNOMED enabled) for medical terminology lookup
+            - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC, CID-10 support
             - Cross-terminology mapping and search
 
             See [README](https://github.com/SidneyBissoli/medical-terminologies-mcp#readme) for full documentation.
