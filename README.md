@@ -122,6 +122,30 @@ curl -sS http://localhost:3000/health
 npx @modelcontextprotocol/inspector --transport streamable-http --server-url http://localhost:3000/mcp
 ```
 
+### Hosted via Smithery
+
+If you'd rather not run the server yourself, the repo ships a `Dockerfile` + `smithery.yaml` so you can deploy on [Smithery](https://smithery.ai) (their infrastructure builds the container, sets `PORT`, and routes `/mcp` traffic for you):
+
+1. Visit https://smithery.ai/new and connect this GitHub repository.
+2. Smithery reads `smithery.yaml`, builds the `Dockerfile`, and exposes a hosted MCP endpoint.
+3. Paste your WHO credentials (and any optional flags) in the Smithery config UI.
+
+The Smithery deploy uses the same `--http` entrypoint documented above — only the hosting differs.
+
+### Self-hosted Docker
+
+For your own infrastructure (Cloudflare Workers via wrangler, Fly.io, Render, plain Docker host):
+
+```bash
+docker build -t medical-terminologies-mcp .
+docker run --rm -p 3000:3000 \
+  -e PORT=3000 \
+  -e WHO_CLIENT_ID=... -e WHO_CLIENT_SECRET=... \
+  medical-terminologies-mcp
+```
+
+The image is built from this repo's `Dockerfile` (multi-stage, ~150 MB). It runs `node dist/index.js --http` and binds `0.0.0.0:$PORT`.
+
 ## Available Tools (28 by default, 34 with SNOMED enabled)
 
 ### ICD-11 Tools (5)

@@ -1,0 +1,78 @@
+# Smithery deployment configuration — hosted Streamable HTTP mode.
+# Reference: https://smithery.ai/docs/build/project-config/smithery.yaml
+#
+# Smithery clones this repo, builds the Dockerfile, and runs the container
+# with PORT set to 8081. Our entrypoint (`node dist/index.js --http`) reads
+# PORT and binds 0.0.0.0; Smithery routes incoming MCP traffic to /mcp.
+
+runtime: container
+
+build:
+  dockerfile: Dockerfile
+  dockerBuildPath: .
+
+startCommand:
+  type: http
+  configSchema:
+    type: object
+    description: >-
+      Optional credentials and feature flags. The server starts without
+      any of these and serves 23 of 28 default tools (LOINC, RxNorm,
+      MeSH, ATC, CID-10, crosswalk). The 5 ICD-11 tools require WHO
+      credentials. SNOMED tools are off by default and require a
+      self-hosted Snowstorm instance.
+    properties:
+      WHO_CLIENT_ID:
+        type: string
+        title: WHO ICD-11 API Client ID
+        description: >-
+          Required only for the 5 ICD-11 tools. Free credentials at
+          https://icd.who.int/icdapi.
+      WHO_CLIENT_SECRET:
+        type: string
+        title: WHO ICD-11 API Client Secret
+        description: >-
+          Required only for the 5 ICD-11 tools. Treat as a secret.
+      WHO_ICD11_RELEASE_ID:
+        type: string
+        title: WHO ICD-11 release ID
+        description: >-
+          ICD-11 release to query (e.g. 2024-01, 2025-01). Defaults to
+          2024-01. Bump deliberately when WHO publishes a new release.
+        default: "2024-01"
+      ENABLE_SNOMED_TOOLS:
+        type: string
+        title: Enable SNOMED tools
+        description: >-
+          Set to "true" to register the 6 SNOMED-dependent tools.
+          Requires SNOMED_BASE_URL pointing at a working self-hosted
+          Snowstorm. Off by default because the historical public IHTSDO
+          endpoint was retired (HTTP 410 Gone).
+        enum: ["true", "false"]
+        default: "false"
+      SNOMED_BASE_URL:
+        type: string
+        title: SNOMED Snowstorm base URL
+        description: >-
+          Base URL of a self-hosted Snowstorm instance, e.g.
+          https://my-snowstorm.example.com/snowstorm/snomed-ct. Required
+          only when ENABLE_SNOMED_TOOLS is "true".
+      SNOMED_LANGUAGE:
+        type: string
+        title: SNOMED Accept-Language
+        description: >-
+          Accept-Language tag(s) for SNOMED responses (pt, pt-BR, es,
+          etc.). Defaults to "en". Composite values with q-weights
+          depend on your Snowstorm instance's handling.
+        default: "en"
+      LOG_LEVEL:
+        type: string
+        title: Log level (pino)
+        description: >-
+          debug, info, warn, error, or fatal. Logs go to stderr only.
+        enum: ["debug", "info", "warn", "error", "fatal"]
+        default: "info"
+    required: []
+  exampleConfig:
+    WHO_CLIENT_ID: "your-who-client-id"
+    WHO_CLIENT_SECRET: "your-who-client-secret"
