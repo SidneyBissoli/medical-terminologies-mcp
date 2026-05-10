@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-10
+
+This release bundles three threads of work: (1) resolution of an external
+P0/P1 audit (sharper schema validation, honest tool framing, OAuth TTL
+fix, structured-output adoption); (2) two new terminologies — **ATC** and
+**CID-10** — adding 7 tools; and (3) a contract + integration test suite
+that surfaced and fixed three silent production regressions (MeSH JSON-LD
+shape change, WHO lookup URI bug, `loinc_answers` upstream 404 pinned).
+
+Tool count goes from 21 default / 27 with SNOMED → **28 default / 34 with
+SNOMED**. Test count: 243 unit + contract across 13 files, plus 11
+live-API integration tests gated by `INTEGRATION_TESTS=1` and run on a
+daily cron.
+
+The minor bump (vs. 1.0.2) is justified by the new tool surface and the
+SNOMED-tools-off-by-default behavior change (technically breaking for
+anyone relying on the historical public Snowstorm endpoint, which is now
+upstream HTTP 410 Gone — see Behavior changes below).
+
 ### Added
 
 - **Contract tests with `nock` + captured live fixtures** for the 5
@@ -38,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tabular header+rows shape) bundled into `dist/index.js`. No HTTP
   calls; pure in-memory. `scripts/build-cid10-dataset.mjs` regenerates
   the JSON from the DataSUS CSV release on demand.
+- Strict Zod input schemas (LOINC `^\d{1,5}-\d$`, SCTID `^\d+$`, MeSH ID
+  `^D\d+$`, RxCUI `^\d+$`, ICD-11 lookup code-or-uri refine) now actually
+  execute. Each tool's MCP `inputSchema` is derived from the Zod schema
+  via `buildInputSchema`, eliminating the previous Zod/JSON-Schema
+  duplication.
 - `outputSchema` and `structuredContent` on 24 of 27 tools (all except the 3
   guidance-only `map_*` crosswalk tools). Clients that read `structuredContent`
   (MCP spec since 2024-11-05) now get typed objects alongside the markdown
@@ -154,48 +178,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Snowstorm instance enable them via the env var (with `SNOMED_BASE_URL`
   pointing at their instance). See the README's "SNOMED CT setup
   (advanced)" section.
-
-## [1.1.0] - 2026-05-08
-
-This release is a P0/P1 sweep against an external audit; behavior is
-mostly preserved with sharper validation and honest tool framing. The
-minor bump is justified primarily by the SNOMED-tools-off-by-default
-change above (which is technically breaking for existing users but
-necessary because the default backend was already broken upstream).
-
-### Added
-
-- Strict Zod input schemas (LOINC `^\d{1,5}-\d$`, SCTID `^\d+$`, MeSH ID
-  `^D\d+$`, RxCUI `^\d+$`, ICD-11 lookup code-or-uri refine) now actually
-  execute. Each tool's MCP `inputSchema` is derived from the Zod schema
-  via `buildInputSchema`, eliminating the previous Zod/JSON-Schema
-  duplication.
-
-### Changed
-
-- `map_icd10_to_icd11` description and output now describe the tool
-  honestly as a text-similarity search of the ICD-11 catalog, not an
-  authoritative ICD-10 → ICD-11 mapping. Match-score column removed from
-  the output table.
-- Pinned `@modelcontextprotocol/sdk` to `^1.25.2` (was `latest`).
-
-### Fixed
-
-- `SERVER_INFO.version` now sourced from `package.json` at build time
-  (was hardcoded to `1.0.0`).
-- WHO OAuth cache now uses real `expires_in` (was 50-minute hardcoded
-  TTL).
-- WHO `getParents` / `getChildren` and the `icd11_chapters` handler now
-  run in parallel (`Promise.allSettled`); were sequential, making cold
-  hierarchy reads slow.
-- README re-encoded from UTF-16 LE to UTF-8 for npmjs.com rendering.
-- `.mcpregistry_registry_token` untracked; broader glob added to
-  `.gitignore`.
-
-### Security
-
-- Pinned the MCP SDK to a narrow range, removing exposure to silent
-  breaking changes via `npm ci`.
 
 ## [1.0.2] - 2026-01-19
 
