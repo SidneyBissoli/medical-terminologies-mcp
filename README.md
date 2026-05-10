@@ -23,6 +23,18 @@ A Model Context Protocol (MCP) server providing unified access to major global m
 - Rate limiting to respect API limits
 - Detailed responses with rich formatting
 
+## Who is this for?
+
+This server is **not** a clinical-care decision tool — practicing clinicians have specialized assistants (UpToDate AI, OpenEvidence, EHR-integrated tools) for that. The actual audience is researchers, public-health analysts, clinical informatics developers, and educators who need programmatic access to authoritative terminology data.
+
+| If you're a... | Start with | Why |
+|----------------|------------|-----|
+| **Biomedical researcher / bibliographer** | `mesh_search`, `mesh_descriptor`, `mesh_tree` | MeSH is PubMed's indexing vocabulary; tree numbers let you traverse the controlled hierarchy programmatically |
+| **Public-health analyst (Brazil / SUS)** | `cid10_search`, `cid10_chapters`, `atc_classify` | CID-10 V2008 is the Brazilian operational standard; ATC pairs cleanly with DataSUS prescription data |
+| **Public-health analyst (international)** | `icd11_search`, `icd11_lookup`, `icd11_chapters` | WHO ICD-11 is the current international revision; chapters and hierarchy support pipeline classification |
+| **Clinical-informatics developer** | `loinc_search`, `loinc_details`, `find_equivalent` | LOINC for lab/observation interoperability; cross-terminology search to scaffold new mappings |
+| **Educator / curriculum author** | `mesh_descriptor`, `icd11_lookup`, `rxnorm_search` | Authoritative definitions, tree numbers, and drug term-types you can drop into self-checked exercises |
+
 ## Installation
 
 ### Global Installation (Recommended)
@@ -159,37 +171,82 @@ Brazilian Portuguese translation of ICD-10 (DataSUS V2008). Bundled as a static 
 | `cid10_chapters` | List the 22 CID-10 chapters | - |
 | `cid10_chapter` | Chapter detail with constituent groups | `num: 9` |
 
-## Usage Examples
+## Example Outputs
 
-### Search for a diagnosis in ICD-11
+The samples below are the actual formatted output the tools produce — the text body of the `CallToolResult`. Tools also return a `structuredContent` object matching each tool's `outputSchema` for programmatic consumers.
 
-```
-Use icd11_search with query "type 2 diabetes mellitus"
-```
+### `loinc_search` — query: "glucose", max_results: 3
 
-### Look up a lab test in LOINC
+```markdown
+## LOINC Search Results for "glucose"
 
-```
-Use loinc_details with loinc_num "2339-0" to get glucose test details
-```
+Found 1024 total results (showing 3):
 
-### Find drug information in RxNorm
+1. **74790-7** - Glucose challenge (hydrogen breath test) panel - Exhaled gas
+   Component: Glucose challenge panel | Method: -
 
-```
-Use rxnorm_search with query "metformin" then rxnorm_concept for details
-```
+2. **104708-3** - Deprecated Estimated average glucose [Moles/volume] in Blood
+   Component: Estimated average glucose | Property: SCnc
 
-### Search across all terminologies
-
-```
-Use find_equivalent with term "diabetes" to search ICD-11, SNOMED, LOINC, RxNorm, and MeSH
+3. **97510-2** - Glucose measurements in range out of Total glucose measurements during reporting period
+   Component: Glucose measurements in range/Total glucose measurements | Property: NFr | Method: Calculated
 ```
 
-### Map ICD-10 to ICD-11
+`total_count` (1024) reflects every match in the NLM Clinical Tables index, not just the page returned. Bump `max_results` (max 50) to see canonical codes like `2339-0` (Glucose [Mass/volume] in Blood); the API's relevance ranking puts panels and derived measurements above plain blood-glucose at small page sizes.
 
+### `rxnorm_ingredients` — rxcui: "6809" (metformin)
+
+```markdown
+# Ingredients for RxCUI 6809
+
+Found 18 ingredient(s):
+
+| RxCUI | Name | Type |
+|-------|------|------|
+| 6809 | metformin | Single Ingredient |
+| 1007411 | chlorpropamide / metformin | Multiple Ingredient |
+| 1043562 | metformin / saxagliptin | Multiple Ingredient |
+| 1243019 | linagliptin / metformin | Multiple Ingredient |
+| 1486436 | dapagliflozin / metformin | Multiple Ingredient |
+| 1545149 | canagliflozin / metformin | Multiple Ingredient |
+| 1664314 | empagliflozin / metformin | Multiple Ingredient |
+| 729717  | metformin / sitagliptin | Multiple Ingredient |
+| ...     | (10 more combinations)   | Multiple Ingredient |
 ```
-Use map_icd10_to_icd11 with icd10_code "E11" to find ICD-11 equivalents
+
+For an RxCUI that is itself an ingredient (TTY=IN), the tool returns that ingredient plus every multi-ingredient (TTY=MIN) concept that includes it. Use this to enumerate combination products built around a substance.
+
+### `mesh_descriptor` — mesh_id: "D006973" (Hypertension)
+
+```markdown
+# Hypertension
+MeSH ID: D006973
+
+## Scope Note
+
+Persistently high systemic arterial BLOOD PRESSURE. Based on multiple readings (BLOOD PRESSURE DETERMINATION), hypertension is currently defined as when SYSTOLIC PRESSURE is consistently greater than 140 mm Hg or when DIASTOLIC PRESSURE is consistently 90 mm Hg or more.
+
+## Tree Numbers
+
+- C14.907.489
+
+## Concepts
+
+- Hypertension *(preferred)*
+
+## Allowed Qualifiers
+
+35 qualifier(s) allowed. Use mesh_qualifiers for details.
 ```
+
+The scope note comes from the descriptor's *preferred concept*, not its annotation field (which is an indexer-facing note). Tree numbers are the navigable path into MeSH's controlled hierarchy — `C14.907.489` places Hypertension under Cardiovascular Diseases → Vascular Diseases.
+
+## Common Workflows
+
+- **ICD-11 lookup:** `icd11_search` with a clinical term → pick the result → `icd11_lookup` with the code for full details, or `icd11_hierarchy` to walk parents/children.
+- **Drug pipeline:** `rxnorm_search` for a brand or generic name → `rxnorm_concept` for the canonical record → `rxnorm_ingredients` and `rxnorm_classes` for downstream analysis.
+- **Cross-terminology scaffolding:** `find_equivalent` with a clinical term searches ICD-11, LOINC, RxNorm, MeSH, and (when enabled) SNOMED in one call. Use it to bootstrap mappings; the pairwise `map_*` tools refine them.
+- **ICD-10 → ICD-11 (text search, not authoritative):** `map_icd10_to_icd11` does honest text search against WHO ICD-11. Real WHO transition tables are tracked in [PROGRESS.md Phase 13.1](./PROGRESS.md).
 
 ## SNOMED CT setup (advanced)
 

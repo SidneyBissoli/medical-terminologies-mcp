@@ -1,32 +1,62 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.SidneyBissoli/medical-terminologies-mcp",
-  "description": "Unified access to global medical terminologies: ICD-11, SNOMED CT, LOINC, RxNorm, MeSH",
+  "description": "Unified access to global medical terminologies: ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC, CID-10",
   "repository": {
     "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
     "source": "github"
   },
-  "version": "1.0.2",
+  "version": "1.1.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "1.0.2",
+      "version": "1.1.0",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
           "name": "WHO_CLIENT_ID",
-          "description": "WHO ICD-11 API Client ID (get from https://icd.who.int/icdapi)",
-          "isRequired": true,
+          "description": "WHO ICD-11 API Client ID. Required only for ICD-11 tools (5 tools); the server starts without it and other terminologies (LOINC, RxNorm, MeSH, ATC, CID-10) work unauthenticated. Get credentials at https://icd.who.int/icdapi.",
+          "isRequired": false,
           "isSecret": false
         },
         {
           "name": "WHO_CLIENT_SECRET",
-          "description": "WHO ICD-11 API Client Secret",
-          "isRequired": true,
+          "description": "WHO ICD-11 API Client Secret. Required only for ICD-11 tools.",
+          "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "WHO_ICD11_RELEASE_ID",
+          "description": "ICD-11 release to query (e.g. 2024-01, 2025-01). Optional; defaults to 2024-01.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "ENABLE_SNOMED_TOOLS",
+          "description": "Set to 'true' to register the 6 SNOMED-dependent tools (snomed_search, snomed_concept, snomed_hierarchy, snomed_descriptions, snomed_ecl, plus map_snomed_to_icd10). Disabled by default because the historical public IHTSDO Snowstorm endpoint was retired (HTTP 410 Gone). Requires SNOMED_BASE_URL pointing at a working self-hosted Snowstorm.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SNOMED_BASE_URL",
+          "description": "Base URL of a self-hosted Snowstorm instance (e.g. https://my-snowstorm.example.com/snowstorm/snomed-ct). Required only when ENABLE_SNOMED_TOOLS is true.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "SNOMED_LANGUAGE",
+          "description": "Accept-Language tag(s) for SNOMED responses (e.g. pt, pt-BR, es). Optional; defaults to 'en'. Composite values with q-weights depend on the upstream Snowstorm instance.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "LOG_LEVEL",
+          "description": "pino log level (debug, info, warn, error, fatal). Optional; defaults to 'info'. Logs go to stderr only — never stdout (which is the MCP stdio transport).",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }
