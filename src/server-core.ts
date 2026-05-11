@@ -14,8 +14,12 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
   Tool,
   CallToolResult,
+  Prompt,
+  GetPromptResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import pkg from '../package.json';
 import { logger } from './utils/logger.js';
@@ -27,6 +31,7 @@ export const SERVER_INFO = {
 } as const;
 
 export type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
+export type PromptHandler = (args: Record<string, string | undefined>) => Promise<GetPromptResult>;
 
 class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
@@ -50,7 +55,30 @@ class ToolRegistry {
   }
 }
 
+class PromptRegistry {
+  private prompts: Map<string, Prompt> = new Map();
+  private handlers: Map<string, PromptHandler> = new Map();
+
+  register(prompt: Prompt, handler: PromptHandler): void {
+    this.prompts.set(prompt.name, prompt);
+    this.handlers.set(prompt.name, handler);
+  }
+
+  getPrompts(): Prompt[] {
+    return Array.from(this.prompts.values());
+  }
+
+  getHandler(name: string): PromptHandler | undefined {
+    return this.handlers.get(name);
+  }
+
+  hasPrompt(name: string): boolean {
+    return this.prompts.has(name);
+  }
+}
+
 export const toolRegistry = new ToolRegistry();
+export const promptRegistry = new PromptRegistry();
 
 export function createServer(): Server {
   const server = new Server(
@@ -61,6 +89,7 @@ export function createServer(): Server {
     {
       capabilities: {
         tools: {},
+        prompts: {},
       },
     },
   );
@@ -103,6 +132,23 @@ export function createServer(): Server {
         isError: true,
       };
     }
+  });
+
+  server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    return {
+      prompts: promptRegistry.getPrompts(),
+    };
+  });
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+
+    const handler = promptRegistry.getHandler(name);
+    if (!handler) {
+      throw new Error(`Unknown prompt "${name}". Use prompts/list to see available prompts.`);
+    }
+
+    return await handler(args ?? {});
   });
 
   return server;

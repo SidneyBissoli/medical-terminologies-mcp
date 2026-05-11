@@ -34,6 +34,9 @@ import './tools/crosswalk.js';
 import './tools/atc.js';
 import './tools/cid10.js';
 
+// Prompts — orchestration templates exposed to MCP clients
+import './prompts/index.js';
+
 // Per-isolate startup timestamp for the /health uptime field. Set lazily
 // on the first request, NOT at module init — Cloudflare Workers' Date.now()
 // at module-load time can return 0 (no I/O has happened yet, so the system

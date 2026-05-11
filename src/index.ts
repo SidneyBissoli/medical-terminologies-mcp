@@ -34,6 +34,9 @@ import './tools/atc.js';
 // Phase 8: CID-10 (Brazilian, DataSUS V2008, bundled dataset)
 import './tools/cid10.js';
 
+// Prompts — orchestration templates exposed to MCP clients
+import './prompts/index.js';
+
 interface CliOptions {
   http: boolean;
   port: number;
