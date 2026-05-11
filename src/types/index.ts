@@ -367,12 +367,19 @@ export const MeSHSearchParamsSchema = z.object({
     .optional()
     .default('contains')
     .describe('Match type: exact, contains, or startswith. Default: contains'),
+  language: SupportedLanguageSchema.optional().default('en'),
   max_results: maxResults(25),
 });
 
-/** Shared shape for mesh_descriptor / mesh_tree / mesh_qualifiers */
+/** Shared shape for mesh_tree / mesh_qualifiers — those don't take a language. */
 export const MeSHByIdParamsSchema = z.object({
   mesh_id: MeSHIdSchema.describe('MeSH Descriptor ID (e.g., D015242, D003920)'),
+});
+
+/** mesh_descriptor takes a language as well (Accept-Language propagated upstream). */
+export const MeSHDescriptorParamsSchema = z.object({
+  mesh_id: MeSHIdSchema.describe('MeSH Descriptor ID (e.g., D015242, D003920)'),
+  language: SupportedLanguageSchema.optional().default('en'),
 });
 
 // ============================================================================
@@ -446,12 +453,19 @@ export const SNOMEDSearchParamsSchema = z.object({
     .optional()
     .default(true)
     .describe('Only return active concepts. Default: true'),
+  language: SupportedLanguageSchema.optional().default('en'),
   max_results: maxResults(25),
 });
 
-/** Shared shape for snomed_concept / snomed_descriptions */
+/** Shared shape for snomed_descriptions (no language — that endpoint returns all). */
 export const SNOMEDBySctidParamsSchema = z.object({
   sctid: SCTIDSchema.describe('SNOMED CT Identifier (e.g., 73211009)'),
+});
+
+/** snomed_concept takes a language as well (Accept-Language propagated upstream). */
+export const SNOMEDConceptParamsSchema = z.object({
+  sctid: SCTIDSchema.describe('SNOMED CT Identifier (e.g., 73211009)'),
+  language: SupportedLanguageSchema.optional().default('en'),
 });
 
 export const SNOMEDHierarchyParamsSchema = z.object({

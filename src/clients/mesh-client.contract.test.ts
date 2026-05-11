@@ -260,4 +260,79 @@ describe('MeSHClient — contract tests against captured live fixtures', () => {
       expect(nock.isDone()).toBe(true);
     });
   });
+
+  describe('Accept-Language propagation', () => {
+    it('forwards a per-call language argument as the Accept-Language header on searchDescriptors', async () => {
+      nock(HOST)
+        .matchHeader('accept-language', 'pt')
+        .get(`${BASE}/lookup/descriptor`)
+        .query({ label: 'hipertensao', match: 'contains', limit: 5 })
+        .reply(200, []);
+
+      const results = await client.searchDescriptors('hipertensao', 'contains', 5, 'pt');
+      expect(results).toEqual([]);
+      expect(nock.isDone()).toBe(true);
+    });
+
+    it('forwards a per-call language argument through the descriptor fan-out', async () => {
+      // Every sub-resource request should carry Accept-Language: es.
+      nock(HOST)
+        .matchHeader('accept-language', 'es')
+        .get(`${BASE}/D006973.json`)
+        .reply(200, fixture('descriptor-D006973.json'));
+      nock(HOST)
+        .matchHeader('accept-language', 'es')
+        .get(`${BASE}/C14.907.489.json`)
+        .reply(200, fixture('treenumber-C14.907.489.json'));
+      nock(HOST)
+        .matchHeader('accept-language', 'es')
+        .get(`${BASE}/M0010859.json`)
+        .reply(200, fixture('concept-M0010859.json'));
+      nock(HOST)
+        .matchHeader('accept-language', 'es')
+        .get(`${BASE}/T020937.json`)
+        .reply(200, fixture('term-T020937.json'));
+      nock(HOST)
+        .matchHeader('accept-language', 'es')
+        .get(`${BASE}/T020938.json`)
+        .reply(200, fixture('term-T020938.json'));
+      const descriptor = fixture('descriptor-D006973.json') as { allowableQualifier: string[] };
+      const qIds = descriptor.allowableQualifier.map((u) =>
+        u.replace('http://id.nlm.nih.gov/mesh/', ''),
+      );
+      for (const qId of qIds) {
+        nock(HOST)
+          .matchHeader('accept-language', 'es')
+          .get(`${BASE}/${qId}.json`)
+          .reply(200, fixture('qualifier-Q000503.json'));
+      }
+
+      const d = await client.getDescriptor('D006973', 'es');
+      expect(d).not.toBeNull();
+      expect(d!.label).toBe('Hypertension');
+      expect(nock.isDone()).toBe(true);
+    });
+
+    it('cache key includes language — different language re-fetches the descriptor', async () => {
+      // Narrower test: verify the descriptor itself is re-fetched on a
+      // language change rather than walking the full fan-out (~40 sub-
+      // resource intercepts × 2 calls). The descriptor's 404 short-circuits
+      // resolveTreeNumbers / resolveConcept / resolveQualifiers, so we
+      // exercise just the cache-key dimension we care about.
+      nock(HOST).get(`${BASE}/D000000.json`).reply(404, '');
+      const en = await client.getDescriptor('D000000');
+      expect(en).toBeNull();
+
+      // Second call with 'pt' — same SCTID, different language. Cache key
+      // must differ, so nock requires a fresh intercept to satisfy the
+      // request.
+      nock(HOST)
+        .matchHeader('accept-language', 'pt')
+        .get(`${BASE}/D000000.json`)
+        .reply(404, '');
+      const pt = await client.getDescriptor('D000000', 'pt');
+      expect(pt).toBeNull();
+      expect(nock.isDone()).toBe(true);
+    });
+  });
 });

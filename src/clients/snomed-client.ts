@@ -53,38 +53,51 @@ export class SNOMEDClient {
   private httpClient: AxiosInstance;
   private branch: string;
 
+  /** The default Accept-Language used when a caller doesn't pass an override. */
+  private readonly defaultAcceptLanguage: string;
+
   constructor(branch: string = SNOMED_CONFIG.branch) {
     this.branch = branch;
     // Snowstorm honors Accept-Language to return localized terms (pt, es, fr,
     // de, etc.) when the branch and concept have translations available.
     // Operators set SNOMED_LANGUAGE to their preferred language tag(s);
     // pass-through with no validation since the API itself falls back to
-    // English on unsupported tags.
-    const acceptLanguage = getEnv('SNOMED_LANGUAGE') ?? 'en';
+    // English on unsupported tags. Per-call language overrides are layered
+    // on top of this default via the request() acceptLanguage argument.
+    this.defaultAcceptLanguage = getEnv('SNOMED_LANGUAGE') ?? 'en';
     this.httpClient = axios.create({
       baseURL: SNOMED_CONFIG.baseUrl,
       timeout: 60000, // 60 seconds for slow connections
       headers: {
         'Accept': 'application/json',
-        'Accept-Language': acceptLanguage,
+        'Accept-Language': this.defaultAcceptLanguage,
         'User-Agent': `${SERVER_INFO.name}/${SERVER_INFO.version}`,
       },
     });
   }
 
   /**
-   * Makes a request to the SNOMED CT API
+   * Makes a request to the SNOMED CT API. `acceptLanguage`, when provided,
+   * overrides the default Accept-Language header (set from SNOMED_LANGUAGE
+   * env at construction) for this request only — useful for per-tool
+   * language parameters in multi-tenant hosted scenarios.
    */
   private async request<T>(
     path: string,
-    params: Record<string, string | number | boolean> = {}
+    params: Record<string, string | number | boolean> = {},
+    acceptLanguage?: string,
   ): Promise<T> {
     await rateLimiters.snomed.acquire();
 
     return withRetry(
       async () => {
         try {
-          const response = await this.httpClient.get<T>(path, { params });
+          const response = await this.httpClient.get<T>(path, {
+            params,
+            ...(acceptLanguage
+              ? { headers: { 'Accept-Language': acceptLanguage } }
+              : {}),
+          });
           return response.data;
         } catch (error) {
           if (error instanceof AxiosError) {
@@ -130,9 +143,11 @@ export class SNOMEDClient {
   async searchConcepts(
     term: string,
     activeOnly: boolean = true,
-    limit: number = 25
+    limit: number = 25,
+    language?: string,
   ): Promise<SNOMEDSearchResult[]> {
-    const cacheKey = `snomed:search:${term}:${activeOnly}:${limit}`;
+    const lang = language ?? this.defaultAcceptLanguage;
+    const cacheKey = `snomed:search:${term}:${activeOnly}:${limit}:${lang}`;
 
     return cache.getOrSet(
       CACHE_PREFIX.SNOMED,
@@ -145,7 +160,8 @@ export class SNOMEDClient {
             activeFilter: activeOnly,
             limit,
             offset: 0,
-          }
+          },
+          language,
         );
 
         if (!response.items) {
@@ -171,8 +187,9 @@ export class SNOMEDClient {
    * @param sctid - SNOMED CT Identifier
    * @returns Concept details or null if not found
    */
-  async getConcept(sctid: string): Promise<SNOMEDConcept | null> {
-    const cacheKey = `snomed:concept:${sctid}`;
+  async getConcept(sctid: string, language?: string): Promise<SNOMEDConcept | null> {
+    const lang = language ?? this.defaultAcceptLanguage;
+    const cacheKey = `snomed:concept:${sctid}:${lang}`;
 
     return cache.getOrSet(
       CACHE_PREFIX.SNOMED,
@@ -180,7 +197,9 @@ export class SNOMEDClient {
       async () => {
         try {
           const response = await this.request<SNOMEDConceptResponse>(
-            `/${this.branch}/concepts/${sctid}`
+            `/${this.branch}/concepts/${sctid}`,
+            {},
+            language,
           );
 
           if (!response) {

@@ -27,6 +27,7 @@ import {
 import {
   SNOMEDSearchParamsSchema,
   SNOMEDBySctidParamsSchema,
+  SNOMEDConceptParamsSchema,
   SNOMEDHierarchyParamsSchema,
   SNOMEDECLParamsSchema,
   SNOMEDSearchOutputSchema,
@@ -89,7 +90,7 @@ Use this tool to:
 Provide a SCTID like "73211009" (Diabetes mellitus).
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
-  inputSchema: buildInputSchema(SNOMEDBySctidParamsSchema),
+  inputSchema: buildInputSchema(SNOMEDConceptParamsSchema),
   outputSchema: buildOutputSchema(SNOMEDConceptOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
@@ -317,7 +318,12 @@ async function handleSNOMEDSearch(args: Record<string, unknown>): Promise<CallTo
   try {
     const params = SNOMEDSearchParamsSchema.parse(args);
     const client = getSNOMEDClient();
-    const results = await client.searchConcepts(params.query, params.active_only, params.max_results);
+    const results = await client.searchConcepts(
+      params.query,
+      params.active_only,
+      params.max_results,
+      params.language,
+    );
 
     const structured: SNOMEDSearchOutput = {
       query: params.query,
@@ -344,9 +350,9 @@ async function handleSNOMEDSearch(args: Record<string, unknown>): Promise<CallTo
 
 async function handleSNOMEDConcept(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = SNOMEDBySctidParamsSchema.parse(args);
+    const params = SNOMEDConceptParamsSchema.parse(args);
     const client = getSNOMEDClient();
-    const concept = await client.getConcept(params.sctid);
+    const concept = await client.getConcept(params.sctid, params.language);
 
     if (!concept) {
       return {

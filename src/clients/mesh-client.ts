@@ -45,18 +45,30 @@ export class MeSHClient {
   }
 
   /**
-   * Makes a request to the MeSH API
+   * Makes a request to the MeSH API. `acceptLanguage`, when provided,
+   * sets the Accept-Language header for this request only — the NLM
+   * MeSH Linked Data API returns `{ "@language", "@value" }` pairs in
+   * its JSON-LD responses; honoring Accept-Language lets the upstream
+   * filter to the requested locale when translations exist. MeSH's
+   * non-English coverage is partial, so callers should expect English
+   * fallbacks for most descriptors.
    */
   private async request<T>(
     path: string,
-    params: Record<string, string | number | boolean> = {}
+    params: Record<string, string | number | boolean> = {},
+    acceptLanguage?: string,
   ): Promise<T> {
     await rateLimiters.nlm.acquire();
 
     return withRetry(
       async () => {
         try {
-          const response = await this.httpClient.get<T>(path, { params });
+          const response = await this.httpClient.get<T>(path, {
+            params,
+            ...(acceptLanguage
+              ? { headers: { 'Accept-Language': acceptLanguage } }
+              : {}),
+          });
           return response.data;
         } catch (error) {
           if (error instanceof AxiosError) {
@@ -102,19 +114,25 @@ export class MeSHClient {
   async searchDescriptors(
     term: string,
     match: 'exact' | 'contains' | 'startswith' = 'contains',
-    limit: number = 25
+    limit: number = 25,
+    language?: string,
   ): Promise<MeSHSearchResult[]> {
-    const cacheKey = `mesh:search:${term}:${match}:${limit}`;
+    const lang = language ?? 'en';
+    const cacheKey = `mesh:search:${term}:${match}:${limit}:${lang}`;
 
     return cache.getOrSet(
       CACHE_PREFIX.MESH,
       cacheKey,
       async () => {
-        const response = await this.request<MeSHLookupResponse>('/lookup/descriptor', {
-          label: term,
-          match,
-          limit,
-        });
+        const response = await this.request<MeSHLookupResponse>(
+          '/lookup/descriptor',
+          {
+            label: term,
+            match,
+            limit,
+          },
+          language,
+        );
 
         if (!response || !Array.isArray(response)) {
           return [];
@@ -146,8 +164,8 @@ export class MeSHClient {
    * @param meshId - MeSH Descriptor ID (e.g., 'D006973')
    * @returns Descriptor details or null if not found
    */
-  async getDescriptor(meshId: string): Promise<MeSHDescriptor | null> {
-    const raw = await this.fetchDescriptorRaw(meshId);
+  async getDescriptor(meshId: string, language?: string): Promise<MeSHDescriptor | null> {
+    const raw = await this.fetchDescriptorRaw(meshId, language);
     if (!raw) return null;
 
     const treeUris = toUriArray(raw.treeNumber);
@@ -155,9 +173,9 @@ export class MeSHClient {
     const conceptUri = typeof raw.preferredConcept === 'string' ? raw.preferredConcept : '';
 
     const [treeNumbers, conceptResolved, qualifiers] = await Promise.all([
-      this.resolveTreeNumbers(treeUris),
-      conceptUri ? this.resolveConcept(conceptUri) : Promise.resolve(null),
-      this.resolveQualifiers(qualifierUris),
+      this.resolveTreeNumbers(treeUris, language),
+      conceptUri ? this.resolveConcept(conceptUri, language) : Promise.resolve(null),
+      this.resolveQualifiers(qualifierUris, language),
     ]);
 
     return {
@@ -232,14 +250,22 @@ export class MeSHClient {
    * versions of this client expected a `@graph` array; that shape is
    * gone.
    */
-  private async fetchDescriptorRaw(meshId: string): Promise<MeSHDescriptorRaw | null> {
-    const cacheKey = `mesh:raw:${meshId}`;
+  private async fetchDescriptorRaw(
+    meshId: string,
+    language?: string,
+  ): Promise<MeSHDescriptorRaw | null> {
+    const lang = language ?? 'en';
+    const cacheKey = `mesh:raw:${meshId}:${lang}`;
     return cache.getOrSet(
       CACHE_PREFIX.MESH,
       cacheKey,
       async () => {
         try {
-          const response = await this.request<MeSHDescriptorRaw>(`/${meshId}.json`);
+          const response = await this.request<MeSHDescriptorRaw>(
+            `/${meshId}.json`,
+            {},
+            language,
+          );
           return response ?? null;
         } catch (error) {
           if (error instanceof ApiError && error.code === 'NOT_FOUND') {
@@ -259,8 +285,12 @@ export class MeSHClient {
    * its terms — non-preferred terms via `term` (URI scalar or array)
    * and the preferred term via `preferredTerm` (single URI).
    */
-  private async fetchConceptRaw(uri: string): Promise<MeSHConceptRaw | null> {
-    const cacheKey = `mesh:concept:${uri}`;
+  private async fetchConceptRaw(
+    uri: string,
+    language?: string,
+  ): Promise<MeSHConceptRaw | null> {
+    const lang = language ?? 'en';
+    const cacheKey = `mesh:concept:${uri}:${lang}`;
     return cache.getOrSet(
       CACHE_PREFIX.MESH,
       cacheKey,
@@ -268,7 +298,7 @@ export class MeSHClient {
         try {
           const path = uriToPath(uri);
           if (!path) return null;
-          return await this.request<MeSHConceptRaw>(path);
+          return await this.request<MeSHConceptRaw>(path, {}, language);
         } catch (error) {
           if (error instanceof ApiError && error.code === 'NOT_FOUND') {
             return null;
@@ -284,8 +314,9 @@ export class MeSHClient {
    * Fetches a term resource and returns its prefLabel. STATIC TTL
    * because terms almost never change once minted.
    */
-  private async fetchTermLabel(uri: string): Promise<string> {
-    const cacheKey = `mesh:term:label:${uri}`;
+  private async fetchTermLabel(uri: string, language?: string): Promise<string> {
+    const lang = language ?? 'en';
+    const cacheKey = `mesh:term:label:${uri}:${lang}`;
     return cache.getOrSet(
       CACHE_PREFIX.MESH,
       cacheKey,
@@ -293,7 +324,7 @@ export class MeSHClient {
         try {
           const path = uriToPath(uri);
           if (!path) return '';
-          const raw = await this.request<MeSHTermRaw>(path);
+          const raw = await this.request<MeSHTermRaw>(path, {}, language);
           return this.extractValue(raw?.prefLabel) || this.extractValue(raw?.label);
         } catch {
           return '';
@@ -308,8 +339,9 @@ export class MeSHClient {
    * tree number string itself (e.g., `C14.907.489`) — that's the format
    * downstream tools want to display. STATIC TTL.
    */
-  private async fetchTreeNumberLabel(uri: string): Promise<string> {
-    const cacheKey = `mesh:tree:label:${uri}`;
+  private async fetchTreeNumberLabel(uri: string, language?: string): Promise<string> {
+    const lang = language ?? 'en';
+    const cacheKey = `mesh:tree:label:${uri}:${lang}`;
     return cache.getOrSet(
       CACHE_PREFIX.MESH,
       cacheKey,
@@ -317,7 +349,7 @@ export class MeSHClient {
         try {
           const path = uriToPath(uri);
           if (!path) return '';
-          const raw = await this.request<MeSHTreeNumberRaw>(path);
+          const raw = await this.request<MeSHTreeNumberRaw>(path, {}, language);
           return this.extractValue(raw?.label);
         } catch {
           return '';
@@ -332,14 +364,19 @@ export class MeSHClient {
    * the controlled vocabulary and almost never change between MeSH
    * releases.
    */
-  private async fetchQualifierLabel(qualifierId: string): Promise<string> {
-    const cacheKey = `mesh:qlabel:${qualifierId}`;
+  private async fetchQualifierLabel(qualifierId: string, language?: string): Promise<string> {
+    const lang = language ?? 'en';
+    const cacheKey = `mesh:qlabel:${qualifierId}:${lang}`;
     return cache.getOrSet(
       CACHE_PREFIX.MESH,
       cacheKey,
       async () => {
         try {
-          const raw = await this.request<MeSHQualifierRaw>(`/${qualifierId}.json`);
+          const raw = await this.request<MeSHQualifierRaw>(
+            `/${qualifierId}.json`,
+            {},
+            language,
+          );
           return this.extractValue(raw?.label);
         } catch {
           return '';
@@ -357,9 +394,12 @@ export class MeSHClient {
    * Given an array of tree-number URIs, fetches each in parallel and
    * returns them with their labels (the tree-number strings) populated.
    */
-  private async resolveTreeNumbers(uris: string[]): Promise<MeSHTreeNumber[]> {
+  private async resolveTreeNumbers(
+    uris: string[],
+    language?: string,
+  ): Promise<MeSHTreeNumber[]> {
     if (uris.length === 0) return [];
-    const labels = await Promise.all(uris.map((u) => this.fetchTreeNumberLabel(u)));
+    const labels = await Promise.all(uris.map((u) => this.fetchTreeNumberLabel(u, language)));
     return uris.map((uri, i) => ({ uri, treeNumber: labels[i] }));
   }
 
@@ -371,17 +411,18 @@ export class MeSHClient {
    */
   private async resolveConcept(
     uri: string,
+    language?: string,
   ): Promise<{ uri: string; label: string; scopeNote: string; terms: string[] } | null> {
-    const concept = await this.fetchConceptRaw(uri);
+    const concept = await this.fetchConceptRaw(uri, language);
     if (!concept) return null;
 
     const termUris: string[] = [];
     if (typeof concept.preferredTerm === 'string') termUris.push(concept.preferredTerm);
     for (const t of toUriArray(concept.term)) termUris.push(t);
 
-    const terms = (await Promise.all(termUris.map((t) => this.fetchTermLabel(t)))).filter(
-      (t) => t.length > 0,
-    );
+    const terms = (
+      await Promise.all(termUris.map((t) => this.fetchTermLabel(t, language)))
+    ).filter((t) => t.length > 0);
 
     return {
       uri,
@@ -394,10 +435,15 @@ export class MeSHClient {
   /**
    * Given an array of qualifier URIs, fetches each label in parallel.
    */
-  private async resolveQualifiers(uris: string[]): Promise<MeSHQualifier[]> {
+  private async resolveQualifiers(
+    uris: string[],
+    language?: string,
+  ): Promise<MeSHQualifier[]> {
     if (uris.length === 0) return [];
     const ids = uris.map((u) => this.extractMeshId(u));
-    const settled = await Promise.allSettled(ids.map((id) => this.fetchQualifierLabel(id)));
+    const settled = await Promise.allSettled(
+      ids.map((id) => this.fetchQualifierLabel(id, language)),
+    );
     return uris.map((uri, i) => ({
       id: ids[i],
       uri,

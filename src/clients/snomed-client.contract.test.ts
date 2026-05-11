@@ -139,6 +139,50 @@ describe('SNOMEDClient — contract tests', () => {
         delete process.env.SNOMED_LANGUAGE;
       }
     });
+
+    it('per-call language argument overrides the constructor default on getConcept', async () => {
+      // Construct with env default 'en' (no SNOMED_LANGUAGE set), then
+      // call with explicit 'es' — header for this request must be 'es'.
+      nock(HOST)
+        .matchHeader('accept-language', 'es')
+        .get('/snowstorm/snomed-ct/MAIN/concepts/73211009')
+        .reply(200, { conceptId: '73211009', active: true });
+
+      const c = await client.getConcept('73211009', 'es');
+      expect(c).not.toBeNull();
+      expect(nock.isDone()).toBe(true);
+    });
+
+    it('per-call language argument overrides the constructor default on searchConcepts', async () => {
+      nock(HOST)
+        .matchHeader('accept-language', 'fr')
+        .get('/snowstorm/snomed-ct/MAIN/concepts')
+        .query({ term: 'diabetes', activeFilter: true, limit: 5, offset: 0 })
+        .reply(200, { items: [] });
+
+      const r = await client.searchConcepts('diabetes', true, 5, 'fr');
+      expect(r).toEqual([]);
+      expect(nock.isDone()).toBe(true);
+    });
+
+    it('cache key includes language — different language re-fetches', async () => {
+      // First call with 'en' — populates cache.
+      nock(HOST)
+        .get('/snowstorm/snomed-ct/MAIN/concepts/73211009')
+        .reply(200, { conceptId: '73211009', active: true, pt: { term: 'Diabetes mellitus' } });
+      await client.getConcept('73211009', 'en');
+
+      // Second call with 'pt' on the same SCTID — must NOT hit the en
+      // cache entry; nock requires a fresh intercept to satisfy it.
+      nock(HOST)
+        .matchHeader('accept-language', 'pt')
+        .get('/snowstorm/snomed-ct/MAIN/concepts/73211009')
+        .reply(200, { conceptId: '73211009', active: true, pt: { term: 'Diabetes mellitus (pt)' } });
+
+      const ptResult = await client.getConcept('73211009', 'pt');
+      expect(ptResult?.pt).toBe('Diabetes mellitus (pt)');
+      expect(nock.isDone()).toBe(true);
+    });
   });
 
   describe('executeECL', () => {

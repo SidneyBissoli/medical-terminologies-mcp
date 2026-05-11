@@ -22,6 +22,7 @@ import {
 import {
   MeSHSearchParamsSchema,
   MeSHByIdParamsSchema,
+  MeSHDescriptorParamsSchema,
   MeSHSearchOutputSchema,
   MeSHDescriptorOutputSchema,
   MeSHTreeOutputSchema,
@@ -67,7 +68,7 @@ Use this tool to:
 - See related concepts and synonyms
 
 Provide a MeSH Descriptor ID like "D015242" (Ofloxacin).`,
-  inputSchema: buildInputSchema(MeSHByIdParamsSchema),
+  inputSchema: buildInputSchema(MeSHDescriptorParamsSchema),
   outputSchema: buildOutputSchema(MeSHDescriptorOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
@@ -271,7 +272,12 @@ async function handleMeSHSearch(args: Record<string, unknown>): Promise<CallTool
   try {
     const params = MeSHSearchParamsSchema.parse(args);
     const client = getMeSHClient();
-    const results = await client.searchDescriptors(params.query, params.match, params.max_results);
+    const results = await client.searchDescriptors(
+      params.query,
+      params.match,
+      params.max_results,
+      params.language,
+    );
 
     const structured: MeSHSearchOutput = {
       query: params.query,
@@ -295,9 +301,9 @@ async function handleMeSHSearch(args: Record<string, unknown>): Promise<CallTool
 
 async function handleMeSHDescriptor(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
-    const params = MeSHByIdParamsSchema.parse(args);
+    const params = MeSHDescriptorParamsSchema.parse(args);
     const client = getMeSHClient();
-    const descriptor = await client.getDescriptor(params.mesh_id);
+    const descriptor = await client.getDescriptor(params.mesh_id, params.language);
 
     if (!descriptor) {
       return {
