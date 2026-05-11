@@ -409,7 +409,7 @@ rich tabular outputs.
 | 11.2 | Streamable HTTP transport (`--http --port` flag); `StreamableHTTPServerTransport` from SDK; `transport: { type: "streamable-http" }` alternative in `server.json` | ~3-4 h | ✅ shipped 1.2.0 | none |
 | 11.3 | README polish — 3 real output samples + audience matrix | ~2-3 h | ✅ shipped | none |
 | 11.4 | Per-tool `language` parameter on SNOMED/ICD-11/MeSH search & lookup tools | ~2 h | 📋 planned | 11.2 reduces ROI gap; not strict dep |
-| 11.5 | Submit to Glama.ai | ~20 min | 📋 planned | 11.1 + 11.3 |
+| 11.5 | Submit to Glama.ai | ~20 min | 🔄 prep complete 2026-05-11 — refreshed A.2 draft in [outreach-templates.md](./outreach-templates.md); final form submission at https://glama.ai/mcp/servers/add requires Glama sign-in (GitHub OAuth) — author handoff | 11.1 + 11.3 |
 | 11.6 | Submit to mcpservers.org | ~20-30 min | 📋 planned | 11.1 + 11.3 |
 | 11.7 | PR to `awesome-mcp-servers` (punkpeye + wong2 lists) | ~30 min | 📋 planned | 11.1 + 11.3 |
 | 11.8 | Submit to Smithery.ai via URL submission flow (point at the live Workers endpoint from 11.9). Smithery deprecated `runtime: container` between this roadmap's authoring and 2026-05-10, so the original `smithery.yaml` approach is dead — URL submission is the only remaining path | ~30 min | ✅ shipped — live at https://smithery.ai/servers/@sidneybissoli/medical-terminologies | 11.9 |

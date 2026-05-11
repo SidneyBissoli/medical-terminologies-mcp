@@ -8,13 +8,17 @@
 > **Tool counts and version numbers in these drafts reflect the project
 > state when each template was last refreshed.** Quick verification
 > before publishing: current state is **28 tools default / 34 with
-> SNOMED enabled, v1.1.0, 243-test Vitest suite**. Refresh inline if
-> any of these have changed.
+> SNOMED enabled, v1.2.1, 247 unit + contract tests + 11 integration
+> tests (gated by `INTEGRATION_TESTS=1`)**. Refresh inline if any of
+> these have changed.
 >
-> Templates assume Phase 11.1 (server.json sync to 1.1.0) and Phase 11.3
-> (README polish with output samples) are done. Don't publish before
-> those — outreach pointing to an outdated registry or a text-only
-> README hurts credibility.
+> Templates assume Phases 11.1 (server.json sync), 11.2 (Streamable
+> HTTP transport), 11.3 (README polish with output samples), 11.8
+> (Smithery listing), and 11.9 Stage 1 (Cloudflare Workers production
+> deployment) are done. The hosted endpoint
+> `https://medical-terminologies-mcp.sidneybissoli.workers.dev` is the
+> single most important new asset since the original draft — link to
+> it in any submission that accepts an HTTP endpoint.
 
 ---
 
@@ -108,9 +112,14 @@ historically used 📇 for "official integration" and 🏠 for "self-hosted".)
 >   2024-11-05).
 > - `annotations` (`readOnlyHint`, `idempotentHint`, `openWorldHint`)
 >   declared on every tool.
-> - 243-test Vitest suite (unit + contract using nock + integration
->   gated by env flag) gating CI on PR. Daily integration cron catches
->   upstream API drift.
+> - 247 unit + contract tests (using `nock` for HTTP fixtures) + 11
+>   live-API integration tests (gated by `INTEGRATION_TESTS=1`), gating
+>   CI on PR. Daily integration cron catches upstream API drift.
+> - **Hosted production endpoint:**
+>   `https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp`
+>   (Cloudflare Workers, Streamable HTTP transport, stateless mode).
+>   Also listed on Smithery at
+>   `https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp`.
 >
 > **What it deliberately does not do:**
 >
