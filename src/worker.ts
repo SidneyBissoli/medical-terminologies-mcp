@@ -46,6 +46,61 @@ let mcpServer: Server | null = null;
 let transport: WebStandardStreamableHTTPServerTransport | null = null;
 
 /**
+ * Worker environment bindings — secrets set via `wrangler secret put` and
+ * vars from wrangler.toml `[vars]` all land here. The platform-agnostic
+ * clients (who-client.ts, etc.) read `process.env.X`, which Cloudflare's
+ * nodejs_compat is supposed to populate from these bindings — except in
+ * practice we observed it does NOT bridge secrets reliably (verified
+ * 2026-05-10 with WHO_CLIENT_ID set in dashboard but undefined at runtime).
+ * We bridge them explicitly below on first request.
+ */
+interface WorkerEnv {
+  WHO_CLIENT_ID?: string;
+  WHO_CLIENT_SECRET?: string;
+  WHO_ICD11_RELEASE_ID?: string;
+  ENABLE_SNOMED_TOOLS?: string;
+  SNOMED_BASE_URL?: string;
+  SNOMED_LANGUAGE?: string;
+  LOG_LEVEL?: string;
+}
+
+let envBridged = false;
+
+/**
+ * Copy Worker env bindings (secrets + vars) into globalThis.process.env so
+ * the shared clients (who-client.ts etc.) that read process.env.X work
+ * unchanged across Node and Workers. Idempotent — runs once per isolate.
+ *
+ * Why not rely on nodejs_compat to do this automatically:
+ *   The compat layer's process.env polyfill bridges `[vars]` reliably but
+ *   secrets set via `wrangler secret put` were observed missing at runtime
+ *   even with compatibility_date=2025-12-01 and the nodejs_compat flag.
+ *   Bridging explicitly is one of those rare cases where the defensive
+ *   workaround is strictly safer than trusting the platform.
+ */
+function bridgeEnv(env: WorkerEnv): void {
+  if (envBridged) return;
+  const target = (globalThis as { process?: { env?: Record<string, string> } }).process?.env;
+  if (!target) return; // process polyfill absent — nothing to bridge to
+  const keys: (keyof WorkerEnv)[] = [
+    'WHO_CLIENT_ID',
+    'WHO_CLIENT_SECRET',
+    'WHO_ICD11_RELEASE_ID',
+    'ENABLE_SNOMED_TOOLS',
+    'SNOMED_BASE_URL',
+    'SNOMED_LANGUAGE',
+    'LOG_LEVEL',
+  ];
+  for (const k of keys) {
+    const value = env[k];
+    if (typeof value === 'string' && value.length > 0) {
+      target[k] = value;
+    }
+  }
+  envBridged = true;
+}
+
+/**
  * Lazy init the MCP server + transport once per isolate. Top-level await
  * in Workers is technically allowed but adds startup latency on cold
  * isolates; doing it on first request keeps the cold path predictable.
@@ -101,12 +156,16 @@ function notFound(): Response {
 }
 
 export default {
-  async fetch(request: Request): Promise<Response> {
+  async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     // First fetch sets the uptime baseline. Date.now() inside a request
     // handler is the real clock, unlike at module-init time.
     if (isolateStartMs === null) {
       isolateStartMs = Date.now();
     }
+
+    // Bridge Worker bindings into process.env so platform-agnostic clients
+    // (who-client.ts etc.) see the credentials. Idempotent per isolate.
+    bridgeEnv(env);
 
     const url = new URL(request.url);
 
