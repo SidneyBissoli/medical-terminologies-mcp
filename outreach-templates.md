@@ -24,39 +24,67 @@
 
 ## A.1 — PR to `awesome-mcp-servers`
 
-**PR title:** *Add medical-terminologies-mcp to Healthcare/Medical*
+**Target:** `punkpeye/awesome-mcp-servers` only.
+**`wong2/awesome-mcp-servers` is PR-restricted** (verified 2026-05-11 — the
+maintainer disabled PR creation; 0 open / 0 closed PRs ever). It's a
+curated list, not a community list. The Phase 12 success criterion says
+"PR merged in at least one `awesome-mcp-servers` list", so punkpeye
+alone satisfies it.
+
+**Section:** `### Biology, Medicine and Bioinformatics` (line ~269 in
+the live README). Insert alphabetically — `SidneyBissoli` falls
+case-insensitively between `pkotecha-eng/aria-mcp-server` and
+`the-momentum/apple-health-mcp-server`.
+
+**Emoji legend** (verified from punkpeye README "## Legend" section):
+- 📇 TypeScript/JavaScript codebase
+- ☁️ Cloud Service (hosted) — Cloudflare Workers
+- 🏠 Local Service — stdio mode
+- 🍎 🪟 🐧 macOS / Windows / Linux support
+
+**PR title:** *🤖🤖🤖 Add SidneyBissoli/medical-terminologies-mcp to Biology, Medicine and Bioinformatics*
+
+(The `🤖🤖🤖` prefix opts into punkpeye's [streamlined agent-PR
+process](https://github.com/punkpeye/awesome-mcp-servers/blob/main/CONTRIBUTING.md)
+for fast-track merging.)
 
 **Branch:** `add-medical-terminologies-mcp`
 
-**Diff (style of `punkpeye/awesome-mcp-servers`):**
+**Entry to insert** (single line in the bio section):
 
 ```markdown
-- [SidneyBissoli/medical-terminologies-mcp](https://github.com/SidneyBissoli/medical-terminologies-mcp) 📇 🏠 - Unified MCP server for ICD-11 (WHO), LOINC, RxNorm, MeSH (NLM), ATC, CID-10 (DataSUS), and optional SNOMED CT. 28 tools by default (34 with SNOMED), structured outputs on most tools, contract + integration tested.
+- [SidneyBissoli/medical-terminologies-mcp](https://github.com/SidneyBissoli/medical-terminologies-mcp) [![SidneyBissoli/medical-terminologies-mcp MCP server](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp/badges/score.svg)](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp) 📇 ☁️ 🏠 🍎 🪟 🐧 - Unified MCP server for ICD-11 (WHO), LOINC, RxNorm, MeSH (NLM), ATC, CID-10 (Brazilian DataSUS), and optional SNOMED CT. 28 tools (34 with SNOMED) with `structuredContent` + `outputSchema` on every default tool. Hosted on Cloudflare Workers, listed on Smithery, and on npm.
 ```
-
-(Verify which emojis the destination repo uses; `punkpeye/awesome-mcp-servers`
-historically used 📇 for "official integration" and 🏠 for "self-hosted".)
 
 **PR body:**
 
-> Adding `medical-terminologies-mcp`, an open-source MCP server I've
-> been maintaining that wraps seven major medical terminology APIs:
-> ICD-11 (WHO), LOINC, RxNorm, MeSH (all NLM), ATC (via NLM RxClass),
-> CID-10 (Brazilian — bundled DataSUS V2008), and SNOMED CT (optional,
-> license-gated).
+> Adding `medical-terminologies-mcp` to the Biology, Medicine and
+> Bioinformatics section. Open-source MCP server wrapping seven major
+> medical terminology APIs:
 >
-> - 28 tools active by default; 34 with SNOMED enabled.
-> - No auth required for LOINC, RxNorm, MeSH, ATC, CID-10; ICD-11 needs
->   free WHO API credentials.
-> - structuredContent + outputSchema on all default tools.
-> - 243-test Vitest suite (unit + contract + integration); CI on PR.
-> - MIT licensed.
+> - **ICD-11** (WHO) — 5 tools, free OAuth credentials required
+> - **LOINC** (NLM Clinical Tables) — 4 tools, no auth
+> - **RxNorm** (NIH) — 5 tools, no auth
+> - **MeSH** (NLM Linked Data) — 4 tools, no auth
+> - **ATC** (via NLM RxClass) — 3 tools, no auth
+> - **CID-10** (Brazilian Portuguese ICD-10, bundled DataSUS V2008) — 4 tools, no HTTP
+> - **SNOMED CT** — 5 tools, gated behind a feature flag, IHTSDO license + self-hosted Snowstorm required
 >
-> Listed on the official MCP Registry as
-> `io.github.SidneyBissoli/medical-terminologies-mcp`.
+> 28 tools active by default; 34 with SNOMED enabled. `structuredContent`
+> + `outputSchema` on every default tool. 247 unit + contract tests
+> using `nock` for HTTP fixtures, plus 11 live-API integration tests
+> gated by `INTEGRATION_TESTS=1`. Daily integration cron in CI catches
+> upstream API drift.
 >
-> npm: https://www.npmjs.com/package/medical-terminologies-mcp
-> Repo: https://github.com/SidneyBissoli/medical-terminologies-mcp
+> Hosted production endpoint: `https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp`
+> (Cloudflare Workers, Streamable HTTP transport).
+> Smithery: `https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp`
+> Glama: `https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp`
+> MCP Registry: `io.github.SidneyBissoli/medical-terminologies-mcp`
+> npm: `https://www.npmjs.com/package/medical-terminologies-mcp`
+>
+> MIT licensed. Inserted alphabetically between `pkotecha-eng` and
+> `the-momentum`.
 
 ---
 
