@@ -18,6 +18,8 @@ npm run typecheck     # tsc --noEmit (strict; not invoked by `npm run build`)
 
 Run a single test: `npx vitest run src/utils/cache.test.ts` (or `-t '<name pattern>'` for a single case).
 
+The package is published to npm with `"bin": { "medical-terminologies-mcp": "dist/index.js" }`, so consumers can launch the stdio server via `npx medical-terminologies-mcp` without cloning. `prepublishOnly` runs `npm run build` automatically before `npm publish` so the bundle is fresh in every release.
+
 Run integration tests against live APIs: `INTEGRATION_TESTS=1 npm test`. They live in `src/integration/` and skip by default. WHO and SNOMED integration tests skip cleanly when their respective creds/flags (`WHO_CLIENT_ID`/`WHO_CLIENT_SECRET`, `ENABLE_SNOMED_TOOLS`/`SNOMED_BASE_URL`) are absent. The daily cron CI workflow at `.github/workflows/integration.yml` runs them and surfaces upstream API drift close to when it happens.
 
 The build is two `esbuild` invocations sharing the same source tree. The Node build (`dist/index.js`) targets `node20`, keeps `@modelcontextprotocol/sdk` external (resolved via runtime `node_modules`), and injects a `createRequire` shim so the ESM bundle can still `require()` CJS deps. The Workers build (`dist/worker.js`) targets `es2022`/`workerd` conditions, aliases bare Node imports to their `node:` namespaced equivalents, and inlines everything including the SDK (~558 KB gzipped). Both builds use `tree-shaking=false` — see "Tool registration" below.
@@ -101,12 +103,15 @@ Three layers, all under `src/`:
 
 Total: 247 unit + contract tests, 11 integration tests (skipped by default).
 
+When adding a tool with an `outputSchema`, add a fixture to `src/types/schemas.test.ts` exercising the typical-result shape *and* one edge case (empty list, all-nullable-fields populated/missing, etc.). Pattern: `<Schema>OutputSchema.safeParse({...}).success` should be `true` for well-formed shapes and `false` when a required field is missing. CONTRIBUTING.md codifies this as a PR-gate expectation.
+
 ## Conventions worth knowing
 
 - All tool handlers return `CallToolResult` with `content: [{ type: 'text', text: ... }]` for human/LLM display, plus `structuredContent` matching the `outputSchema` whenever the result is structured. Errors flow through `handleToolError` (sets `isError: true`); only unexpected errors propagate.
 - Zod schemas in `src/types/index.ts` are the single source of truth — both runtime validation and the `Tool.inputSchema` / `Tool.outputSchema` JSON Schemas are derived from them. There is no hand-maintained JSON Schema to keep in sync.
 - `src/server-core.ts` reads `SERVER_INFO.version` from `package.json` (`resolveJsonModule: true`) — bump the version in `package.json` only.
 - TypeScript strict mode is the linter. There is no ESLint, no Prettier, no Biome. `tsconfig.json` enables `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, etc. — match surrounding formatting in the file you're editing; don't introduce a formatter.
+- Commits use Conventional Commits prefixes — `feat:` / `fix:` / `refactor:` / `docs:` / `test:` / `chore:` / `perf:`. The body explains *why*, not *what* (the diff already shows the what). If a commit addresses a `PROGRESS.md` item, reference it in the body so future readers can map commit → context.
 
 ## Cloudflare Workers deployment
 
