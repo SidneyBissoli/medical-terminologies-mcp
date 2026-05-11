@@ -47,8 +47,9 @@ to understand why specific code patterns exist. Outreach copy
 **Tools today:** 28 default / 34 with SNOMED enabled
 **Prompts today:** 3 (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — added 1.3.0
 **Resources today:** 3 (`info://server`, `info://cid10/chapters`, `info://licenses`) — added 1.3.0
+**Per-tool `language` parameter** on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` — propagates as `Accept-Language` upstream (added 11.4)
 **Tools projected after Phase 13:** ~38–40 default / ~44–46 with SNOMED
-**Tests today:** 265 across 16 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
+**Tests today:** 271 across 16 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
 
 ---
 
@@ -410,7 +411,7 @@ rich tabular outputs.
 | 11.1 | Sync `server.json` with `package.json` 1.1.0 + new env vars | ~30 min | ✅ shipped | none |
 | 11.2 | Streamable HTTP transport (`--http --port` flag); `StreamableHTTPServerTransport` from SDK; `transport: { type: "streamable-http" }` alternative in `server.json` | ~3-4 h | ✅ shipped 1.2.0 | none |
 | 11.3 | README polish — 3 real output samples + audience matrix | ~2-3 h | ✅ shipped | none |
-| 11.4 | Per-tool `language` parameter on SNOMED/ICD-11/MeSH search & lookup tools | ~2 h | 📋 planned | 11.2 reduces ROI gap; not strict dep |
+| 11.4 | Per-tool `language` parameter on SNOMED/ICD-11/MeSH search & lookup tools | ~2 h (came in ~2h) | ✅ shipped 2026-05-11 — `language` now accepted on `snomed_search`, `snomed_concept`, `mesh_search`, `mesh_descriptor` (ICD-11 already had it). Per-call override propagated as `Accept-Language` header on every upstream request; cache keys include the resolved language to avoid cross-tenant contamination. 6 new contract tests pin the propagation. | 11.2 reduces ROI gap; not strict dep |
 | 11.5 | Submit to Glama.ai | ~20 min | ✅ shipped 2026-05-11 — listed at https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp, returns in search results for "medical terminologies", and is categorized under Biology & Medicine / Health & Wellness / Research & Data. Glama scores: License A / Quality A / Maintenance C. The `glama.json` with `maintainers` field (commit d430850) was sufficient to establish ownership and unlock search visibility — the Dockerfile follow-up turned out to be unnecessary (kept the draft in [docs/glama-dockerfile.md](./docs/glama-dockerfile.md) as a reference in case Glama's safety/quality grading later requires it). | 11.1 + 11.3 |
 | 11.6 | Submit to mcpservers.org | ~20-30 min | ✅ auto-indexed 2026-05-11 — listed at https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp without form submission. mcpservers.org appears to auto-discover from the MCP Registry (the page shows "27 tools" — stale data from the v1.0.x Registry entry — confirming Registry scraping rather than form intake). The A.3 form-prep work in [outreach-templates.md](./outreach-templates.md) was unnecessary; leaving the draft in for future reference. Category is not visibly displayed on the listing page | 11.1 + 11.3 |
 | 11.7 | PR to `awesome-mcp-servers` (punkpeye + wong2 lists) | ~30 min | 🔄 PR opened 2026-05-11 — [punkpeye/awesome-mcp-servers#6208](https://github.com/punkpeye/awesome-mcp-servers/pull/6208) (in the `🤖🤖🤖` agent-PR fast-track queue per their CONTRIBUTING.md). Will flip to ✅ shipped + bump directory count once merged. **Scope reduced to punkpeye only**: wong2's repo is PR-restricted (0 open / 0 closed PRs ever, "Pull request creation is restricted" banner). Success criterion "merged in at least one" satisfied by punkpeye | 11.1 + 11.3 |
@@ -431,7 +432,7 @@ tools, not a new tool.
 - [x] `--http --port N` boots Streamable HTTP transport; default remains stdio
 - [x] MCP Inspector connects via `--transport streamable-http`
 - [x] README has at least 3 real output samples + an audience matrix
-- [ ] `language` accepted as optional input on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` (and propagated to upstream Accept-Language)
+- [x] `language` accepted as optional input on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` (and propagated to upstream Accept-Language) — shipped 2026-05-11 in feat commit 3bc96b2
 - [x] Listed on Glama.ai with public search visibility and license/quality/maintenance scores (License A / Quality A / Maintenance C as of 2026-05-11; ownership established via `glama.json` maintainers field — Dockerfile-based "Author verified" badge turned out to be unnecessary)
 - [x] Listed on mcpservers.org (https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp — auto-indexed via Registry; explicit category not displayed on listing page, so "Healthcare category" qualifier is partially fulfilled)
 - [ ] PR merged in at least one `awesome-mcp-servers` list
@@ -441,7 +442,7 @@ tools, not a new tool.
 - [ ] LobeHub plugin manifest accepted
 - [x] CHANGELOG entry for 1.2.0 (HTTP transport ship)
 - [x] Contract test for HTTP transport boot (`src/server.http.test.ts` — 4 tests)
-- [ ] Contract test for per-tool language acceptance (waits on 11.4)
+- [x] Contract test for per-tool language acceptance — shipped 2026-05-11 (6 new tests in `src/clients/snomed-client.contract.test.ts` and `src/clients/mesh-client.contract.test.ts` pinning per-call override + cache-key-includes-language)
 
 ### Triggers and Cross-references
 
@@ -511,19 +512,20 @@ tools, not a new tool.
 
 ### Status
 
-- Effort spent so far: ~20h (11.1 + 11.2 + 11.3 + 11.5 + 11.6 + 11.7 + 11.8 + 11.9 Stage 1 + 11.10)
-- Effort remaining: ~3-4h (11.4 per-tool language schema add; Glama
-  Dockerfile upload follow-up for Author-verified badge + search-result
-  visibility)
+- Effort spent so far: ~22h (11.1 + 11.2 + 11.3 + 11.4 + 11.5 + 11.6 + 11.7 + 11.8 + 11.9 Stage 1 + 11.10)
+- Effort remaining: 0h on the project-led path; Glama Dockerfile upload
+  remains as a non-blocking option (the listing is already
+  search-visible without it — see 11.5 row)
 - Stage 2 of 11.9 (~4-6h) deferred until trigger fires
 - **Directory listings: 3 of 4 — Phase 12 success criterion MET**
   (Smithery + Glama + mcpservers.org all live; punkpeye PR #6208 open,
   would push count to 4/4 on merge; wong2 is PR-restricted and N/A)
 - LobeHub validator: code shipped in 1.3.0; awaiting scanner re-run to
   flip badge from "unvalidated" to "validated"
-- Build: 🔄 In progress — hosted endpoint live, 8 of 10 sub-tasks
-  shipped (11.1, 11.2, 11.3, 11.5, 11.6, 11.7, 11.8, 11.9 Stage 1,
-  11.10), the rest are 11.4 schema add and 11.9 Stage 2 (trigger-gated)
+- Build: 🔄 In progress — hosted endpoint live, **9 of 10 sub-tasks
+  shipped** (11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9
+  Stage 1, 11.10). Only 11.9 Stage 2 remains, trigger-gated by
+  traffic. Phase 11 is effectively complete for the current scope.
 
 ---
 

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Per-tool `language` parameter on `snomed_search`, `snomed_concept`,
+  `mesh_search`, and `mesh_descriptor` (`icd11_search` and
+  `icd11_lookup` already had it). Propagated as the `Accept-Language`
+  header on every upstream request. Useful for multi-tenant hosted
+  scenarios where the operator isn't the end user — the per-tool
+  override layers on top of the `SNOMED_LANGUAGE` env default rather
+  than replacing it. Closes PROGRESS.md Phase 11.4.
+- Cache keys for SNOMED and MeSH clients now include the resolved
+  language so concurrent requests in different locales don't
+  cross-contaminate.
+
 ## [1.3.0] - 2026-05-11
 
 Adds **MCP Prompts and Resources** to the server's surface, satisfying
