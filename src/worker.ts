@@ -34,10 +34,13 @@ import './tools/crosswalk.js';
 import './tools/atc.js';
 import './tools/cid10.js';
 
-// Per-isolate startup timestamp for the /health uptime field. This measures
-// how long THIS isolate has been alive, not the overall service uptime —
-// Cloudflare may spin up new isolates and discard idle ones at any time.
-const isolateStartMs = Date.now();
+// Per-isolate startup timestamp for the /health uptime field. Set lazily
+// on the first request, NOT at module init — Cloudflare Workers' Date.now()
+// at module-load time can return 0 (no I/O has happened yet, so the system
+// clock isn't exposed). Setting it on first request also gives a more
+// useful semantic: "time since this isolate first served a request", which
+// is what an operator actually wants from /health.
+let isolateStartMs: number | null = null;
 
 let mcpServer: Server | null = null;
 let transport: WebStandardStreamableHTTPServerTransport | null = null;
@@ -68,13 +71,14 @@ function corsHeaders(): Record<string, string> {
 }
 
 function healthResponse(): Response {
+  const uptimeMs = isolateStartMs === null ? 0 : Date.now() - isolateStartMs;
   return new Response(
     JSON.stringify({
       status: 'ok',
       name: SERVER_INFO.name,
       version: SERVER_INFO.version,
       tool_count: toolRegistry.getTools().length,
-      uptime_s: Math.round((Date.now() - isolateStartMs) / 10) / 100,
+      uptime_s: Math.round(uptimeMs / 10) / 100,
     }),
     {
       status: 200,
@@ -98,6 +102,12 @@ function notFound(): Response {
 
 export default {
   async fetch(request: Request): Promise<Response> {
+    // First fetch sets the uptime baseline. Date.now() inside a request
+    // handler is the real clock, unlike at module-init time.
+    if (isolateStartMs === null) {
+      isolateStartMs = Date.now();
+    }
+
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS') {
