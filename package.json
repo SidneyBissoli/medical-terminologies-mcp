@@ -46,8 +46,11 @@
   "sideEffects": true,
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --external:@modelcontextprotocol/sdk --tree-shaking=false --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "build:worker": "esbuild src/worker.ts --bundle --platform=browser --target=es2022 --format=esm --outfile=dist/worker.js --tree-shaking=false --conditions=workerd,browser --define:process.env.NODE_ENV=\\\"production\\\" --external:node:* --external:cloudflare:* --alias:events=node:events --alias:stream=node:stream --alias:buffer=node:buffer --alias:util=node:util --alias:path=node:path --alias:os=node:os --alias:fs=node:fs --alias:url=node:url --alias:crypto=node:crypto",
+    "build:all": "npm run build && npm run build:worker",
     "start": "node dist/index.js",
     "dev": "npm run build && node dist/index.js",
+    "dev:worker": "npm run build:worker && npx wrangler dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

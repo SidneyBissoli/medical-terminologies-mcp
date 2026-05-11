@@ -1,0 +1,68 @@
+name: Deploy to Cloudflare Workers
+
+# Two trigger paths:
+# - push to main: continuous deployment after PR merge (keeps the hosted
+#   URL in lockstep with the published npm package).
+# - workflow_dispatch: manual redeploy without a code change (e.g. after
+#   rotating a secret or after a Cloudflare runtime update).
+#
+# Requires three GitHub secrets:
+#   CLOUDFLARE_API_TOKEN — scoped token with "Workers Scripts: Edit"
+#                         permission for the target account
+#   CLOUDFLARE_ACCOUNT_ID — account ID the worker deploys into
+#   (WHO_CLIENT_ID + WHO_CLIENT_SECRET are NOT GitHub secrets — they're
+#    set via `wrangler secret put` on the Cloudflare side because they're
+#    only needed at the Worker's runtime, not at build time.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'wrangler.toml'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build Worker bundle
+        run: npm run build:worker
+
+      - name: Report bundle size (compressed)
+        run: |
+          GZ=$(gzip -c dist/worker.js | wc -c)
+          MB=$(awk "BEGIN {printf \"%.2f\", $GZ/1048576}")
+          echo "Worker bundle: ${MB} MB gzipped (${GZ} bytes)"
+          # Cloudflare free tier limit is 3 MB compressed. Fail early so a
+          # bad bundle blocks the deploy instead of erroring at Cloudflare.
+          if [ "$GZ" -gt 3145728 ]; then
+            echo "ERROR: bundle exceeds 3 MB compressed limit"
+            exit 1
+          fi
+
+      - name: Deploy via Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Wrangler reads wrangler.toml from the repo root; no extra
+          # command needed beyond `wrangler deploy` (the default).

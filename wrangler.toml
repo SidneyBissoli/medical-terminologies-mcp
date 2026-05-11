@@ -1,0 +1,30 @@
+# Cloudflare Workers config — production deployment of the Streamable HTTP
+# transport. Reference: https://developers.cloudflare.com/workers/wrangler/configuration/
+#
+# Deploy from CI: see .github/workflows/deploy-worker.yml (triggered on tag).
+# Deploy locally: `npx wrangler deploy` (after `wrangler login`).
+# Iterate locally: `npx wrangler dev` (boots a Miniflare runtime on :8787).
+#
+# After first deploy: set secrets so ICD-11 tools work.
+#   npx wrangler secret put WHO_CLIENT_ID
+#   npx wrangler secret put WHO_CLIENT_SECRET
+
+name = "medical-terminologies-mcp"
+main = "dist/worker.js"
+compatibility_date = "2025-12-01"
+
+# nodejs_compat exposes node:buffer / node:events / node:stream etc. — pino
+# and node-cache need this. The Workers runtime ships a partial Node API
+# behind this flag, sufficient for our bundled code without a full polyfill.
+compatibility_flags = ["nodejs_compat"]
+
+# Surface invocation metrics + structured logs in the Cloudflare dashboard
+# and via `wrangler tail`. Free; no cost impact.
+[observability]
+enabled = true
+
+# Stage 1 deploys the Worker as-is. Stage 2 (PROGRESS.md Phase 11.9
+# follow-up) will add:
+#   [[kv_namespaces]]   for cross-isolate cache
+#   [[durable_objects]] for global rate limiting
+# Intentionally absent here so the initial deploy stays minimal.

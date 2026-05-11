@@ -22,7 +22,7 @@ A Model Context Protocol (MCP) server providing unified access to major global m
 - Built-in caching for improved performance
 - Rate limiting to respect API limits
 - Detailed responses with rich formatting
-- Two transports: **stdio** (default; for Claude Desktop, IDE clients) and **Streamable HTTP** (for hosted deployments — Cloudflare Workers, Smithery, Docker)
+- Two transports: **stdio** (default; for Claude Desktop, IDE clients) and **Streamable HTTP** (for hosted deployments — runs on Cloudflare Workers at the edge by default, Smithery URL submission, or self-hosted Docker)
 
 ## Who is this for?
 
@@ -122,19 +122,37 @@ curl -sS http://localhost:3000/health
 npx @modelcontextprotocol/inspector --transport streamable-http --server-url http://localhost:3000/mcp
 ```
 
-### Hosted via Smithery
+### Hosted on Cloudflare Workers (primary)
 
-If you'd rather not run the server yourself, the repo ships a `Dockerfile` + `smithery.yaml` so you can deploy on [Smithery](https://smithery.ai) (their infrastructure builds the container, sets `PORT`, and routes `/mcp` traffic for you):
+The production deployment is a Cloudflare Worker. Source lives in `src/worker.ts`, config in `wrangler.toml`, and CI deploy in `.github/workflows/deploy-worker.yml` (auto-runs on every push to `main`).
 
-1. Visit https://smithery.ai/new and connect this GitHub repository.
-2. Smithery reads `smithery.yaml`, builds the `Dockerfile`, and exposes a hosted MCP endpoint.
-3. Paste your WHO credentials (and any optional flags) in the Smithery config UI.
+To deploy your own instance:
 
-The Smithery deploy uses the same `--http` entrypoint documented above — only the hosting differs.
+```bash
+npm ci
+npm run build:worker
+npx wrangler login         # one-time, browser flow
+npx wrangler deploy        # publishes to <name>.<account>.workers.dev
+# Set ICD-11 secrets so those 5 tools work:
+npx wrangler secret put WHO_CLIENT_ID
+npx wrangler secret put WHO_CLIENT_SECRET
+```
 
-### Self-hosted Docker
+The public endpoint is `POST https://<name>.<account>.workers.dev/mcp`. CORS is permissive so the MCP Inspector web UI connects directly. `/health` returns `{ status, name, version, tool_count, uptime_s }`.
 
-For your own infrastructure (Cloudflare Workers via wrangler, Fly.io, Render, plain Docker host):
+Why Workers: zero cold start at the edge, $5/mo flat for 10M requests (free tier covers up to 100k req/day), and no VMs to size or restart. Stage-1 deploy uses per-isolate cache + rate-limiter — fine for moderate traffic; under sustained high load, swap in Workers KV cache and a Durable Object rate limiter (tracked as PROGRESS.md Phase 11.9 Stage 2 follow-up).
+
+### Listing on Smithery
+
+After your Worker is live, register the URL on Smithery:
+
+1. Visit https://smithery.ai → **Publish → MCP** (or `https://smithery.ai/new`).
+2. Pick the **URL** submission path (Smithery deprecated container hosting in 2024 — URL is the supported flow now).
+3. Paste `https://<your-worker>.workers.dev/mcp`. Smithery's gateway scans for compliance and proxies traffic.
+
+### Self-hosted Docker (alternative)
+
+If you'd rather run the server in your own infrastructure (private deployment, internal compliance constraints, on-prem), the repo includes a `Dockerfile`:
 
 ```bash
 docker build -t medical-terminologies-mcp .
@@ -144,7 +162,7 @@ docker run --rm -p 3000:3000 \
   medical-terminologies-mcp
 ```
 
-The image is built from this repo's `Dockerfile` (multi-stage, ~150 MB). It runs `node dist/index.js --http` and binds `0.0.0.0:$PORT`.
+Multi-stage build (~150 MB), runs `node dist/index.js --http`, binds `0.0.0.0:$PORT`. Same MCP endpoints as the Workers deployment.
 
 ## Available Tools (28 by default, 34 with SNOMED enabled)
 
