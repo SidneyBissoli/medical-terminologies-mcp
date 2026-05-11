@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-05-10
+
+Maintenance release — no changes to the published package contents
+versus 1.2.0. Republished to propagate an updated `server.json` to the
+MCP Registry: the new `remotes[]` entry advertises the public
+Cloudflare Workers endpoint at
+`https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp`, so
+Registry consumers (Glama, mcpservers.org, awesome-mcp-servers, etc.)
+see the hosted instance alongside the npm package install paths.
+
+### Changed
+
+- `server.json`: added `remotes[]` with the Workers URL as a
+  Streamable HTTP transport, alongside the existing `packages[]`
+  entries (npm + stdio, npm + self-hosted streamable-http).
+
 ## [1.2.0] - 2026-05-10
 
 Adds **Streamable HTTP transport** alongside the existing stdio transport.
