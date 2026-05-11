@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-05-11
+
+Adds **MCP Prompts and Resources** to the server's surface, satisfying
+the LobeHub validator's outstanding "lists Prompts / lists Resources"
+checks. No breaking changes; existing tools and clients are
+unaffected.
+
+### Added
+
+- **Prompts** (`prompts/list`, `prompts/get`): three orchestration
+  templates that compose existing tools into domain-typical workflows.
+  - `find-medical-code` — parallel search across all six default
+    terminologies for a clinical concept; honors a `language` hint
+    (`pt-BR` prioritizes CID-10).
+  - `drug-info` — sequenced RxNorm + ATC lookup compiling normalized
+    name, ingredients, therapeutic classes, and WHO ATC code.
+  - `cid10-portuguese-lookup` — Brazilian Portuguese ICD-10 lookup
+    with chapter context; output formatted in Portuguese.
+- **Resources** (`resources/list`, `resources/read`): three
+  reference resources served from in-process state.
+  - `info://server` — version, tool count, supported terminologies,
+    SNOMED feature-flag state, hosted endpoint URL.
+  - `info://cid10/chapters` — all 22 CID-10 chapters from the
+    bundled DataSUS V2008 dataset.
+  - `info://licenses` — per-terminology license disclaimers (ICD-11,
+    LOINC, RxNorm, MeSH, ATC, CID-10, SNOMED CT) with the
+    lookup-layer caveat.
+- **LobeHub badge + Glama badge** on the README, pointing at the
+  respective listings.
+
+### Changed
+
+- Server `capabilities` now declares `tools`, `prompts`, and
+  `resources` (was tools only). Clients querying capabilities will
+  observe the wider surface.
+- Meta-test in `src/index.test.ts` generalized to enforce
+  side-effect-import coverage for `src/tools/`, `src/prompts/`, and
+  `src/resources/` — closing the silent-registration gap for all
+  three registries.
+
 ## [1.2.1] - 2026-05-10
 
 Maintenance release — no changes to the published package contents

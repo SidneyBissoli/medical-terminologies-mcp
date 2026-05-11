@@ -3,6 +3,8 @@
 [![npm version](https://badge.fury.io/js/medical-terminologies-mcp.svg)](https://www.npmjs.com/package/medical-terminologies-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
+[![LobeHub MCP server](https://lobehub.com/badge/mcp/sidneybissoli-medical-terminologies-mcp)](https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp)
+[![Glama MCP server](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp/badges/score.svg)](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp)
 
 A Model Context Protocol (MCP) server providing unified access to major global medical terminologies:
 
