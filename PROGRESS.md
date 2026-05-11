@@ -534,7 +534,7 @@ target those audiences directly without cosplay as a clinical tool.
 | 12.8 | Discord MCP communities (Anthropic + community Discords) | ~1 h | Announce + monitor |
 | 12.9 | ResearchGate project entry (low priority) | ~30 min | Optional — academic adjacent SEO |
 | 12.10 | Anthropic MCP Catalog submission (low success probability) | ~20 min | Catalog prioritizes commercial productivity tools, not data APIs |
-| 12.11 | Baseline metrics captured before outreach + 60-day measurement | ~30 min capture + ~1 h review | metrics-baseline.txt format below |
+| 12.11 | Baseline metrics captured before outreach + 60-day measurement | ~30 min capture + ~1 h review | ✅ baseline captured 2026-05-11 in [metrics-baseline.txt](./metrics-baseline.txt); 60-day review target 2026-07-10 |
 
 ### Baseline metrics to capture before starting
 
@@ -574,8 +574,8 @@ than estimated.
 ### Planned Requirements
 
 - [ ] All 11 channels engaged or explicitly skipped with rationale recorded
-- [ ] `metrics-baseline.txt` captured before any outreach starts
-- [ ] 60-day review against the success criteria above
+- [x] `metrics-baseline.txt` captured before any outreach starts (snapshot 2026-05-11; pkg 1.2.1; 1/4 directories listed; npm 456/30d; GH 3★/1 fork)
+- [ ] 60-day review against the success criteria above (target 2026-07-10)
 - [ ] Honest framing throughout: research / public-health / dev / educator audiences, not clinical-care substitution
 
 ### Triggers and Cross-references

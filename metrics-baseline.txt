@@ -1,0 +1,103 @@
+Medical Terminologies MCP — outreach baseline metrics
+=====================================================
+
+Captured:              2026-05-11
+Package version pin:   1.2.1 (medical-terminologies-mcp)
+60-day review target:  2026-07-10
+Reference:             PROGRESS.md Phase 12 (success criteria + anti-metrics)
+
+Purpose: freeze the "before" snapshot ahead of Phase 11 directory
+submissions (11.5–11.10) and Phase 12 outreach (12.1–12.10). At day 60,
+diff each section against a fresh capture to evaluate the Phase 12
+success criteria. Anything captured here is owner-observable today — no
+private analytics, no inference.
+
+
+npm
+---
+Package:       medical-terminologies-mcp
+Downloads/30d: 456 (window 2026-04-11 → 2026-05-10)
+Source:        https://api.npmjs.org/downloads/point/last-month/medical-terminologies-mcp
+               https://npm-stat.com/charts.html?package=medical-terminologies-mcp
+
+Note: PROGRESS.md Phase 12 success criterion was authored against a
+~160 dl/month baseline; today's baseline is ~456/30d. "Sustained ≥400/mo"
+still applies — interpret as 3+ consecutive 30-day windows ≥ 400.
+
+
+GitHub repo (api repos/SidneyBissoli/medical-terminologies-mcp)
+---------------------------------------------------------------
+Stars:         3
+Forks:         1
+Watchers:      0
+Open issues:   1
+Open PRs:      6
+Created:       2026-01-18
+Default branch: main
+Source:        gh api repos/SidneyBissoli/medical-terminologies-mcp
+
+
+GitHub traffic (14-day window, owner-only endpoint)
+---------------------------------------------------
+Window:        2026-04-27 → 2026-05-10
+Clones:        840 total / 176 unique
+Page views:    62 total / 27 unique
+Source:        gh api repos/.../traffic/{clones,views}
+
+Caveat: clone counts spiked on May 8/9/10 (196/256/360 daily, ~57 unique
+actors/day) — coincides with the Cloudflare Workers deploy and Smithery
+listing going live. Daily CI cron contributes a small baseline (~1–2
+clones/day) but doesn't explain the spike; treat the spike as a real
+discovery pulse, not adoption signal yet. The 60-day re-capture should
+look at the 14-day window ending ~2026-07-10 and compare daily-average
+unique clones, not totals (totals are sensitive to single scraper bursts).
+
+
+Directory listings (1 of 4 today)
+---------------------------------
+Glama.ai:                              NOT LISTED
+                                       https://glama.ai/mcp/servers
+Smithery.ai:                           LISTED (shipped 2026-05-10 via 11.8)
+                                       https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp
+mcpservers.org (Healthcare category):  NOT LISTED (category shows 0 servers)
+                                       https://mcpservers.org/category/healthcare
+awesome-mcp-servers (punkpeye):        NOT LISTED
+                                       https://github.com/punkpeye/awesome-mcp-servers
+awesome-mcp-servers (wong2):           NOT LISTED
+                                       https://github.com/wong2/awesome-mcp-servers
+
+(Grep on the punkpeye list returned 2 matches, but both point at the
+author's other repos — ibge-br-mcp and bcb-br-mcp — not this project.)
+
+
+Success criteria — track these at day 60 (≥2 of 5 must trigger)
+---------------------------------------------------------------
+[ ] npm dl/month sustained ≥400 (3+ consecutive 30-day windows)
+[ ] GitHub stars: 3 → ≥33 (+30)
+[ ] ≥2 external issues/PRs from outside the immediate circle
+[ ] ≥1 third-party mention (blog, newsletter, video, other repo)
+[ ] Directory listings: 1/4 → ≥3/4
+    (Smithery shipped; need Glama + mcpservers.org and/or awesome-mcp-servers)
+
+
+Anti-metrics — DO NOT count these as success (PROGRESS.md)
+----------------------------------------------------------
+- LinkedIn likes on personal post  (vanity)
+- Mastodon boosts                  (amplification ≠ usage)
+- Hours spent on outreach          (input, not outcome)
+- Positive comments without click-through
+
+
+Re-capture procedure (day 60)
+-----------------------------
+Run the same fetches:
+  curl -s https://api.npmjs.org/downloads/point/last-month/medical-terminologies-mcp
+  gh api repos/SidneyBissoli/medical-terminologies-mcp --jq '{stars,forks,open_issues,subscribers_count}'
+  gh api repos/SidneyBissoli/medical-terminologies-mcp/traffic/{clones,views}
+  curl https://glama.ai/mcp/servers           # check listing
+  curl https://mcpservers.org/category/healthcare
+  curl https://raw.githubusercontent.com/punkpeye/awesome-mcp-servers/main/README.md | grep -i medical-terminologies
+  curl https://raw.githubusercontent.com/wong2/awesome-mcp-servers/main/README.md | grep -i medical-terminologies
+
+Append the day-60 snapshot as a second block below this one (don't
+overwrite — diff readability matters more than file tidiness).
