@@ -16,10 +16,14 @@ import {
   ListToolsRequestSchema,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
   Tool,
   CallToolResult,
   Prompt,
   GetPromptResult,
+  Resource,
+  ReadResourceResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import pkg from '../package.json';
 import { logger } from './utils/logger.js';
@@ -32,6 +36,7 @@ export const SERVER_INFO = {
 
 export type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
 export type PromptHandler = (args: Record<string, string | undefined>) => Promise<GetPromptResult>;
+export type ResourceHandler = (uri: string) => Promise<ReadResourceResult>;
 
 class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
@@ -77,8 +82,31 @@ class PromptRegistry {
   }
 }
 
+class ResourceRegistry {
+  private resources: Map<string, Resource> = new Map();
+  private handlers: Map<string, ResourceHandler> = new Map();
+
+  register(resource: Resource, handler: ResourceHandler): void {
+    this.resources.set(resource.uri, resource);
+    this.handlers.set(resource.uri, handler);
+  }
+
+  getResources(): Resource[] {
+    return Array.from(this.resources.values());
+  }
+
+  getHandler(uri: string): ResourceHandler | undefined {
+    return this.handlers.get(uri);
+  }
+
+  hasResource(uri: string): boolean {
+    return this.resources.has(uri);
+  }
+}
+
 export const toolRegistry = new ToolRegistry();
 export const promptRegistry = new PromptRegistry();
+export const resourceRegistry = new ResourceRegistry();
 
 export function createServer(): Server {
   const server = new Server(
@@ -90,6 +118,7 @@ export function createServer(): Server {
       capabilities: {
         tools: {},
         prompts: {},
+        resources: {},
       },
     },
   );
@@ -149,6 +178,23 @@ export function createServer(): Server {
     }
 
     return await handler(args ?? {});
+  });
+
+  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+    return {
+      resources: resourceRegistry.getResources(),
+    };
+  });
+
+  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    const { uri } = request.params;
+
+    const handler = resourceRegistry.getHandler(uri);
+    if (!handler) {
+      throw new Error(`Unknown resource "${uri}". Use resources/list to see available resources.`);
+    }
+
+    return await handler(uri);
   });
 
   return server;

@@ -37,6 +37,9 @@ import './tools/cid10.js';
 // Prompts — orchestration templates exposed to MCP clients
 import './prompts/index.js';
 
+// Resources — static reference content exposed by URI
+import './resources/index.js';
+
 interface CliOptions {
   http: boolean;
   port: number;
