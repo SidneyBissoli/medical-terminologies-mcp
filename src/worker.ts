@@ -67,36 +67,29 @@ interface WorkerEnv {
 let envBridged = false;
 
 /**
- * Copy Worker env bindings (secrets + vars) into globalThis.process.env so
- * the shared clients (who-client.ts etc.) that read process.env.X work
- * unchanged across Node and Workers. Idempotent — runs once per isolate.
+ * Stash Worker bindings on globalThis.__MCP_ENV so the shared `getEnv()`
+ * helper (src/utils/env.ts) can read them. Idempotent — runs once per
+ * isolate.
  *
- * Why not rely on nodejs_compat to do this automatically:
- *   The compat layer's process.env polyfill bridges `[vars]` reliably but
- *   secrets set via `wrangler secret put` were observed missing at runtime
- *   even with compatibility_date=2025-12-01 and the nodejs_compat flag.
- *   Bridging explicitly is one of those rare cases where the defensive
- *   workaround is strictly safer than trusting the platform.
+ * Why globalThis instead of writing to process.env:
+ *   First attempt mutated `process.env.X = env.X`. That appeared to no-op
+ *   against the live Workers deploy — process.env is exposed by the
+ *   nodejs_compat polyfill but is effectively read-only for secrets.
+ *   Stashing on globalThis sidesteps the polyfill entirely; the helper
+ *   in utils/env.ts checks the bridge first, then falls back to
+ *   process.env for the Node path.
  */
 function bridgeEnv(env: WorkerEnv): void {
   if (envBridged) return;
-  const target = (globalThis as { process?: { env?: Record<string, string> } }).process?.env;
-  if (!target) return; // process polyfill absent — nothing to bridge to
-  const keys: (keyof WorkerEnv)[] = [
-    'WHO_CLIENT_ID',
-    'WHO_CLIENT_SECRET',
-    'WHO_ICD11_RELEASE_ID',
-    'ENABLE_SNOMED_TOOLS',
-    'SNOMED_BASE_URL',
-    'SNOMED_LANGUAGE',
-    'LOG_LEVEL',
-  ];
-  for (const k of keys) {
-    const value = env[k];
-    if (typeof value === 'string' && value.length > 0) {
-      target[k] = value;
-    }
-  }
+  (globalThis as { __MCP_ENV?: Record<string, string | undefined> }).__MCP_ENV = {
+    WHO_CLIENT_ID: env.WHO_CLIENT_ID,
+    WHO_CLIENT_SECRET: env.WHO_CLIENT_SECRET,
+    WHO_ICD11_RELEASE_ID: env.WHO_ICD11_RELEASE_ID,
+    ENABLE_SNOMED_TOOLS: env.ENABLE_SNOMED_TOOLS,
+    SNOMED_BASE_URL: env.SNOMED_BASE_URL,
+    SNOMED_LANGUAGE: env.SNOMED_LANGUAGE,
+    LOG_LEVEL: env.LOG_LEVEL,
+  };
   envBridged = true;
 }
 

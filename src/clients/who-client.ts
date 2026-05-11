@@ -5,6 +5,7 @@ import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError, CachedToken, OAuthTokenResponse } from '../types/index.js';
 import { extractErrorMessage } from '../utils/extract-error-message.js';
 import { createClientLogger } from '../utils/logger.js';
+import { getEnv } from '../utils/env.js';
 
 const log = createClientLogger('who');
 
@@ -54,8 +55,8 @@ export class WHOClient {
    * @throws Error if credentials are not configured
    */
   constructor() {
-    this.clientId = process.env.WHO_CLIENT_ID ?? '';
-    this.clientSecret = process.env.WHO_CLIENT_SECRET ?? '';
+    this.clientId = getEnv('WHO_CLIENT_ID') ?? '';
+    this.clientSecret = getEnv('WHO_CLIENT_SECRET') ?? '';
 
     if (!this.clientId || !this.clientSecret) {
       throw new ApiError(

@@ -18,6 +18,7 @@ import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError } from '../types/index.js';
 import { SERVER_INFO } from '../server-core.js';
 import { extractErrorMessage } from '../utils/extract-error-message.js';
+import { getEnv } from '../utils/env.js';
 
 /**
  * SNOMED CT license disclaimer
@@ -59,7 +60,7 @@ export class SNOMEDClient {
     // Operators set SNOMED_LANGUAGE to their preferred language tag(s);
     // pass-through with no validation since the API itself falls back to
     // English on unsupported tags.
-    const acceptLanguage = process.env.SNOMED_LANGUAGE ?? 'en';
+    const acceptLanguage = getEnv('SNOMED_LANGUAGE') ?? 'en';
     this.httpClient = axios.create({
       baseURL: SNOMED_CONFIG.baseUrl,
       timeout: 60000, // 60 seconds for slow connections
