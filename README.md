@@ -36,6 +36,29 @@ This server is **not** a clinical-care decision tool — practicing clinicians h
 | **Clinical-informatics developer** | `loinc_search`, `loinc_details`, `find_equivalent` | LOINC for lab/observation interoperability; cross-terminology search to scaffold new mappings |
 | **Educator / curriculum author** | `mesh_descriptor`, `icd11_lookup`, `rxnorm_search` | Authoritative definitions, tree numbers, and drug term-types you can drop into self-checked exercises |
 
+## Try the hosted instance (no install)
+
+A public Cloudflare Workers deployment runs at:
+
+```
+https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp
+```
+
+Connect via the MCP Inspector or any Streamable HTTP MCP client:
+
+```bash
+npx @modelcontextprotocol/inspector --transport streamable-http \
+  --server-url https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp
+```
+
+Or install via Smithery, which proxies the same endpoint through their gateway:
+
+```bash
+npx -y smithery mcp add sidneybissoli/medical-terminologies
+```
+
+The hosted instance has WHO credentials configured, so all 28 tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
+
 ## Installation
 
 ### Global Installation (Recommended)

@@ -5,23 +5,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run build       # esbuild bundle: src/index.ts -> dist/index.js (ESM, node20)
-npm start           # node dist/index.js (runs the MCP server over stdio)
-npm run dev         # build + start
-npm test            # vitest run (skips integration tests by default)
-npm run test:watch  # vitest in watch mode
-npm run typecheck   # tsc --noEmit (strict; not invoked by `npm run build`)
+npm run build         # esbuild bundle: src/index.ts -> dist/index.js (Node, ESM, node20)
+npm run build:worker  # esbuild bundle: src/worker.ts -> dist/worker.js (Cloudflare Workers, ESM, es2022)
+npm run build:all     # both bundles
+npm start             # node dist/index.js (runs the MCP server over stdio)
+npm run dev           # build + start (stdio)
+npm run dev:worker    # build:worker + wrangler dev (HTTP locally on :8787)
+npm test              # vitest run (skips integration tests by default)
+npm run test:watch    # vitest in watch mode
+npm run typecheck     # tsc --noEmit (strict; not invoked by `npm run build`)
 ```
 
 Run a single test: `npx vitest run src/utils/cache.test.ts` (or `-t '<name pattern>'` for a single case).
 
 Run integration tests against live APIs: `INTEGRATION_TESTS=1 npm test`. They live in `src/integration/` and skip by default. WHO and SNOMED integration tests skip cleanly when their respective creds/flags (`WHO_CLIENT_ID`/`WHO_CLIENT_SECRET`, `ENABLE_SNOMED_TOOLS`/`SNOMED_BASE_URL`) are absent. The daily cron CI workflow at `.github/workflows/integration.yml` runs them and surfaces upstream API drift close to when it happens.
 
-The build is a single `esbuild` invocation that bundles everything except `@modelcontextprotocol/sdk` (kept external) and injects a `createRequire` shim so the ESM bundle can still `require()` CJS deps. `tree-shaking=false` is intentional — see "Tool registration" below.
+The build is two `esbuild` invocations sharing the same source tree. The Node build (`dist/index.js`) targets `node20`, keeps `@modelcontextprotocol/sdk` external (resolved via runtime `node_modules`), and injects a `createRequire` shim so the ESM bundle can still `require()` CJS deps. The Workers build (`dist/worker.js`) targets `es2022`/`workerd` conditions, aliases bare Node imports to their `node:` namespaced equivalents, and inlines everything including the SDK (~558 KB gzipped). Both builds use `tree-shaking=false` — see "Tool registration" below.
 
-The build also imports `package.json` directly (`resolveJsonModule: true`) so `SERVER_INFO.version` stays in sync with `package.json` — bump the version there only.
+Both entry points import `package.json` directly (`resolveJsonModule: true`) so `SERVER_INFO.version` stays in sync with `package.json` — bump the version there only.
 
-To exercise the server interactively: `npx @modelcontextprotocol/inspector node dist/index.js`.
+To exercise the stdio server interactively: `npx @modelcontextprotocol/inspector node dist/index.js`. To exercise the Workers build locally: `npm run dev:worker` then `npx @modelcontextprotocol/inspector --transport streamable-http --server-url http://localhost:8787/mcp`.
 
 ## Runtime requirements
 
@@ -34,16 +37,22 @@ To exercise the server interactively: `npx @modelcontextprotocol/inspector node 
 
 ## Architecture
 
-### Single bundled entry point
-`src/index.ts` is the only entry. It calls `createServer()` from `src/server.ts`, then `import`s every tool module purely for its side effects. Tool modules call `toolRegistry.register(tool, handler)` at top level, which is why `tree-shaking=false` is required in the esbuild config — otherwise the bundler would drop the "unused" tool imports and the registry would be empty at runtime.
+### Two entry points, shared core
+There are two bundle entries: `src/index.ts` (Node — stdio + Node `http` server when `--http` is passed) and `src/worker.ts` (Cloudflare Workers — `WebStandardStreamableHTTPServerTransport` against the web-standard `Request`/`Response`). Both import every tool module purely for its side effects, just like a single-entry setup would — and `tree-shaking=false` is set in both esbuild invocations so the bundler doesn't drop the "unused" tool imports and leave the registry empty at runtime.
+
+The shared core lives in `src/server-core.ts`: `createServer`, `toolRegistry`, `SERVER_INFO`, `ToolHandler`. The Node entry adds stdio + Node-`http` transports in `src/server.ts` (which re-exports the core for callers' convenience). The Workers entry talks to the SDK's `WebStandardStreamableHTTPServerTransport` directly — never importing `src/server.ts`, since that would drag in `node:http` and `@hono/node-server` (the SDK's Node wrapper) which don't exist in the Workers runtime.
+
+When adding a new `src/tools/*.ts`, wire it into BOTH entry points — `src/index.ts` AND `src/worker.ts`. The meta-test in `src/index.test.ts` enforces the Node side; the Workers side is on you.
 
 ### Tool registry pattern
-`src/server.ts` defines a `ToolRegistry` singleton (`toolRegistry`) holding two maps: tool definitions (for `ListTools`) and handlers (for `CallTool`). Each `src/tools/*.ts` file:
+`src/server-core.ts` defines a `ToolRegistry` singleton (`toolRegistry`) holding two maps: tool definitions (for `ListTools`) and handlers (for `CallTool`). Each `src/tools/*.ts` file:
 1. Defines `Tool` objects whose `inputSchema` / `outputSchema` are produced by `buildInputSchema()` / `buildOutputSchema()` from `src/utils/zod-schema.ts` (Zod → JSON Schema via `zod-to-json-schema`, with `$schema` stripped and refs inlined). Tools also set `annotations: READ_ONLY_TOOL_ANNOTATIONS` (read-only, idempotent, open-world, non-destructive).
 2. Defines async handler functions that validate args with Zod schemas from `src/types/index.ts`, call a client, and return `CallToolResult` — typically with both a human-readable `content` text *and* a `structuredContent` object matching the `outputSchema`.
 3. Calls `toolRegistry.register(...)` at module load time for each tool.
 
-Adding a new tool means: define the input/output schemas in `src/types/index.ts`, add definition + handler in the appropriate `src/tools/*.ts`, register at module bottom, and (if it's a brand-new file) `import './tools/newfile.js'` in `src/index.ts`. The meta-test at `src/index.test.ts` will fail if the new file isn't wired into the entry point — that's the cheap defense against a tool silently missing from `tools/list`.
+Adding a new tool means: define the input/output schemas in `src/types/index.ts`, add definition + handler in the appropriate `src/tools/*.ts`, register at module bottom, and (if it's a brand-new file) `import './tools/newfile.js'` in BOTH `src/index.ts` AND `src/worker.ts`. The meta-test at `src/index.test.ts` will fail if the new file isn't wired into the Node entry — that's the cheap defense against a tool silently missing from `tools/list` on stdio/Node-HTTP. The Workers side has no equivalent meta-test yet; remembering to wire it is on you.
+
+Tool files and clients also import from `../server-core.js` (not `../server.js`) — importing from `server.js` pulls `node:http` into the Workers bundle and breaks the build.
 
 ### Error handling — `handleToolError`
 Tool handlers wrap their body in `try { ... } catch (e) { return handleToolError(e); }` (`src/utils/zod-schema.ts`). It maps `ZodError` → validation-error result, `ApiError` → API-error result, and re-throws everything else so `server.ts`'s dispatcher logs and wraps it. For axios failures inside clients, `extractErrorMessage()` (`src/utils/extract-error-message.ts`) handles the production response shapes that the previous one-liner collapsed to "undefined" — including the OAuth `error_description` that the WHO token endpoint returns on 401/400.
@@ -60,12 +69,15 @@ rateLimiters.<api>.acquire()  →  withRetry(() => httpClient.request(...))  →
 
 The clients are accessed via lazy singletons (`getWHOClient()`, `getNLMClient()`, etc.) so a missing env var only blows up when that specific terminology is actually called.
 
-- **`utils/cache.ts`** — `node-cache` wrapper. Use `cache.getOrSet(prefix, key, factory, ttl)` with `CACHE_PREFIX.*` and `DEFAULT_TTL.*` constants (`STATIC` 24h, `LOOKUP` 1h, `SEARCH` 10min, `TOKEN` 50min). `useClones: false` — do not mutate cached objects.
-- **`utils/rate-limiter.ts`** — Token bucket. Pre-configured limiters in `rateLimiters`: `who` (5/s), `nlm` (10/s, shared across LOINC + MeSH), `rxnorm` (20/s), `snomed` (10/s). Always `await rateLimiters.<api>.acquire()` before HTTP requests.
+- **`utils/cache.ts`** — `Map` + lazy-TTL implementation (used to wrap `node-cache`; that dep was removed in 1.2.0 because its CJS `require('events')` doesn't bundle for Cloudflare Workers). Use `cache.getOrSet(prefix, key, factory, ttl)` with `CACHE_PREFIX.*` and `DEFAULT_TTL.*` constants (`STATIC` 24h, `LOOKUP` 1h, `SEARCH` 10min, `TOKEN` 50min). Lazy expiration: stale entries linger until next access. Stage 2 of Phase 11.9 swaps this for a Workers KV cache for cross-isolate sharing.
+- **`utils/rate-limiter.ts`** — Token bucket. Pre-configured limiters in `rateLimiters`: `who` (5/s), `nlm` (10/s, shared across LOINC + MeSH), `rxnorm` (20/s), `snomed` (10/s). Always `await rateLimiters.<api>.acquire()` before HTTP requests. On Workers this is per-isolate (NOT global) — under sustained traffic Stage 2 of Phase 11.9 moves rate limiting into a Durable Object so quotas are honored across isolates.
 - **`utils/retry.ts`** — `withRetry()` with exponential backoff + 25% jitter. Retries on `[408, 429, 500, 502, 503, 504]` and network errors (`ECONNRESET`/`ECONNREFUSED`/`ETIMEDOUT`/`ENOTFOUND`/`socket hang up`).
+- **`utils/env.ts`** — Cross-runtime env var access. Use `getEnv('KEY')` instead of `process.env.KEY` in clients. On Node it falls through to `process.env`; on Workers it reads from `globalThis.__MCP_ENV` (which `src/worker.ts` populates from the fetch handler's `env` parameter on first request). The workaround exists because Cloudflare's `nodejs_compat` polyfill bridges vars to `process.env` but was observed not bridging secrets reliably.
 
-### Logging — stderr only
-`src/utils/logger.ts` configures pino to write to fd 2 (stderr). **Never log to stdout** — stdout is the MCP stdio transport. Use `createClientLogger('<api>')` and `createToolLogger('<tool>')` to get scoped child loggers. Pino runs with `sync: false`, so `logger.flush()` is called during graceful shutdown (`src/index.ts`) before `process.exit(0)`.
+### Logging — runtime-aware destination
+`src/utils/logger.ts` configures pino with a destination chosen by capability detection: if `pino.destination` is a function (Node), it writes to fd 2 (stderr) so stdout stays free for the MCP stdio transport; if it isn't (Cloudflare Workers, where the destination helper is stripped from the bundled pino), it uses a `console.log` shim that wrangler tail captures. **Never log to stdout on Node** — stdout is the MCP stdio transport. Use `createClientLogger('<api>')` and `createToolLogger('<tool>')` to get scoped child loggers. Pino runs with `sync: false`, so `logger.flush()` is called during graceful shutdown (`src/index.ts`) before `process.exit(0)`.
+
+Capability detection was chosen over runtime detection (`process.versions.node`) because Cloudflare's `nodejs_compat` flag fakes `process.versions.node`; a runtime-style check returns true on Workers and then `pino.destination` throws at evaluation time.
 
 ### WHO OAuth specifics
 `who-client.ts` does the OAuth2 client_credentials dance against `icdaccessmanagement.who.int/connect/token` and caches the bearer token under `CACHE_PREFIX.TOKEN`. TTL is computed from the API's `expires_in` field as `max(60, expires_in - 60)` seconds — honors what the server actually returns instead of a hardcoded value. The release ID (default `'2024-01'`, overridable via `WHO_ICD11_RELEASE_ID`) and linearization (`mms`) are pinned constants in `WHO_CONFIG` — bump deliberately. Note: `lookup` by URI strips the leading `/icd` from the path before passing to axios (the baseURL already includes it); same with `getEntity`. Don't undo that.
@@ -83,18 +95,43 @@ The NLM MeSH `/{id}.json` endpoint returns compact JSON-LD with no `@graph` wrap
 
 Three layers, all under `src/`:
 
-- **Unit tests** (`src/utils/*.test.ts`, `src/types/schemas.test.ts`, `src/index.test.ts`, `src/clients/cid10-client.test.ts`) — pure-logic coverage of utils, Zod input/output validators, and the CID-10 in-memory client. The meta-test in `src/index.test.ts` asserts every `src/tools/*.ts` is imported by `src/index.ts` (cheap defense against forgetting the side-effect import).
+- **Unit tests** (`src/utils/*.test.ts`, `src/types/schemas.test.ts`, `src/index.test.ts`, `src/clients/cid10-client.test.ts`, `src/server.http.test.ts`) — pure-logic coverage of utils, Zod input/output validators, the CID-10 in-memory client, and the Node-HTTP transport (4 contract tests covering /health, CORS preflight, initialize→tools/list, and 404 routing). The meta-test in `src/index.test.ts` asserts every `src/tools/*.ts` is imported by `src/index.ts` (cheap defense against forgetting the side-effect import; only the Node entry is covered, not `src/worker.ts`).
 - **Contract tests** (`src/clients/*.contract.test.ts`) — use `nock` (^14, devDep) to intercept axios calls, replaying captured live fixtures from `src/__fixtures__/<api>/`. Pin parser behavior against the actual upstream response shapes. WHO and SNOMED tests use inline mocks because their public hosts don't ship test creds. When adding a new HTTP client method, capture a live fixture and write a contract test pinning the parser.
 - **Integration tests** (`src/integration/*.integration.test.ts`) — hit live APIs. Gated by `INTEGRATION_TESTS=1`; otherwise the `describe` blocks become `describe.skip`. WHO + SNOMED sub-suites skip cleanly when their creds/flags are absent. CI runs them daily on cron — production regressions surface close to when they happen.
 
-Total: 243 unit + contract tests, 11 integration tests (skipped by default).
+Total: 247 unit + contract tests, 11 integration tests (skipped by default).
 
 ## Conventions worth knowing
 
 - All tool handlers return `CallToolResult` with `content: [{ type: 'text', text: ... }]` for human/LLM display, plus `structuredContent` matching the `outputSchema` whenever the result is structured. Errors flow through `handleToolError` (sets `isError: true`); only unexpected errors propagate.
 - Zod schemas in `src/types/index.ts` are the single source of truth — both runtime validation and the `Tool.inputSchema` / `Tool.outputSchema` JSON Schemas are derived from them. There is no hand-maintained JSON Schema to keep in sync.
-- `src/server.ts` reads `SERVER_INFO.version` from `package.json` (`resolveJsonModule: true`) — bump the version in `package.json` only.
+- `src/server-core.ts` reads `SERVER_INFO.version` from `package.json` (`resolveJsonModule: true`) — bump the version in `package.json` only.
 - TypeScript strict mode is the linter. There is no ESLint, no Prettier, no Biome. `tsconfig.json` enables `noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`, etc. — match surrounding formatting in the file you're editing; don't introduce a formatter.
+
+## Cloudflare Workers deployment
+
+The hosted endpoint at `https://medical-terminologies-mcp.sidneybissoli.workers.dev` is built from `src/worker.ts` and deployed by `.github/workflows/deploy-worker.yml` on every push to `main` that touches worker-relevant paths. Configuration lives in `wrangler.toml`:
+
+- `compatibility_date = 2025-12-01`, `compatibility_flags = ["nodejs_compat"]` — enough to run the bundled axios/pino/Map-cache code without further polyfills.
+- Stateless mode (`sessionIdGenerator: undefined`) — every request is independent, no session storage.
+- Endpoints: `POST /mcp` (JSON-RPC), `GET /health` (liveness), `OPTIONS` preflight. Permissive CORS.
+
+Required GitHub secrets for the deploy workflow: `CLOUDFLARE_API_TOKEN` (Account API token with Workers Scripts: Edit) and `CLOUDFLARE_ACCOUNT_ID`. Per-server runtime secrets (WHO_CLIENT_ID, WHO_CLIENT_SECRET, optional SNOMED_*) are set on the Cloudflare side via `npx wrangler secret put` or the dashboard — they're never in GitHub.
+
+### Workers-specific gotchas to remember
+
+- **`process.versions.node` is a lie under `nodejs_compat`**. Capability-detect APIs instead of runtime-detect (e.g. logger.ts checks `typeof pino.destination === 'function'`).
+- **`process.env` polyfill bridges vars but not secrets reliably**. `src/worker.ts` stashes Worker bindings on `globalThis.__MCP_ENV` and `src/utils/env.ts`'s `getEnv()` reads from there first. Use `getEnv('KEY')` instead of `process.env.KEY` in any code that runs on both targets.
+- **Bare-string Node imports break the Workers build**. The `build:worker` script aliases `events`/`http`/`buffer`/etc. to their `node:` namespaced equivalents and externals `node:*` so they resolve to the runtime polyfill rather than getting bundled.
+- **Tool / client files import `../server-core.js`, NOT `../server.js`**. The latter pulls `node:http` and breaks the Workers bundle.
+- **The Cloudflare dashboard doesn't trim secret names**. A trailing/leading whitespace in a secret name silently binds it under the wrong key. If a secret looks correctly set but reads as undefined, suspect whitespace before re-running every other diagnostic.
+
+### Where to put a new dependency
+
+- Pure JS, browser-safe → just `npm install`; both bundles pick it up.
+- Uses Node built-ins via `import 'fs'` (bare) → won't bundle for Workers without aliasing. Add the alias to `build:worker` in `package.json`.
+- CJS that does `require('events')` or similar dynamic requires → won't work on Workers at all. Replace with an ESM equivalent, or fork the read-side logic. (We hit this with `node-cache` and replaced its 100-line surface with a Map+TTL implementation in `cache.ts`.)
+- Stateful, per-process (`node-cache`, in-memory rate limiter) → works on Node, becomes per-isolate on Workers. Acceptable for moderate traffic; PROGRESS.md Phase 11.9 Stage 2 swaps these for Workers KV + Durable Objects when traffic justifies.
 
 ## CI gates
 

@@ -385,7 +385,7 @@ gracefully returned empty data, no one noticed.
 
 ---
 
-## Phase 11: Distribution & Discovery 📋 Planned
+## Phase 11: Distribution & Discovery 🔄 In progress
 
 ### Scope
 
@@ -403,18 +403,19 @@ rich tabular outputs.
 
 ### Sub-tasks
 
-| # | Sub-task | Effort | Depends on |
-|---|----------|--------|------------|
-| 11.1 | Sync `server.json` with `package.json` 1.1.0 + new env vars (`WHO_ICD11_RELEASE_ID`, `ENABLE_SNOMED_TOOLS`, `SNOMED_BASE_URL`, `SNOMED_LANGUAGE`, `LOG_LEVEL`); republish to MCP Registry | ~30 min | none |
-| 11.2 | Streamable HTTP transport (`--http --port` flag); `StreamableHTTPServerTransport` from SDK; `transport: { type: "streamable-http" }` alternative in `server.json` | ~3-4 h | none |
-| 11.3 | README polish — 3 real output samples (LOINC search, RxNorm ingredients, MeSH descriptor with tree numbers); audience matrix ("if you're X, start with Y") replacing implicit clinician framing with the actual audience (researchers, public-health analysts, devs, educators) | ~2-3 h | none |
-| 11.4 | Per-tool `language` parameter on SNOMED/ICD-11/MeSH search & lookup tools; complements env vars for hosted multi-tenant | ~2 h | 11.2 reduces ROI gap; not strict dep |
-| 11.5 | Submit to Glama.ai | ~20 min | 11.1 + 11.3 |
-| 11.6 | Submit to mcpservers.org | ~20-30 min | 11.1 + 11.3 |
-| 11.7 | PR to `awesome-mcp-servers` (punkpeye + wong2 lists) | ~30 min | 11.1 + 11.3 |
-| 11.8 | Submit to Smithery.ai via URL submission flow (point at the live Workers endpoint from 11.9). Smithery deprecated `runtime: container` between this roadmap's authoring and 2026-05-10, so the original `smithery.yaml` approach is dead — URL submission is the only remaining path | ~30 min | 11.9 |
-| 11.9 | **Production Cloudflare Workers deployment** (not a template/guide — the actual hosted endpoint). Port `node:http` server to a fetch handler using `WebStandardStreamableHTTPServerTransport` from the SDK; replace `node-cache` with a Workers KV-backed cache (per-isolate state would otherwise multiply external-API request volume under load); replace the in-memory token-bucket rate limiter with a Durable Object so the WHO/NLM quotas are honored globally, not per-isolate; `wrangler.toml` config; GitHub Actions deploy on tag | ~6-12 h | 11.2 |
-| 11.10 | LobeHub plugin manifest | ~30 min | 11.2 |
+| # | Sub-task | Effort | Status | Depends on |
+|---|----------|--------|--------|------------|
+| 11.1 | Sync `server.json` with `package.json` 1.1.0 + new env vars | ~30 min | ✅ shipped | none |
+| 11.2 | Streamable HTTP transport (`--http --port` flag); `StreamableHTTPServerTransport` from SDK; `transport: { type: "streamable-http" }` alternative in `server.json` | ~3-4 h | ✅ shipped 1.2.0 | none |
+| 11.3 | README polish — 3 real output samples + audience matrix | ~2-3 h | ✅ shipped | none |
+| 11.4 | Per-tool `language` parameter on SNOMED/ICD-11/MeSH search & lookup tools | ~2 h | 📋 planned | 11.2 reduces ROI gap; not strict dep |
+| 11.5 | Submit to Glama.ai | ~20 min | 📋 planned | 11.1 + 11.3 |
+| 11.6 | Submit to mcpservers.org | ~20-30 min | 📋 planned | 11.1 + 11.3 |
+| 11.7 | PR to `awesome-mcp-servers` (punkpeye + wong2 lists) | ~30 min | 📋 planned | 11.1 + 11.3 |
+| 11.8 | Submit to Smithery.ai via URL submission flow (point at the live Workers endpoint from 11.9). Smithery deprecated `runtime: container` between this roadmap's authoring and 2026-05-10, so the original `smithery.yaml` approach is dead — URL submission is the only remaining path | ~30 min | ✅ shipped — live at https://smithery.ai/servers/@sidneybissoli/medical-terminologies | 11.9 |
+| 11.9 Stage 1 | **Production Cloudflare Workers deployment** (the actual hosted endpoint). Port `node:http` server to a fetch handler using `WebStandardStreamableHTTPServerTransport` from the SDK; `wrangler.toml`; GitHub Actions deploy on push to main. Per-isolate cache + rate-limiter reused as-is (Stage 2 swaps in KV + DO). | ~6-12 h (came in ~5h) | ✅ shipped — live at https://medical-terminologies-mcp.sidneybissoli.workers.dev | 11.2 |
+| 11.9 Stage 2 | Replace per-isolate `node-cache` with Workers KV; replace per-isolate token-bucket with a Durable Object. Required when traffic saturates per-isolate budgets — not blocking Smithery submission. | ~4-6 h | 📋 deferred — trigger: WHO/NLM rate-limit warnings in logs OR cache hit rate < 50% | 11.9 Stage 1 |
+| 11.10 | LobeHub plugin manifest | ~30 min | 📋 planned | 11.2 |
 
 ### Planned Tools
 
@@ -424,19 +425,21 @@ tools, not a new tool.
 
 ### Planned Requirements
 
-- [ ] `server.json` reflects 1.1.0 with all env vars documented
-- [ ] `--http --port N` boots Streamable HTTP transport; default remains stdio
-- [ ] MCP Inspector connects via `--transport streamable-http`
-- [ ] README has at least 3 real output samples + an audience matrix
+- [x] `server.json` reflects 1.2.0 with all env vars documented (and remotes[] entry for hosted endpoint)
+- [x] `--http --port N` boots Streamable HTTP transport; default remains stdio
+- [x] MCP Inspector connects via `--transport streamable-http`
+- [x] README has at least 3 real output samples + an audience matrix
 - [ ] `language` accepted as optional input on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` (and propagated to upstream Accept-Language)
 - [ ] Listed on Glama.ai with "Author verified" badge
 - [ ] Listed on mcpservers.org Healthcare category
 - [ ] PR merged in at least one `awesome-mcp-servers` list
-- [ ] Cloudflare Workers production deployment live (fetch handler + KV cache + Durable Object rate limiter), validated end-to-end via MCP Inspector against the public URL
-- [ ] Smithery.ai listing live via URL submission, pointing at the Workers endpoint
+- [x] Cloudflare Workers production deployment live (Stage 1: fetch handler, per-isolate cache + rate-limiter). End-to-end validated 2026-05-10 against the public URL — `/health`, `tools/list` returning 28 tools, and ICD-11 `icd11_search` returning results from WHO API after secrets were set.
+- [ ] Stage 2: Workers KV cache + Durable Object rate limiter — trigger-gated
+- [x] Smithery.ai listing live via URL submission, pointing at the Workers endpoint
 - [ ] LobeHub plugin manifest accepted
-- [ ] CHANGELOG entry for the version that ships HTTP transport (likely 1.2.0)
-- [ ] Contract test for HTTP transport boot + per-tool language acceptance
+- [x] CHANGELOG entry for 1.2.0 (HTTP transport ship)
+- [x] Contract test for HTTP transport boot (`src/server.http.test.ts` — 4 tests)
+- [ ] Contract test for per-tool language acceptance (waits on 11.4)
 
 ### Triggers and Cross-references
 
@@ -461,12 +464,43 @@ tools, not a new tool.
   UX cost. Originally-shipped `smithery.yaml` (commit `2b5dc9e`) is
   removed in the same branch that adds the Workers deployment.
 
+- **Stage 1 / Stage 2 split for 11.9 recorded 2026-05-10:** PR #9 shipped
+  the worker as a fetch handler with per-isolate state (Map-based cache,
+  in-memory token bucket). Correct for the current traffic profile and
+  unblocks the Smithery URL submission. Stage 2 (Workers KV cache +
+  Durable Object rate limiter) is gated on traffic — only worth shipping
+  when per-isolate state starts to bite (WHO/NLM 429s, or observable
+  cache miss rate > 50%).
+
+- **Worker shake-down learnings (2026-05-10), captured here so the next
+  hosted-runtime job doesn't repeat them:**
+  - `nodejs_compat` fakes `process.versions.node`, so `typeof
+    process.versions.node === 'string'` returns true on Workers and a
+    runtime check that branches Node-vs-other fails. Capability-detect
+    instead (`typeof pino.destination === 'function'`).
+  - `node-cache` is CJS and uses `require('events')`, which esbuild
+    turns into a `__require()` shim that throws on Workers. Replaced
+    with a Map+TTL implementation in the same `cache.ts` file; same
+    public API, dep removed.
+  - Workers' `process.env` polyfill bridges vars but appears not to
+    bridge secrets reliably — observed against the live deploy with
+    WHO_CLIENT_ID set in dashboard but undefined at runtime. Stash
+    bindings on `globalThis.__MCP_ENV` in the fetch handler and read
+    via a shared `src/utils/env.ts` helper that falls back to
+    `process.env` for the Node path.
+  - Cloudflare dashboard does NOT trim whitespace from secret names —
+    a leading space in the secret name (` WHO_CLIENT_SECRET`) silently
+    binds it under the wrong key. A `/debug/env` endpoint that masks
+    values but reveals key names is the fastest diagnosis.
+
 ### Status
 
-- Effort: ~25–30 h total (revised after 11.9 reclassified from
-  "template" to production deploy with KV + Durable Objects)
-- Effort window: ~6 weeks at 2–4 h/week
-- Build: 🔄 In progress (11.1, 11.2, 11.3 shipped; 11.9 next)
+- Effort spent so far: ~14h (11.1 + 11.2 + 11.3 + 11.8 + 11.9 Stage 1)
+- Effort remaining: ~6-8h (11.4 + 11.5 + 11.6 + 11.7 + 11.10)
+- Stage 2 of 11.9 (~4-6h) deferred until trigger fires
+- Effort window: ~3 more weeks at 2-4 h/week
+- Build: 🔄 In progress — hosted endpoint live, 4 of 10 sub-tasks
+  shipped, the rest are listing submissions and a small schema add
 
 ---
 
