@@ -170,6 +170,38 @@ export default {
       return healthResponse();
     }
 
+    // TEMPORARY DIAGNOSTIC — remove after env bridge is confirmed working.
+    // Reports which env keys the Worker actually sees (values masked to
+    // length+last-4 so secrets aren't exposed) and what's on the globalThis
+    // bridge. Use to isolate "secret not set" vs "bridge not applied".
+    if (request.method === 'GET' && url.pathname === '/debug/env') {
+      const mask = (v: unknown): string | null => {
+        if (typeof v !== 'string') return null;
+        if (v.length === 0) return '(empty string)';
+        if (v.length <= 4) return `(${v.length} chars)`;
+        return `(${v.length} chars, ends …${v.slice(-4)})`;
+      };
+      const envKeys = Object.keys(env as Record<string, unknown>);
+      const bridge = (globalThis as { __MCP_ENV?: Record<string, string | undefined> }).__MCP_ENV;
+      const procEnvAvailable = typeof process !== 'undefined' && !!process.env;
+      return new Response(
+        JSON.stringify({
+          fetch_env_keys: envKeys,
+          fetch_env_WHO_CLIENT_ID: mask(env.WHO_CLIENT_ID),
+          fetch_env_WHO_CLIENT_SECRET: mask(env.WHO_CLIENT_SECRET),
+          bridge_set: bridge !== undefined,
+          bridge_WHO_CLIENT_ID: mask(bridge?.WHO_CLIENT_ID),
+          bridge_WHO_CLIENT_SECRET: mask(bridge?.WHO_CLIENT_SECRET),
+          process_env_available: procEnvAvailable,
+          process_env_WHO_CLIENT_ID: procEnvAvailable ? mask(process.env.WHO_CLIENT_ID) : null,
+        }, null, 2),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders() },
+        },
+      );
+    }
+
     if (url.pathname === '/mcp' || url.pathname === '/') {
       try {
         const t = await ensureInit();
