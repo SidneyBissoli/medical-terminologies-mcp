@@ -44,17 +44,23 @@ There are two bundle entries: `src/index.ts` (Node — stdio + Node `http` serve
 
 The shared core lives in `src/server-core.ts`: `createServer`, `toolRegistry`, `SERVER_INFO`, `ToolHandler`. The Node entry adds stdio + Node-`http` transports in `src/server.ts` (which re-exports the core for callers' convenience). The Workers entry talks to the SDK's `WebStandardStreamableHTTPServerTransport` directly — never importing `src/server.ts`, since that would drag in `node:http` and `@hono/node-server` (the SDK's Node wrapper) which don't exist in the Workers runtime.
 
-When adding a new `src/tools/*.ts`, wire it into BOTH entry points — `src/index.ts` AND `src/worker.ts`. The meta-test in `src/index.test.ts` enforces the Node side; the Workers side is on you.
+When adding a new `src/tools/*.ts`, `src/prompts/*.ts`, or `src/resources/*.ts`, wire it into BOTH entry points — `src/index.ts` AND `src/worker.ts`. The meta-test in `src/index.test.ts` enforces the Node side for all three dirs; the Workers side is on you.
 
-### Tool registry pattern
-`src/server-core.ts` defines a `ToolRegistry` singleton (`toolRegistry`) holding two maps: tool definitions (for `ListTools`) and handlers (for `CallTool`). Each `src/tools/*.ts` file:
+### Three registries: tools, prompts, resources
+`src/server-core.ts` defines three singleton registries (`toolRegistry`, `promptRegistry`, `resourceRegistry`), each holding parallel maps of definitions and handlers. Server `capabilities` declares all three: `{ tools: {}, prompts: {}, resources: {} }`.
+
+**Tools** (`src/tools/*.ts`) — every external API surface (28 default + 6 SNOMED):
 1. Defines `Tool` objects whose `inputSchema` / `outputSchema` are produced by `buildInputSchema()` / `buildOutputSchema()` from `src/utils/zod-schema.ts` (Zod → JSON Schema via `zod-to-json-schema`, with `$schema` stripped and refs inlined). Tools also set `annotations: READ_ONLY_TOOL_ANNOTATIONS` (read-only, idempotent, open-world, non-destructive).
 2. Defines async handler functions that validate args with Zod schemas from `src/types/index.ts`, call a client, and return `CallToolResult` — typically with both a human-readable `content` text *and* a `structuredContent` object matching the `outputSchema`.
 3. Calls `toolRegistry.register(...)` at module load time for each tool.
 
-Adding a new tool means: define the input/output schemas in `src/types/index.ts`, add definition + handler in the appropriate `src/tools/*.ts`, register at module bottom, and (if it's a brand-new file) `import './tools/newfile.js'` in BOTH `src/index.ts` AND `src/worker.ts`. The meta-test at `src/index.test.ts` will fail if the new file isn't wired into the Node entry — that's the cheap defense against a tool silently missing from `tools/list` on stdio/Node-HTTP. The Workers side has no equivalent meta-test yet; remembering to wire it is on you.
+**Prompts** (`src/prompts/index.ts`) — orchestration templates the client renders as named user actions (3 today: `find-medical-code`, `drug-info`, `cid10-portuguese-lookup`). Each Prompt declares `name`, `description`, `arguments[]`. Handler returns `GetPromptResult` with a `messages[]` array — the prompt body is a plain-text user message that *suggests* tool calls but doesn't constrain the LLM. Lives in a single file because three prompts don't justify per-domain splitting yet; revisit if the file grows past ~300 lines.
 
-Tool files and clients also import from `../server-core.js` (not `../server.js`) — importing from `server.js` pulls `node:http` into the Workers bundle and breaks the build.
+**Resources** (`src/resources/index.ts`) — static or in-process reference content addressable by URI (3 today: `info://server`, `info://cid10/chapters`, `info://licenses`). The `info://` scheme is a self-contained namespace; URIs don't dereference over HTTP. Content is built once at module-load time from server metadata / the bundled CID-10 dataset / a hard-coded markdown block, so `resources/read` is sub-millisecond.
+
+Adding a new tool/prompt/resource: define + register at the bottom of its file, and (if a brand-new file) `import './<dir>/newfile.js'` in BOTH `src/index.ts` AND `src/worker.ts`. The meta-test in `src/index.test.ts` covers all three directories (`tools/`, `prompts/`, `resources/`) and fails if the new file isn't wired into `src/index.ts` — that's the cheap defense against silent missing-from-list bugs. The Workers side has no equivalent meta-test yet; remembering to wire it is on you.
+
+Tool/prompt/resource files and clients all import from `../server-core.js` (not `../server.js`) — importing from `server.js` pulls `node:http` into the Workers bundle and breaks the build.
 
 ### Error handling — `handleToolError`
 Tool handlers wrap their body in `try { ... } catch (e) { return handleToolError(e); }` (`src/utils/zod-schema.ts`). It maps `ZodError` → validation-error result, `ApiError` → API-error result, and re-throws everything else so `server.ts`'s dispatcher logs and wraps it. For axios failures inside clients, `extractErrorMessage()` (`src/utils/extract-error-message.ts`) handles the production response shapes that the previous one-liner collapsed to "undefined" — including the OAuth `error_description` that the WHO token endpoint returns on 401/400.
@@ -97,11 +103,11 @@ The NLM MeSH `/{id}.json` endpoint returns compact JSON-LD with no `@graph` wrap
 
 Three layers, all under `src/`:
 
-- **Unit tests** (`src/utils/*.test.ts`, `src/types/schemas.test.ts`, `src/index.test.ts`, `src/clients/cid10-client.test.ts`, `src/server.http.test.ts`) — pure-logic coverage of utils, Zod input/output validators, the CID-10 in-memory client, and the Node-HTTP transport (4 contract tests covering /health, CORS preflight, initialize→tools/list, and 404 routing). The meta-test in `src/index.test.ts` asserts every `src/tools/*.ts` is imported by `src/index.ts` (cheap defense against forgetting the side-effect import; only the Node entry is covered, not `src/worker.ts`).
+- **Unit tests** (`src/utils/*.test.ts`, `src/types/schemas.test.ts`, `src/index.test.ts`, `src/clients/cid10-client.test.ts`, `src/server.http.test.ts`, `src/prompts/index.test.ts`, `src/resources/index.test.ts`) — pure-logic coverage of utils, Zod input/output validators, the CID-10 in-memory client, the Node-HTTP transport (4 contract tests covering /health, CORS preflight, initialize→tools/list, and 404 routing), prompt registration + handler output shapes, and resource registration + handler output shapes. The meta-test in `src/index.test.ts` asserts every `src/{tools,prompts,resources}/*.ts` is imported by `src/index.ts` (cheap defense against forgetting the side-effect import for any of the three registries; only the Node entry is covered, not `src/worker.ts`).
 - **Contract tests** (`src/clients/*.contract.test.ts`) — use `nock` (^14, devDep) to intercept axios calls, replaying captured live fixtures from `src/__fixtures__/<api>/`. Pin parser behavior against the actual upstream response shapes. WHO and SNOMED tests use inline mocks because their public hosts don't ship test creds. When adding a new HTTP client method, capture a live fixture and write a contract test pinning the parser.
 - **Integration tests** (`src/integration/*.integration.test.ts`) — hit live APIs. Gated by `INTEGRATION_TESTS=1`; otherwise the `describe` blocks become `describe.skip`. WHO + SNOMED sub-suites skip cleanly when their creds/flags are absent. CI runs them daily on cron — production regressions surface close to when they happen.
 
-Total: 247 unit + contract tests, 11 integration tests (skipped by default).
+Total: 265 unit + contract tests, 11 integration tests (skipped by default).
 
 When adding a tool with an `outputSchema`, add a fixture to `src/types/schemas.test.ts` exercising the typical-result shape *and* one edge case (empty list, all-nullable-fields populated/missing, etc.). Pattern: `<Schema>OutputSchema.safeParse({...}).success` should be `true` for well-formed shapes and `false` when a required field is missing. CONTRIBUTING.md codifies this as a PR-gate expectation.
 

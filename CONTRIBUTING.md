@@ -6,6 +6,10 @@ MeSH, SNOMED CT). Most contributions land in one of three buckets:
 
 - **Tool changes** — adding or refining tools under `src/tools/*.ts`
   (description, output schema, structured content shape).
+- **Prompt or Resource changes** — adding or refining MCP Prompts
+  under `src/prompts/*.ts` or Resources under `src/resources/*.ts`.
+  Prompts orchestrate tool calls into named workflows; Resources
+  expose in-process reference content by URI.
 - **Client changes** — fixing parsing bugs in `src/clients/*.ts` when
   an upstream API response shape changes or is misread.
 - **Cross-cutting** — shared utilities under `src/utils/` (cache,
@@ -24,9 +28,13 @@ Project-specific notes that aren't obvious from the README:
   `buildInputSchema()` / `buildOutputSchema()` in
   `src/utils/zod-schema.ts`. Don't hand-write JSON Schemas in tool
   files; change the Zod definition and the JSON Schema follows.
-- **Tools are registered via side-effect import** in `src/index.ts`
-  with `tree-shaking=false` in the esbuild config — both load-bearing.
-  Don't tree-shake the bundle.
+- **Tools, Prompts, and Resources are registered via side-effect
+  import** in `src/index.ts` AND `src/worker.ts`, with
+  `tree-shaking=false` in the esbuild config — all three are
+  load-bearing. The meta-test in `src/index.test.ts` enforces
+  side-effect-import coverage across `src/tools/`, `src/prompts/`,
+  and `src/resources/` for the Node entry. Don't tree-shake the
+  bundle and don't forget to wire new files into both entry points.
 
 ## Local setup
 

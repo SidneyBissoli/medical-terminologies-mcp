@@ -39,14 +39,16 @@ to understand why specific code patterns exist. Outreach copy
 | 8 | Audit-driven hardening (2026-05-07 → 2026-05-09) | ✅ Complete | - |
 | 9 | ATC + CID-10 expansion (2026-05-09) | ✅ Complete | +7 tools |
 | 10 | Contract + integration testing (2026-05-09) | ✅ Complete | - |
-| 11 | Distribution & Discovery | 📋 Planned | - |
+| 11 | Distribution & Discovery | 🔄 In progress | +3 prompts, +3 resources (1.3.0) |
 | 12 | Content & Outreach | 📋 Planned | - |
 | 13 | Coverage Expansion | 📋 Planned | +9–11 tools |
 | 14 | Quality & Maintenance | 📋 Ongoing | - |
 
 **Tools today:** 28 default / 34 with SNOMED enabled
+**Prompts today:** 3 (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — added 1.3.0
+**Resources today:** 3 (`info://server`, `info://cid10/chapters`, `info://licenses`) — added 1.3.0
 **Tools projected after Phase 13:** ~38–40 default / ~44–46 with SNOMED
-**Tests today:** 243 across 13 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
+**Tests today:** 265 across 16 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
 
 ---
 
@@ -415,7 +417,7 @@ rich tabular outputs.
 | 11.8 | Submit to Smithery.ai via URL submission flow (point at the live Workers endpoint from 11.9). Smithery deprecated `runtime: container` between this roadmap's authoring and 2026-05-10, so the original `smithery.yaml` approach is dead — URL submission is the only remaining path | ~30 min | ✅ shipped — live at https://smithery.ai/servers/@sidneybissoli/medical-terminologies | 11.9 |
 | 11.9 Stage 1 | **Production Cloudflare Workers deployment** (the actual hosted endpoint). Port `node:http` server to a fetch handler using `WebStandardStreamableHTTPServerTransport` from the SDK; `wrangler.toml`; GitHub Actions deploy on push to main. Per-isolate cache + rate-limiter reused as-is (Stage 2 swaps in KV + DO). | ~6-12 h (came in ~5h) | ✅ shipped — live at https://medical-terminologies-mcp.sidneybissoli.workers.dev | 11.2 |
 | 11.9 Stage 2 | Replace per-isolate `node-cache` with Workers KV; replace per-isolate token-bucket with a Durable Object. Required when traffic saturates per-isolate budgets — not blocking Smithery submission. | ~4-6 h | 📋 deferred — trigger: WHO/NLM rate-limit warnings in logs OR cache hit rate < 50% | 11.9 Stage 1 |
-| 11.10 | LobeHub plugin manifest | ~30 min | 📋 planned | 11.2 |
+| 11.10 | LobeHub MCP validator pass | ~3h (came in ~3h) | 🔄 code shipped 2026-05-11 in v1.3.0 — listing page exists at https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp; LobeHub auto-discovered via MCP Registry. Implemented the two missing validator gates (MCP Prompts + Resources surfaces) plus the README badge. Will flip to ✅ when LobeHub's scanner re-runs and the badge URL flips from HTTP 500 ("unvalidated") to "validated". Originally scoped at ~30min — actual scope grew because LobeHub validation requires server feature additions, not just a manifest submission | 11.2 |
 
 ### Planned Tools
 
@@ -464,6 +466,20 @@ tools, not a new tool.
   UX cost. Originally-shipped `smithery.yaml` (commit `2b5dc9e`) is
   removed in the same branch that adds the Workers deployment.
 
+- **11.10 scope expansion recorded 2026-05-11:** original spec was a
+  ~30-minute "LobeHub plugin manifest" — the assumption was a single
+  metadata file submission similar to 11.5/11.6. Investigation
+  uncovered that LobeHub's MCP marketplace auto-discovers from the MCP
+  Registry (already done, page exists at
+  https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp) but
+  the "validated" badge is gated on a server-side validator that
+  checks for Tools, Prompts, AND Resources surfaces. The default
+  surface in v1.2.x was tools-only. Closing the gap took three
+  feat commits: MCP Prompts (3 templates), MCP Resources (3 reference
+  resources), then release plumbing (badge + version bump). Shipped
+  in v1.3.0 (released 2026-05-11). Effort actual: ~3h vs ~30min
+  estimated — scope grew, not effort overrun.
+
 - **Stage 1 / Stage 2 split for 11.9 recorded 2026-05-10:** PR #9 shipped
   the worker as a fetch handler with per-isolate state (Map-based cache,
   in-memory token bucket). Correct for the current traffic profile and
@@ -495,12 +511,19 @@ tools, not a new tool.
 
 ### Status
 
-- Effort spent so far: ~14h (11.1 + 11.2 + 11.3 + 11.8 + 11.9 Stage 1)
-- Effort remaining: ~6-8h (11.4 + 11.5 + 11.6 + 11.7 + 11.10)
+- Effort spent so far: ~20h (11.1 + 11.2 + 11.3 + 11.5 + 11.6 + 11.7 + 11.8 + 11.9 Stage 1 + 11.10)
+- Effort remaining: ~3-4h (11.4 per-tool language schema add; Glama
+  Dockerfile upload follow-up for Author-verified badge + search-result
+  visibility)
 - Stage 2 of 11.9 (~4-6h) deferred until trigger fires
-- Effort window: ~3 more weeks at 2-4 h/week
-- Build: 🔄 In progress — hosted endpoint live, 4 of 10 sub-tasks
-  shipped, the rest are listing submissions and a small schema add
+- **Directory listings: 3 of 4 — Phase 12 success criterion MET**
+  (Smithery + Glama + mcpservers.org all live; punkpeye PR #6208 open,
+  would push count to 4/4 on merge; wong2 is PR-restricted and N/A)
+- LobeHub validator: code shipped in 1.3.0; awaiting scanner re-run to
+  flip badge from "unvalidated" to "validated"
+- Build: 🔄 In progress — hosted endpoint live, 8 of 10 sub-tasks
+  shipped (11.1, 11.2, 11.3, 11.5, 11.6, 11.7, 11.8, 11.9 Stage 1,
+  11.10), the rest are 11.4 schema add and 11.9 Stage 2 (trigger-gated)
 
 ---
 
