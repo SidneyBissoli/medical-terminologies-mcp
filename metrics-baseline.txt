@@ -53,8 +53,8 @@ look at the 14-day window ending ~2026-07-10 and compare daily-average
 unique clones, not totals (totals are sensitive to single scraper bursts).
 
 
-Directory listings (2 of 4 today)
----------------------------------
+Directory listings (3 of 4 today — Phase 12 success criterion MET)
+------------------------------------------------------------------
 Glama.ai:                              LISTED (approved 2026-05-11 via 11.5)
                                        https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp
                                        Caveat: not yet "Author verified" — that
@@ -64,11 +64,16 @@ Glama.ai:                              LISTED (approved 2026-05-11 via 11.5)
                                        Glama's search results.
 Smithery.ai:                           LISTED (shipped 2026-05-10 via 11.8)
                                        https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp
-mcpservers.org (Healthcare category):  NOT LISTED (category shows 0 servers; Healthcare not in submit dropdown — 11.6 prep complete, awaiting submission)
-                                       https://mcpservers.org/category/healthcare
-awesome-mcp-servers (punkpeye):        NOT LISTED
-                                       https://github.com/punkpeye/awesome-mcp-servers
-awesome-mcp-servers (wong2):           NOT LISTED
+mcpservers.org:                        LISTED (auto-indexed 2026-05-11; no form submission needed — mcpservers.org auto-discovers from the MCP Registry)
+                                       https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp
+                                       Caveat: page still shows the v1.0.x tool count
+                                       (27), meaning their Registry scrape is stale;
+                                       fresher data will likely propagate on their
+                                       next refresh.
+awesome-mcp-servers (punkpeye):        PR OPENED 2026-05-11 (#6208 — agent-PR fast-track queue)
+                                       https://github.com/punkpeye/awesome-mcp-servers/pull/6208
+                                       Will flip to LISTED once merged.
+awesome-mcp-servers (wong2):           N/A (repo is PR-restricted — curated list, not a community list)
                                        https://github.com/wong2/awesome-mcp-servers
 
 (Grep on the punkpeye list returned 2 matches, but both point at the
@@ -86,8 +91,9 @@ Success criteria — track these at day 60 (≥2 of 5 must trigger)
 [ ] GitHub stars: 3 → ≥33 (+30)
 [ ] ≥2 external issues/PRs from outside the immediate circle
 [ ] ≥1 third-party mention (blog, newsletter, video, other repo)
-[ ] Directory listings: 2/4 → ≥3/4
-    (Smithery + Glama shipped; need mcpservers.org and/or awesome-mcp-servers)
+[x] Directory listings: 3/4 → ≥3/4 — MET 2026-05-11
+    (Smithery + Glama + mcpservers.org shipped; awesome-mcp-servers PR #6208
+    open against punkpeye, will push count to 4/4 on merge)
 
 
 Anti-metrics — DO NOT count these as success (PROGRESS.md)
