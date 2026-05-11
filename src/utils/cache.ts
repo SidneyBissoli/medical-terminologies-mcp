@@ -1,4 +1,26 @@
-import NodeCache from 'node-cache';
+/**
+ * In-memory cache with per-entry TTL, lazy expiration.
+ *
+ * Previously used `node-cache` (CJS, depends on `events`). That broke on
+ * Cloudflare Workers because the bundled `__require('node:events')` shim
+ * throws at runtime — Workers ESM doesn't support dynamic require. This
+ * Map-backed implementation is platform-neutral (Node + Workers) and
+ * removes the dep entirely. Same public API as before so callers don't
+ * change.
+ *
+ * Expiration is lazy: entries linger in the Map past their TTL until the
+ * next get/has/getOrSet touches them. We deliberately skip a background
+ * setInterval sweep because Workers isolates may be short-lived (no point
+ * scheduling cleanup) and Node memory pressure is dominated by the actual
+ * cached bytes, not by stale slots. Stage 2 (PROGRESS.md Phase 11.9
+ * follow-up) replaces this with Workers KV for cross-isolate sharing.
+ */
+
+interface CacheEntry<T> {
+  value: T;
+  /** Absolute epoch-ms when this entry expires, or null for never. */
+  expiresAt: number | null;
+}
 
 /**
  * Default TTL values for different types of cached data (in seconds)
@@ -26,119 +48,79 @@ export const CACHE_PREFIX = {
   TOKEN: 'token',
 } as const;
 
-/**
- * Generic cache wrapper with support for different TTL values
- * Uses node-cache under the hood for in-memory caching
- */
 export class CacheManager {
-  private cache: NodeCache;
+  private store = new Map<string, CacheEntry<unknown>>();
 
-  /**
-   * Creates a new CacheManager instance
-   * @param checkPeriod - Interval in seconds to check for expired keys (default: 120)
-   */
-  constructor(checkPeriod: number = 120) {
-    this.cache = new NodeCache({
-      checkperiod: checkPeriod,
-      useClones: false,
-    });
-  }
-
-  /**
-   * Generates a cache key with prefix
-   * @param prefix - Cache key prefix (terminology identifier)
-   * @param key - Unique key for the data
-   * @returns Formatted cache key
-   */
   private generateKey(prefix: string, key: string): string {
     return `${prefix}:${key}`;
   }
 
   /**
-   * Stores a value in the cache
-   * @param prefix - Cache key prefix
-   * @param key - Unique key for the data
-   * @param value - Value to cache
-   * @param ttl - Time to live in seconds (default: LOOKUP TTL)
-   * @returns true if successful
+   * Returns the entry if present and not expired; otherwise deletes the
+   * stale entry (if any) and returns undefined.
    */
+  private liveEntry<T>(cacheKey: string): CacheEntry<T> | undefined {
+    const entry = this.store.get(cacheKey) as CacheEntry<T> | undefined;
+    if (!entry) return undefined;
+    if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      this.store.delete(cacheKey);
+      return undefined;
+    }
+    return entry;
+  }
+
   set<T>(prefix: string, key: string, value: T, ttl: number = DEFAULT_TTL.LOOKUP): boolean {
     const cacheKey = this.generateKey(prefix, key);
-    return this.cache.set(cacheKey, value, ttl);
+    const expiresAt = ttl > 0 ? Date.now() + ttl * 1000 : null;
+    this.store.set(cacheKey, { value, expiresAt });
+    return true;
   }
 
-  /**
-   * Retrieves a value from the cache
-   * @param prefix - Cache key prefix
-   * @param key - Unique key for the data
-   * @returns Cached value or undefined if not found/expired
-   */
   get<T>(prefix: string, key: string): T | undefined {
     const cacheKey = this.generateKey(prefix, key);
-    return this.cache.get<T>(cacheKey);
+    return this.liveEntry<T>(cacheKey)?.value;
   }
 
-  /**
-   * Checks if a key exists in the cache
-   * @param prefix - Cache key prefix
-   * @param key - Unique key for the data
-   * @returns true if key exists and is not expired
-   */
   has(prefix: string, key: string): boolean {
     const cacheKey = this.generateKey(prefix, key);
-    return this.cache.has(cacheKey);
+    return this.liveEntry(cacheKey) !== undefined;
   }
 
-  /**
-   * Deletes a value from the cache
-   * @param prefix - Cache key prefix
-   * @param key - Unique key for the data
-   * @returns Number of deleted entries
-   */
   delete(prefix: string, key: string): number {
     const cacheKey = this.generateKey(prefix, key);
-    return this.cache.del(cacheKey);
+    return this.store.delete(cacheKey) ? 1 : 0;
   }
 
-  /**
-   * Deletes all entries with a specific prefix
-   * @param prefix - Cache key prefix to clear
-   * @returns Number of deleted entries
-   */
   clearPrefix(prefix: string): number {
-    const keys = this.cache.keys().filter(k => k.startsWith(`${prefix}:`));
-    return this.cache.del(keys);
+    const needle = `${prefix}:`;
+    let count = 0;
+    for (const k of this.store.keys()) {
+      if (k.startsWith(needle)) {
+        this.store.delete(k);
+        count++;
+      }
+    }
+    return count;
   }
 
-  /**
-   * Clears all cached data
-   */
   flush(): void {
-    this.cache.flushAll();
+    this.store.clear();
   }
 
   /**
-   * Gets cache statistics
-   * @returns Object with hits, misses, keys count, etc.
+   * Best-effort stats — only returns key count; hit/miss counters are not
+   * tracked (the previous node-cache impl exposed them but no caller
+   * inside this project read them).
    */
-  getStats(): NodeCache.Stats {
-    return this.cache.getStats();
+  getStats(): { keys: number } {
+    return { keys: this.store.size };
   }
 
-  /**
-   * Gets or sets a cached value using a factory function
-   * If the value is not in cache, calls the factory and caches the result
-   * @param prefix - Cache key prefix
-   * @param key - Unique key for the data
-   * @param factory - Async function to generate the value if not cached
-   * @param ttl - Time to live in seconds
-   * @returns Cached or newly generated value
-   */
   async getOrSet<T>(
     prefix: string,
     key: string,
     factory: () => Promise<T>,
-    ttl: number = DEFAULT_TTL.LOOKUP
+    ttl: number = DEFAULT_TTL.LOOKUP,
   ): Promise<T> {
     const cached = this.get<T>(prefix, key);
     if (cached !== undefined) {
