@@ -53,13 +53,18 @@ look at the 14-day window ending ~2026-07-10 and compare daily-average
 unique clones, not totals (totals are sensitive to single scraper bursts).
 
 
-Directory listings (1 of 4 today)
+Directory listings (2 of 4 today)
 ---------------------------------
-Glama.ai:                              NOT LISTED
-                                       https://glama.ai/mcp/servers
+Glama.ai:                              LISTED (approved 2026-05-11 via 11.5)
+                                       https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp
+                                       Caveat: not yet "Author verified" — that
+                                       badge needs the claim + Dockerfile-based
+                                       quality check pass. Without the pass, the
+                                       listing exists but isn't returned in
+                                       Glama's search results.
 Smithery.ai:                           LISTED (shipped 2026-05-10 via 11.8)
                                        https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp
-mcpservers.org (Healthcare category):  NOT LISTED (category shows 0 servers)
+mcpservers.org (Healthcare category):  NOT LISTED (category shows 0 servers; Healthcare not in submit dropdown — 11.6 prep complete, awaiting submission)
                                        https://mcpservers.org/category/healthcare
 awesome-mcp-servers (punkpeye):        NOT LISTED
                                        https://github.com/punkpeye/awesome-mcp-servers
@@ -69,6 +74,11 @@ awesome-mcp-servers (wong2):           NOT LISTED
 (Grep on the punkpeye list returned 2 matches, but both point at the
 author's other repos — ibge-br-mcp and bcb-br-mcp — not this project.)
 
+Note on intra-day baseline correction: Glama indexed the same day the
+baseline was captured (2026-05-11). Counted as part of the baseline
+rather than a post-capture measurement, since both occurred on the same
+calendar day before any Phase 12 outreach started.
+
 
 Success criteria — track these at day 60 (≥2 of 5 must trigger)
 ---------------------------------------------------------------
@@ -76,8 +86,8 @@ Success criteria — track these at day 60 (≥2 of 5 must trigger)
 [ ] GitHub stars: 3 → ≥33 (+30)
 [ ] ≥2 external issues/PRs from outside the immediate circle
 [ ] ≥1 third-party mention (blog, newsletter, video, other repo)
-[ ] Directory listings: 1/4 → ≥3/4
-    (Smithery shipped; need Glama + mcpservers.org and/or awesome-mcp-servers)
+[ ] Directory listings: 2/4 → ≥3/4
+    (Smithery + Glama shipped; need mcpservers.org and/or awesome-mcp-servers)
 
 
 Anti-metrics — DO NOT count these as success (PROGRESS.md)
