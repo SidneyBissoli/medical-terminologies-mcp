@@ -57,10 +57,17 @@ describe('Streamable HTTP transport', () => {
   it('GET /health returns liveness payload', async () => {
     const res = await fetch(`${baseUrl}/health`);
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { status: string; name: string; tool_count: number };
+    const body = (await res.json()) as {
+      status: string;
+      name: string;
+      tool_count: number;
+      uptime_s: number;
+    };
     expect(body.status).toBe('ok');
     expect(body.name).toBe('medical-terminologies-mcp');
     expect(body.tool_count).toBe(toolRegistry.getTools().length);
+    expect(typeof body.uptime_s).toBe('number');
+    expect(body.uptime_s).toBeGreaterThanOrEqual(0);
   });
 
   it('OPTIONS /mcp returns CORS preflight', async () => {

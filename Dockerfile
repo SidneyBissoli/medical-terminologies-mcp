@@ -3,9 +3,9 @@
 # everything except @modelcontextprotocol/sdk (esbuild --external), so the
 # runtime image only needs that one runtime dep + the bundled dist file.
 #
-# Built and run by Smithery in container mode (smithery.yaml). Listens on
-# the PORT env var that Smithery sets (default 8081) and binds 0.0.0.0
-# so the container's network can route in.
+# Used by any container host (Fly.io, Cloud Run, Render, plain Docker).
+# The container reads PORT and HOST from env at startup; the platform sets
+# PORT, and we default HOST to 0.0.0.0 so the network can route in.
 
 FROM node:20-alpine AS build
 WORKDIR /app
@@ -22,10 +22,11 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 
-# HOST=0.0.0.0 so Docker port mapping works; PORT is read from the env at
-# startup (defaults to 3000 in CLI, but Smithery overrides to 8081).
+# HOST=0.0.0.0 so the container's port can be reached from outside.
+# PORT comes from the platform env (Fly: 8080, Cloud Run: 8080, Render: 10000,
+# arbitrary in raw Docker). EXPOSE here is just documentation — the actual
+# listening port is whatever PORT resolves to at runtime.
 ENV HOST=0.0.0.0
-EXPOSE 8081
+EXPOSE 8080
 
-# stdio is the npm default; for hosted deployments we always run --http.
 CMD ["node", "dist/index.js", "--http"]

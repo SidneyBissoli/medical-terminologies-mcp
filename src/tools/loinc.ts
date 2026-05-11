@@ -11,7 +11,7 @@
  */
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { toolRegistry } from '../server.js';
+import { toolRegistry } from '../server-core.js';
 import { getNLMClient, LOINCItem, LOINCAnswer, LOINCPanel } from '../clients/nlm-client.js';
 import {
   LOINCSearchParamsSchema,

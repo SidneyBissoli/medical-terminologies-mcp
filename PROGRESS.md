@@ -412,8 +412,8 @@ rich tabular outputs.
 | 11.5 | Submit to Glama.ai | ~20 min | 11.1 + 11.3 |
 | 11.6 | Submit to mcpservers.org | ~20-30 min | 11.1 + 11.3 |
 | 11.7 | PR to `awesome-mcp-servers` (punkpeye + wong2 lists) | ~30 min | 11.1 + 11.3 |
-| 11.8 | Submit to Smithery.ai (ships `smithery.yaml` config) | ~30-45 min | 11.2 |
-| 11.9 | Cloudflare Worker template + deployment guide | ~1-2 h | 11.2 |
+| 11.8 | Submit to Smithery.ai via URL submission flow (point at the live Workers endpoint from 11.9). Smithery deprecated `runtime: container` between this roadmap's authoring and 2026-05-10, so the original `smithery.yaml` approach is dead — URL submission is the only remaining path | ~30 min | 11.9 |
+| 11.9 | **Production Cloudflare Workers deployment** (not a template/guide — the actual hosted endpoint). Port `node:http` server to a fetch handler using `WebStandardStreamableHTTPServerTransport` from the SDK; replace `node-cache` with a Workers KV-backed cache (per-isolate state would otherwise multiply external-API request volume under load); replace the in-memory token-bucket rate limiter with a Durable Object so the WHO/NLM quotas are honored globally, not per-isolate; `wrangler.toml` config; GitHub Actions deploy on tag | ~6-12 h | 11.2 |
 | 11.10 | LobeHub plugin manifest | ~30 min | 11.2 |
 
 ### Planned Tools
@@ -432,8 +432,8 @@ tools, not a new tool.
 - [ ] Listed on Glama.ai with "Author verified" badge
 - [ ] Listed on mcpservers.org Healthcare category
 - [ ] PR merged in at least one `awesome-mcp-servers` list
-- [ ] Smithery.ai listing live
-- [ ] Cloudflare Worker template documented in README "Hosted deployment" section
+- [ ] Cloudflare Workers production deployment live (fetch handler + KV cache + Durable Object rate limiter), validated end-to-end via MCP Inspector against the public URL
+- [ ] Smithery.ai listing live via URL submission, pointing at the Workers endpoint
 - [ ] LobeHub plugin manifest accepted
 - [ ] CHANGELOG entry for the version that ships HTTP transport (likely 1.2.0)
 - [ ] Contract test for HTTP transport boot + per-tool language acceptance
@@ -447,12 +447,26 @@ tools, not a new tool.
 - **Cross-reference:** when 11.2 + 11.4 ship, the SNOMED `Accept-Language`
   env override gets a per-tool complement, useful for hosted multi-tenant
   scenarios where the operator isn't the end user.
+- **Strategy pivot recorded 2026-05-10:** original 11.8 plan was a
+  `smithery.yaml` with `runtime: container` (Smithery would build the
+  Dockerfile and host the container). That mode was deprecated by
+  Smithery between this roadmap's authoring and 2026-05-10 — only URL
+  submission (you self-host, Smithery proxies) and MCPB stdio bundles
+  remain. We picked Cloudflare Workers as the hosted target (11.9
+  promoted from "template/guide" to actual production deploy) under the
+  working hypothesis that the project may reach 100k–3M req/mo across
+  globally-distributed public-health researchers. At that scale,
+  Workers' edge distribution and Paid-plan-flat pricing ($5/mo for 10M
+  req) dominates Fly.io's per-VM scaling and Render's sleep-on-free-tier
+  UX cost. Originally-shipped `smithery.yaml` (commit `2b5dc9e`) is
+  removed in the same branch that adds the Workers deployment.
 
 ### Status
 
-- Effort: ~10–15 h total
-- Effort window: ~3 weeks at 2–4 h/week
-- Build: 📋 Planned
+- Effort: ~25–30 h total (revised after 11.9 reclassified from
+  "template" to production deploy with KV + Durable Objects)
+- Effort window: ~6 weeks at 2–4 h/week
+- Build: 🔄 In progress (11.1, 11.2, 11.3 shipped; 11.9 next)
 
 ---
 

@@ -12,7 +12,7 @@
  */
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { toolRegistry } from '../server.js';
+import { toolRegistry } from '../server-core.js';
 import {
   getRxNormClient,
   RxNormDrug,

@@ -1,143 +1,26 @@
+/**
+ * Node-only server entrypoint helpers — stdio transport (for Claude
+ * Desktop / IDE clients) and Streamable HTTP transport via `node:http`
+ * (for self-hosted Docker / Fly.io / Render). Cloudflare Workers uses
+ * `src/worker.ts` instead, which talks Web Standard Request/Response
+ * directly to `WebStandardStreamableHTTPServerTransport`.
+ *
+ * The actual MCP server construction, tool registry, and SERVER_INFO
+ * live in `src/server-core.ts` so they can be shared between runtimes.
+ */
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  Tool,
-  CallToolResult,
-} from '@modelcontextprotocol/sdk/types.js';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
-import pkg from '../package.json';
+import { SERVER_INFO, toolRegistry } from './server-core.js';
 import { logger } from './utils/logger.js';
 
-/**
- * Server metadata
- */
-export const SERVER_INFO = {
-  name: pkg.name,
-  version: pkg.version,
-  description: 'MCP Server that unifies access to major global medical terminologies (ICD-11, SNOMED CT, LOINC, RxNorm, MeSH) through a standardized interface',
-} as const;
+// Re-exports so existing callers (src/index.ts, tools, tests) keep their
+// `from './server.js'` imports without churn.
+export { SERVER_INFO, toolRegistry, createServer } from './server-core.js';
+export type { ToolHandler } from './server-core.js';
 
-/**
- * Tool handler function type
- */
-export type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
-
-/**
- * Registry for tool definitions and handlers
- */
-class ToolRegistry {
-  private tools: Map<string, Tool> = new Map();
-  private handlers: Map<string, ToolHandler> = new Map();
-
-  /**
-   * Registers a tool with its handler
-   * @param tool - Tool definition
-   * @param handler - Function to handle tool invocations
-   */
-  register(tool: Tool, handler: ToolHandler): void {
-    this.tools.set(tool.name, tool);
-    this.handlers.set(tool.name, handler);
-  }
-
-  /**
-   * Gets all registered tools
-   * @returns Array of tool definitions
-   */
-  getTools(): Tool[] {
-    return Array.from(this.tools.values());
-  }
-
-  /**
-   * Gets a tool handler by name
-   * @param name - Tool name
-   * @returns Tool handler or undefined
-   */
-  getHandler(name: string): ToolHandler | undefined {
-    return this.handlers.get(name);
-  }
-
-  /**
-   * Checks if a tool is registered
-   * @param name - Tool name
-   * @returns true if tool exists
-   */
-  hasTool(name: string): boolean {
-    return this.tools.has(name);
-  }
-}
-
-/** Global tool registry */
-export const toolRegistry = new ToolRegistry();
-
-/**
- * Creates and configures the MCP server
- * @returns Configured Server instance
- */
-export function createServer(): Server {
-  const server = new Server(
-    {
-      name: SERVER_INFO.name,
-      version: SERVER_INFO.version,
-    },
-    {
-      capabilities: {
-        tools: {},
-      },
-    }
-  );
-
-  // Handle list tools request
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: toolRegistry.getTools(),
-    };
-  });
-
-  // Handle tool invocations
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-
-    const handler = toolRegistry.getHandler(name);
-    if (!handler) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error: Unknown tool "${name}". Use list_tools to see available tools.`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    try {
-      return await handler(args ?? {});
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error({ tool: name, err: errorMessage }, 'Tool handler failed');
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error executing tool "${name}": ${errorMessage}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  });
-
-  return server;
-}
-
-/**
- * Starts the MCP server with stdio transport
- * @param server - Server instance to start
- */
 export async function startServer(server: Server): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
@@ -180,8 +63,6 @@ export async function startHttpServer(
   await mcpServer.connect(transport);
 
   const httpServer = createHttpServer((req, res) => {
-    // CORS for browser-based clients (MCP Inspector web UI, playgrounds).
-    // Permissive on purpose — this transport is meant for hosted/public use.
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
     res.setHeader(
@@ -197,6 +78,9 @@ export async function startHttpServer(
 
     // Lightweight health probe for load balancers / uptime monitors —
     // does not exercise any tool, just confirms the process is alive.
+    // Deliberately does NOT poll upstream APIs (WHO/NLM): a probe that
+    // depends on third-party reachability would surface their transient
+    // 5xxs as our outages and cause needless container restarts.
     if (req.method === 'GET' && req.url === '/health') {
       res.setHeader('Content-Type', 'application/json');
       res.writeHead(200).end(
@@ -205,6 +89,7 @@ export async function startHttpServer(
           name: SERVER_INFO.name,
           version: SERVER_INFO.version,
           tool_count: toolRegistry.getTools().length,
+          uptime_s: Math.round(process.uptime() * 100) / 100,
         }),
       );
       return;

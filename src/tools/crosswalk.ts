@@ -14,7 +14,7 @@
  */
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import { toolRegistry } from '../server.js';
+import { toolRegistry } from '../server-core.js';
 import { getWHOClient } from '../clients/who-client.js';
 import { getSNOMEDClient, SNOMED_DISCLAIMER } from '../clients/snomed-client.js';
 import { getNLMClient } from '../clients/nlm-client.js';
