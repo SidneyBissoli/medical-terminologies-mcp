@@ -145,20 +145,28 @@ clinical-informatics, medical-coding, public-data.
 
 ## A.3 — `mcpservers.org` submission
 
-**Name:** medical-terminologies-mcp
+**Submission form:** https://mcpservers.org/submit (free Standard tier;
+the $39 Premium tier is unnecessary).
 
-**Category:** Healthcare
+**Server Name:** Medical Terminologies MCP
 
-**Description (one paragraph):**
+**Category:** **Other** — verified 2026-05-11 that the dropdown does
+NOT include Healthcare even though `mcpservers.org/category/healthcare`
+exists as a page. Submit under Other; the admin may recategorize during
+review. (If they don't, the listing still counts toward the Phase 12
+"≥3 of 4 directories" success criterion.)
 
-> Unified Model Context Protocol server for seven medical terminologies:
-> ICD-11 (WHO), LOINC and MeSH (NLM), RxNorm (NIH), ATC (via NLM
-> RxClass), CID-10 (Brazilian DataSUS), and SNOMED CT (optional,
-> license-gated). 28 tools work out of the box; ICD-11 requires free
-> WHO API credentials. Structured outputs, rate-limiting, retry, and
-> proper OAuth handling. MIT licensed.
+**Link (Repository URL):** https://github.com/SidneyBissoli/medical-terminologies-mcp
 
-**Repository:** https://github.com/SidneyBissoli/medical-terminologies-mcp
+**Contact email:** sbissoli76@gmail.com (mailbox you check)
+
+**Short Description** (~280 chars — pick this if the field accepts it):
+
+> Unified MCP server with 28 tools for ICD-11 (WHO), LOINC, RxNorm, MeSH (NLM), ATC, CID-10 (Brazilian DataSUS), and optional SNOMED CT. `structuredContent` on every tool, OAuth + retry + rate limiting baked in. Hosted on Cloudflare Workers and listed on Smithery. MIT.
+
+**Short Description fallback** (~150 chars — use if the field truncates above):
+
+> Unified MCP server for 7 medical terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10, optional SNOMED CT). 28 tools, hosted on Workers + npm.
 
 **Install:** `npm install -g medical-terminologies-mcp`
 
