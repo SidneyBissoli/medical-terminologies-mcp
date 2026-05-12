@@ -549,7 +549,7 @@ target those audiences directly without cosplay as a clinical tool.
 
 | # | Sub-task | Effort | Notes |
 |---|----------|--------|-------|
-| 12.1 | Long-form post (Medium + Dev.to crosspost): three concrete clinical/research use cases | ~3-4 h | Draft in outreach-templates.md |
+| 12.1 | Long-form post (Medium + Dev.to crosspost): three concrete clinical/research use cases | ~3-4 h | ✅ published 2026-05-11. Medium: https://medium.com/@sbissoli76/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-a6c46de9c83b · Dev.to: https://dev.to/sidneybissoli/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-5gia. Medium is the canonical URL — cross-references in subsequent channels (LinkedIn, Reddit, Mastodon, HN) should link here |
 | 12.2 | LinkedIn post (personal feed) + crosspost to AMIA / Healthcare Informatics groups | ~1 h | Draft in outreach-templates.md |
 | 12.3 | Reddit posts: r/medicalcoding, r/medicine (cautious framing — strict self-promo rules), r/healthIT | ~1-2 h | Drafts + risk notes in outreach-templates.md |
 | 12.4 | Mastodon + Bluesky variants (3 angles: clinical / research / dev) | ~30 min | Drafts in outreach-templates.md |
