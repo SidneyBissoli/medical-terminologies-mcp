@@ -840,11 +840,20 @@ read-more (centralizes traffic + helps Medium's algorithm).
 
 **Recommended instances:**
 
-- `academic.social` — academic profile, research audience
-- `fediscience.org` — science generally
-- `mastodon.social` — broad reach
-- (optional) `infosec.exchange` — variant C works here on the
+- `mastodon.social` — broad reach; default for Variant A (clinical) and
+  Variant C (devs) since instance audience matters less than hashtags
+  on Mastodon. Space the two posts 3-4h apart so they don't read as spam
+- `fediscience.org` — science generally; default for Variant B
+  (research). Approval-required, so create the account first and wait
+- (optional) `infosec.exchange` — variant C also works here on the
   engineering angle
+
+> Note (2026-05-12): an earlier draft of this file recommended
+> `academic.social` for Variant A. That instance doesn't exist
+> (ECONNREFUSED, absent from instance directories) — replaced by
+> `mastodon.social`. `scholar.social` and `med-mastodon.com` were
+> checked as alternatives and ruled out (closed registrations / expired
+> cert respectively).
 
 **Bluesky crosspost:** same content, same hashtags. Bluesky has a 300-char
 limit, so the Medium link is too long for inline. Use a shortened

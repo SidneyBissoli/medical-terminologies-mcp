@@ -30,11 +30,25 @@ for each:
 Three variants in `outreach-templates.md` section A.10 (~line 799).
 Post each on the matching instance:
 
-- **Variant A** (clinical use) → `academic.social`
+- **Variant A** (clinical use) → `mastodon.social`
 - **Variant B** (research) → `fediscience.org`
 - **Variant C** (developer) → `mastodon.social`
 
 Optional 4th: Variant C on `infosec.exchange` (engineering angle).
+
+> **Correção 2026-05-12:** o plano original mandava a Variant A para
+> `academic.social`, mas essa instância não existe (ECONNREFUSED no
+> domínio, ausente nos diretórios de instâncias). Era alucinação da
+> sessão que escreveu este doc. Alternativas verificadas que falharam:
+> `scholar.social` está com registrations closed (só por convite);
+> `med-mastodon.com` tem certificado SSL expirado. A Variant A foi
+> redirecionada para `mastodon.social` porque (a) a descoberta no
+> Mastodon depende mais de hashtags do que de instância e (b)
+> mantém o plano de 3 variantes postáveis hoje. Como A e C vão para a
+> mesma instância, **espace 3-4h entre os dois posts** para não
+> parecer spam. Hashtags clínicas fortes na Variant A
+> (`#MedicalInformatics #ClinicalInformatics #HealthIT #ICD11`) carregam
+> o ângulo independente do servidor.
 
 **Why first:** no comments to moderate quickly, "post and forget"
 mechanic, independent audience from LinkedIn/Reddit.
