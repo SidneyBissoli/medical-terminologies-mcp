@@ -18,7 +18,7 @@ A Model Context Protocol (MCP) server providing unified access to major global m
 
 ## Features
 
-- 28 default tools (34 with SNOMED enabled) for medical terminology lookup
+- 29 default tools (35 with SNOMED enabled) for medical terminology lookup
 - 3 MCP **Prompts** that orchestrate tool calls into named workflows (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — clients render these as one-click user actions
 - 3 MCP **Resources** for in-process reference content (`info://server`, `info://cid10/chapters`, `info://licenses`) — sub-millisecond reads, no HTTP
 - Multi-terminology support in a single server

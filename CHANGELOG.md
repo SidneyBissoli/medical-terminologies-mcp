@@ -20,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`validate_codes` cross-terminology batch validator** — new MCP
+  tool that accepts up to 50 `{ code, terminology }` pairs and returns
+  per-item `{ valid, active, title, replaced_by, source, error }`.
+  Designed for retrospective analysis of legacy databases. Covers all
+  8 supported terminologies; codes validated in parallel through
+  their respective clients (rate limiters serialize within each
+  bucket). `replaced_by` is populated today only for ICD-10 codes
+  (via the bundled WHO transition tables); `active` carries a real
+  boolean for SNOMED and LOINC, null elsewhere. Closes PROGRESS.md
+  Phase 13.2.
 - `scripts/build-icd10-to-icd11-dataset.mjs` regenerates the bundled
   WHO transition mapping JSON from the WHO `mapping.zip` release. Run
   on each new WHO annual release.
