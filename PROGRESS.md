@@ -44,12 +44,12 @@ to understand why specific code patterns exist. Outreach copy
 | 13 | Coverage Expansion | 📋 Planned | +9–11 tools |
 | 14 | Quality & Maintenance | 📋 Ongoing | - |
 
-**Tools today:** 29 default / 35 with SNOMED enabled
+**Tools today:** 31 default / 37 with SNOMED enabled
 **Prompts today:** 3 (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — added 1.3.0
 **Resources today:** 3 (`info://server`, `info://cid10/chapters`, `info://licenses`) — added 1.3.0
 **Per-tool `language` parameter** on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` — propagates as `Accept-Language` upstream (added 11.4)
 **Tools projected after Phase 13:** ~38–40 default / ~44–46 with SNOMED
-**Tests today:** 299 across 18 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
+**Tests today:** 313 across 20 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
 
 ---
 
@@ -641,7 +641,7 @@ turning point. Same audiences, broader coverage.
 | 13.3 | CID-O (oncology) tools — dataset already in DataSUS CID10CSV.zip (`CID-O-CATEGORIAS.CSV`, `CID-O-GRUPOS.CSV`); add `cid_o_search`, `cid_o_lookup` | ~3-5 h | Audit excluded as "niche"; reversed because RHC/RCBP/INCA use it operationally |
 | 13.4 | TUSS (Terminologia Unificada da Saúde Suplementar — ANS/private health) tools: `tuss_search`, `tuss_lookup`, `tuss_chapters`. Bundled static dataset (~5k items, public ANS source) | ~5-6 h | Brazilian supplementary-health analysts |
 | 13.5 | SIGTAP (Sistema de Gerenciamento da Tabela de Procedimentos do SUS) tools: `sigtap_search`, `sigtap_lookup`, `sigtap_by_chapter`. Bundled with monthly refresh script (DataSUS publishes monthly) | ~6-7 h | Brazilian SUS operational analysts; larger dataset (~10k procedures with values) |
-| 13.6 | Versioning + diff tools: `terminology_versions` (current versions per terminology + release dates), `terminology_diff` (codes added/retired between versions) | ~4-5 h | All audiences with maintained pipelines |
+| 13.6 | Versioning + diff tools: `terminology_versions` (current versions per terminology + release dates), `terminology_diff` (codes added/retired between versions) | ~4-5 h (came in ~3h) | ✅ shipped 2026-05-11 in feat commit ae956f3 — `terminology_versions` returns metadata for all 8 terminologies (ICD-10 → ICD-11 version reads live from bundled client; rest are static); `terminology_diff` is guidance-only for terminologies without historical snapshots, but surfaces a real cross-revision summary for terminology=icd10 (1:1 vs split mappings vs avg alternatives) computed from the bundled WHO transition tables via the new `ICD10ToICD11MapClient.getStats()` method. CI tool-count gate 35 → 37 |
 | 13.7 | Real `map_snomed_to_icd10` via Snowstorm refset 447562003 — full structure (`mapTarget`, `mapGroup`, `mapPriority`, `mapRule`, `mapAdvice`, `mapCategoryId`); contract test with fixture JSON | ~5-6 h | External dependency: needs (a) IHTSDO public host returning OR (b) FHIR pivot OR (c) hosted SNOMED scenario from Phase 11 |
 | 13.8 | `map_cid10_to_cid11` BR variant via CBCD transition table when published | ~3-4 h | External dependency: CBCD publishing the BR ICD-11 transition table |
 

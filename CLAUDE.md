@@ -34,7 +34,7 @@ To exercise the stdio server interactively: `npx @modelcontextprotocol/inspector
 - `WHO_CLIENT_ID` / `WHO_CLIENT_SECRET` are required only for the 5 ICD-11 tools (OAuth2 client credentials). The server will still start without them; ICD-11 tool calls throw `AUTH_CONFIG_ERROR` at first use. LOINC, RxNorm, MeSH have no auth.
 - **SNOMED is feature-flagged off by default.** `src/utils/feature-flags.ts` gates the SNOMED tools and the SNOMED branch of crosswalk behind `ENABLE_SNOMED_TOOLS=true`. The historical public IHTSDO Snowstorm endpoint (`browser.ihtsdotools.org/snowstorm/snomed-ct`) was retired and now returns HTTP 410, so operators must also set `SNOMED_BASE_URL` to a working self-hosted Snowstorm. Optional `SNOMED_LANGUAGE` is passed through as the `Accept-Language` header.
 - **ATC** is served via NLM RxClass (`rxnav.nlm.nih.gov`), same host as RxNorm proper. The `RxNormClient` exposes `getATCByDrugName` / `getATCByCode` / `getATCMembers` that share the rxnorm rate limiter, retry, and cache. Note: `byId` only resolves ATC1-4 codes (1-5 chars); substance-level codes (7 chars) come back via `byDrugName` only — this is upstream behavior, surfaced in tool descriptions.
-- **CID-10 has no API auth or rate limiting** — it's served from a bundled JSON dataset (DataSUS V2008). `src/data/cid10.json` is loaded at startup; `getCID10Client()` is a singleton over it. All search/lookup happens in-process. CI verifies the bundle's source-level `toolRegistry.register` count (currently 35: 27 prior + 3 ATC + 4 CID-10 + 1 validate_codes added in 13.2).
+- **CID-10 has no API auth or rate limiting** — it's served from a bundled JSON dataset (DataSUS V2008). `src/data/cid10.json` is loaded at startup; `getCID10Client()` is a singleton over it. All search/lookup happens in-process. CI verifies the bundle's source-level `toolRegistry.register` count (currently 37: 27 prior + 3 ATC + 4 CID-10 + 1 validate_codes (13.2) + 2 versioning tools (13.6)).
 - `LOG_LEVEL` env var controls pino verbosity (default `info`).
 
 ## Architecture
@@ -49,7 +49,7 @@ When adding a new `src/tools/*.ts`, `src/prompts/*.ts`, or `src/resources/*.ts`,
 ### Three registries: tools, prompts, resources
 `src/server-core.ts` defines three singleton registries (`toolRegistry`, `promptRegistry`, `resourceRegistry`), each holding parallel maps of definitions and handlers. Server `capabilities` declares all three: `{ tools: {}, prompts: {}, resources: {} }`.
 
-**Tools** (`src/tools/*.ts`) — every external API surface (29 default + 6 SNOMED):
+**Tools** (`src/tools/*.ts`) — every external API surface (31 default + 6 SNOMED):
 1. Defines `Tool` objects whose `inputSchema` / `outputSchema` are produced by `buildInputSchema()` / `buildOutputSchema()` from `src/utils/zod-schema.ts` (Zod → JSON Schema via `zod-to-json-schema`, with `$schema` stripped and refs inlined). Tools also set `annotations: READ_ONLY_TOOL_ANNOTATIONS` (read-only, idempotent, open-world, non-destructive).
 2. Defines async handler functions that validate args with Zod schemas from `src/types/index.ts`, call a client, and return `CallToolResult` — typically with both a human-readable `content` text *and* a `structuredContent` object matching the `outputSchema`.
 3. Calls `toolRegistry.register(...)` at module load time for each tool.
@@ -115,7 +115,7 @@ Three layers, all under `src/`:
 - **Contract tests** (`src/clients/*.contract.test.ts`) — use `nock` (^14, devDep) to intercept axios calls, replaying captured live fixtures from `src/__fixtures__/<api>/`. Pin parser behavior against the actual upstream response shapes. WHO and SNOMED tests use inline mocks because their public hosts don't ship test creds. When adding a new HTTP client method, capture a live fixture and write a contract test pinning the parser.
 - **Integration tests** (`src/integration/*.integration.test.ts`) — hit live APIs. Gated by `INTEGRATION_TESTS=1`; otherwise the `describe` blocks become `describe.skip`. WHO + SNOMED sub-suites skip cleanly when their creds/flags are absent. CI runs them daily on cron — production regressions surface close to when they happen.
 
-Total: 299 unit + contract tests, 11 integration tests (skipped by default).
+Total: 313 unit + contract tests, 11 integration tests (skipped by default).
 
 When adding a tool with an `outputSchema`, add a fixture to `src/types/schemas.test.ts` exercising the typical-result shape *and* one edge case (empty list, all-nullable-fields populated/missing, etc.). Pattern: `<Schema>OutputSchema.safeParse({...}).success` should be `true` for well-formed shapes and `false` when a required field is missing. CONTRIBUTING.md codifies this as a PR-gate expectation.
 
@@ -158,7 +158,7 @@ Required GitHub secrets for the deploy workflow: `CLOUDFLARE_API_TOKEN` (Account
 
 1. `npm run typecheck` clean.
 2. `npm test` passes (unit + contract; integration is skipped here).
-3. A source-level `toolRegistry.register` call-site count check (currently 35). Removing or adding tools requires updating that count in CI alongside the code change.
+3. A source-level `toolRegistry.register` call-site count check (currently 37). Removing or adding tools requires updating that count in CI alongside the code change.
 
 `.github/workflows/integration.yml` runs the live-API integration suite on a daily cron (separate from PR gates) — that's how upstream API drift surfaces.
 

@@ -20,6 +20,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`terminology_versions` and `terminology_diff`** — two new MCP tools
+  for pipeline maintainers. `terminology_versions` lists name, current
+  version, release date, publisher, source URL, changelog URL, update
+  cadence, and bundled flag for all 8 terminologies (filterable);
+  ICD-10 → ICD-11 reads live from the bundled client, the rest is
+  static metadata maintained alongside each release. `terminology_diff`
+  is intentionally guidance-only for terminologies without bundled
+  historical snapshots (points at the publisher's changelog and the
+  update cadence), but surfaces a real cross-revision summary for
+  `terminology=icd10`: 1:1 mappings vs splits vs avg alternatives,
+  computed from the bundled WHO transition tables via a new
+  `ICD10ToICD11MapClient.getStats()` method. Closes PROGRESS.md Phase
+  13.6.
 - **`validate_codes` cross-terminology batch validator** — new MCP
   tool that accepts up to 50 `{ code, terminology }` pairs and returns
   per-item `{ valid, active, title, replaced_by, source, error }`.
