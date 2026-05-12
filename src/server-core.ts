@@ -31,7 +31,7 @@ import { logger } from './utils/logger.js';
 export const SERVER_INFO = {
   name: pkg.name,
   version: pkg.version,
-  description: 'MCP Server that unifies access to major global medical terminologies (ICD-11, SNOMED CT, LOINC, RxNorm, MeSH) through a standardized interface',
+  description: 'Unified MCP server for seven medical terminologies (ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC, CID-10) with authoritative WHO ICD-10→ICD-11 mapping. 37 tools, hosted endpoint available, MIT.',
 } as const;
 
 export type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;

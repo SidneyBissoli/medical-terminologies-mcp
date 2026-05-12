@@ -1,7 +1,23 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.SidneyBissoli/medical-terminologies-mcp",
-  "description": "Unified access to global medical terminologies: ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC, CID-10",
+  "title": "Medical Terminologies MCP",
+  "description": "Unified MCP server for seven medical terminologies (ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC, CID-10) with authoritative WHO ICD-10→ICD-11 mapping. 37 tools, hosted endpoint available, MIT.",
+  "websiteUrl": "https://medium.com/@sbissoli76/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-a6c46de9c83b",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-dark.png",
+      "mimeType": "image/png",
+      "sizes": ["1024x1024"],
+      "theme": "dark"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-light.png",
+      "mimeType": "image/png",
+      "sizes": ["1024x1024"],
+      "theme": "light"
+    }
+  ],
   "repository": {
     "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
     "source": "github"

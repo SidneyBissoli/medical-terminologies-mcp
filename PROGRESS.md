@@ -730,12 +730,14 @@ upstream-drift triage and small fixes as they surface.
 | 14.3 | Annual: WHO ICD-11 release bump when WHO publishes new release (default `WHO_ICD11_RELEASE_ID` advanced from `2024-01`) | ~30 min | WHO publication (yearly cycle) |
 | 14.4 | Continuous: triage upstream-drift failures from daily integration cron (`.github/workflows/integration.yml`) | Variable | Cron failure notification |
 | 14.5 | Annual: refresh `src/data/cid10.json` if DataSUS ever publishes a successor to V2008 (frozen since 2008) | ~30 min | DataSUS publishes V20XX |
+| 14.6 | Close `outputSchema` gap on the 3 remaining crosswalk tools — surfaced during Smithery quality-score audit 2026-05-12. `map_icd10_to_icd11` is the hot fix: the handler already computes structured data (`entry.icd10`, `entry.primary`, `entry.alternatives`) and discards it as markdown — needs `MapICD10ToICD11OutputSchema` in `src/types/index.ts` + `structuredContent` return path + fixture in `src/types/schemas.test.ts`. `map_snomed_to_icd10` and `map_loinc_to_snomed` are guidance-only; an envelope schema (`{ status: 'guidance-only', preferred_term?, guidance: string }` style) is enough. Deferred from the 2026-05-12 Smithery polish branch so the metadata-only PR stays focused | ~70 min total | Triggered by the Smithery quality-score audit; remediates the only remaining of the 5 axes (naming/description/homepage/icon already fixed in the metadata polish) |
 
 ### Planned Requirements
 
 - [ ] `loinc_answers` populates from `loinc_form_definitions` for form-type LOINCs (single observations may remain empty if no canonical replacement exists)
 - [ ] Annual release-ID bump procedure documented in CONTRIBUTING.md
 - [ ] Cron failures triaged within 1 week of notification
+- [ ] All 37 default tools expose `outputSchema` + `structuredContent` (currently 34/37 — gap is 3 tools in `crosswalk.ts`)
 
 ### Triggers
 
@@ -744,6 +746,9 @@ upstream-drift triage and small fixes as they surface.
 - **14.2:** post-Phase-13 cleanup, single sweep.
 - **14.3, 14.5:** upstream-driven, predictable cadence.
 - **14.4:** event-driven from CI notifications.
+- **14.6:** open follow-up from the 2026-05-12 Smithery polish work;
+  worth shipping before the next outreach push since output schemas
+  are visible on Smithery's listing UI.
 
 ### Status
 
