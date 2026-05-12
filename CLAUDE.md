@@ -164,9 +164,17 @@ Required GitHub secrets for the deploy workflow: `CLOUDFLARE_API_TOKEN` (Account
 
 ## Forward-looking work
 
-`PROGRESS.md` is the implementation diary: Phases 0-10 ✅ complete (the work that built the current 28/34-tool surface), Phases 11-14 📋 planned (Distribution & Discovery, Content & Outreach, Coverage Expansion, Quality & Maintenance). Each planned phase has sub-tasks, requirements checklists, dependencies, and effort estimates. When picking up work, check there first — it captures rationale and triggers, not just task lists.
+`PROGRESS.md` is the implementation diary and current source of truth for what's shipped vs. planned:
 
-`outreach-templates.md` holds copy-paste-ready drafts for Phase 12 (post drafts, email templates, submission text). Tool counts and version numbers there are kept in sync with the current state, but verify before publishing.
+- Phases 0-10 ✅ complete (the work that built the original 28-tool surface).
+- Phase 11 🔄 in progress (Distribution & Discovery — npm + Cloudflare Workers shipped; further directory submissions ongoing).
+- Phase 12 🔄 in progress (Content & Outreach — 12.1 long-form post published on Medium + Dev.to 2026-05-11; remaining channels drafted).
+- Phase 13 🔄 in progress (Coverage Expansion — 13.1 authoritative ICD-10→ICD-11 mapping, 13.2 `validate_codes`, and 13.6 `terminology_versions` / `terminology_diff` all shipped, bringing the surface to 31 default + 6 SNOMED-gated = **37 tools**; 13.7 SNOMED→ICD-10 real refset 447562003 still planned).
+- Phase 14 📋 ongoing (Quality & Maintenance — e.g. the `loinc_answers` upstream-404 fix).
+
+Each phase has sub-tasks, requirements checklists, dependencies, and effort estimates. When picking up work, check `PROGRESS.md` first — it captures rationale and triggers, not just task lists.
+
+`outreach-templates.md` holds copy-paste-ready drafts for Phase 12 (post drafts, email templates, submission text). `outreach-templates.html` is the rendered version. Tool counts and version numbers there are kept in sync with the current state, but verify before publishing.
 
 `CONTRIBUTING.md` has the PR checklist that complements the architectural notes here: typecheck-clean → tests-pass → build-succeeds → tool-count gate, plus the fixture-pinning convention for new HTTP client methods (capture into `src/__fixtures__/<api>/`, pin parser with a `nock`-backed contract test).
 
