@@ -419,6 +419,7 @@ rich tabular outputs.
 | 11.9 Stage 1 | **Production Cloudflare Workers deployment** (the actual hosted endpoint). Port `node:http` server to a fetch handler using `WebStandardStreamableHTTPServerTransport` from the SDK; `wrangler.toml`; GitHub Actions deploy on push to main. Per-isolate cache + rate-limiter reused as-is (Stage 2 swaps in KV + DO). | ~6-12 h (came in ~5h) | ✅ shipped — live at https://medical-terminologies-mcp.sidneybissoli.workers.dev | 11.2 |
 | 11.9 Stage 2 | Replace per-isolate `node-cache` with Workers KV; replace per-isolate token-bucket with a Durable Object. Required when traffic saturates per-isolate budgets — not blocking Smithery submission. | ~4-6 h | 📋 deferred — trigger: WHO/NLM rate-limit warnings in logs OR cache hit rate < 50% | 11.9 Stage 1 |
 | 11.10 | LobeHub MCP validator pass | ~3h (came in ~3h) | 🔄 code shipped 2026-05-11 in v1.3.0 — listing page exists at https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp; LobeHub auto-discovered via MCP Registry. Implemented the two missing validator gates (MCP Prompts + Resources surfaces) plus the README badge. Will flip to ✅ when LobeHub's scanner re-runs and the badge URL flips from HTTP 500 ("unvalidated") to "validated". Originally scoped at ~30min — actual scope grew because LobeHub validation requires server feature additions, not just a manifest submission | 11.2 |
+| 11.11 | **Smithery quality-score polish (post-listing)** — after 11.8 established the listing, Smithery's quality rubric scored it 63/orange and kept it `unlisted` in search. The rubric flags 5 axes: display name (`title` field), description (`server.json` has a hard 100-char cap that npm and `SERVER_INFO` don't), homepage (`websiteUrl`), icon (`icons[]` array, ≤1MB per file, HTTPS-served), and per-tool `outputSchema` coverage. Closed 4 of 5 in v1.4.1 (`chore(metadata): polish server.json…` + `chore(release): 1.4.1`): added `title` (`"Medical Terminologies MCP"`), `websiteUrl` (Medium walkthrough), `icons[]` (Gemini-generated PNGs, resized to 512×512 after Smithery rejected the 1024×1024 1.3MB originals), and synced/expanded description across `server.json` / `package.json` / `SERVER_INFO`. Also fixed long-standing drift: `server.json` `packages[1].version` was frozen at `1.2.1` since the streamable-http transport was added — the publish workflow's `jq` step only auto-syncs `packages[0]`. The 5th axis (`outputSchema` on 3 crosswalk tools) is tracked as Phase 14.6 and deferred. Surfaced two CONTRIBUTING.md gaps closed in passing: release procedure now documents the 100-char registry validation cap and the `mcp-publisher` local-recovery path when registry publish fails post-`npm publish`. | ~3h | ✅ shipped 2026-05-12 with v1.4.1 — listing flipped from `unlisted` to `listed` at https://smithery.ai/servers/@sidneybissoli/medical-terminologies | 11.8 |
 
 ### Planned Tools
 
@@ -512,7 +513,7 @@ tools, not a new tool.
 
 ### Status
 
-- Effort spent so far: ~22h (11.1 + 11.2 + 11.3 + 11.4 + 11.5 + 11.6 + 11.7 + 11.8 + 11.9 Stage 1 + 11.10)
+- Effort spent so far: ~25h (11.1 + 11.2 + 11.3 + 11.4 + 11.5 + 11.6 + 11.7 + 11.8 + 11.9 Stage 1 + 11.10 + 11.11)
 - Effort remaining: 0h on the project-led path; Glama Dockerfile upload
   remains as a non-blocking option (the listing is already
   search-visible without it — see 11.5 row)
@@ -522,9 +523,12 @@ tools, not a new tool.
   would push count to 4/4 on merge; wong2 is PR-restricted and N/A)
 - LobeHub validator: code shipped in 1.3.0; awaiting scanner re-run to
   flip badge from "unvalidated" to "validated"
-- Build: 🔄 In progress — hosted endpoint live, **9 of 10 sub-tasks
+- Smithery quality grade: was 63/orange/unlisted pre-1.4.1; flipped to
+  listed after 4-of-5 axes closed; final axis (outputSchema) tracked
+  as Phase 14.6
+- Build: 🔄 In progress — hosted endpoint live, **10 of 11 sub-tasks
   shipped** (11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9
-  Stage 1, 11.10). Only 11.9 Stage 2 remains, trigger-gated by
+  Stage 1, 11.10, 11.11). Only 11.9 Stage 2 remains, trigger-gated by
   traffic. Phase 11 is effectively complete for the current scope.
 
 ---
