@@ -20,6 +20,7 @@ import { getSNOMEDClient, SNOMED_DISCLAIMER } from '../clients/snomed-client.js'
 import { getNLMClient } from '../clients/nlm-client.js';
 import { getRxNormClient } from '../clients/rxnorm-client.js';
 import { getMeSHClient } from '../clients/mesh-client.js';
+import { getICD10ToICD11MapClient } from '../clients/icd10-icd11-map-client.js';
 import { ApiError } from '../types/index.js';
 import {
   MapICD10ToICD11ParamsSchema,
@@ -43,13 +44,15 @@ import { SNOMED_TOOLS_ENABLED, SNOMED_DISABLED_NOTE } from '../utils/feature-fla
 
 const mapICD10ToICD11Tool: Tool = {
   name: 'map_icd10_to_icd11',
-  description: `This tool runs the ICD-10 code as a query string against the ICD-11 search index. The search matches the code against ICD-11 entity titles, definitions, and synonyms; it does not consult any curated ICD-10 → ICD-11 mapping. Results are search hits, not authoritative mappings.
+  description: `Authoritative ICD-10 → ICD-11 mapping using WHO transition tables (release 2025-01, bundled with the server).
 
-For authoritative ICD-10 → ICD-11 mappings (clinical coding, billing, migration projects), consult the WHO transition tables at https://icd.who.int/browse11/Downloads/Download.
+Returns the primary 1:1 ICD-11 category for the ICD-10 code plus any alternative ICD-11 candidates that WHO documents (some ICD-10 concepts split into multiple ICD-11 entities). For each mapping, includes the ICD-11 code, title, chapter, and the Foundation URI / Linearization URI for navigating to the full entity definition.
 
-Use this tool for exploratory lookups: confirming a code exists in ICD-11 text, finding ICD-11 entities whose descriptions reference an ICD-10 code, or seeding a manual mapping review. Do not present the results as ICD-10 → ICD-11 equivalents to clinical or billing consumers.
+Use this for clinical coding, billing migration, retrospective analysis, and any workflow that needs authoritative mapping rather than text-search candidates. Coverage: 11,243 ICD-10 categories (excludes chapters and blocks like "A00-A09" which aren't used in clinical coding).
 
-Provide a code like "E11" (Type 2 diabetes) or "I21" (Acute MI).`,
+Provide a code like "E11" (Type 2 diabetes), "I21" (Acute MI), or "A07.8" (4 alternatives in WHO's table). Both dotted ("A07.8") and undotted ("A078") forms are accepted.
+
+Returns "no mapping" when the code isn't in the WHO category-level table — that's the honest answer rather than a fuzzy search fallback.`,
   inputSchema: buildInputSchema(MapICD10ToICD11ParamsSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
@@ -105,50 +108,67 @@ Searches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH. Set \`target_termin
 async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const params = MapICD10ToICD11ParamsSchema.parse(args);
-    const client = getWHOClient();
-    const code = params.icd10_code.toUpperCase().trim();
-
-    const response = await client.search(code, 'en', 10);
-    const results = response.destinationEntities || [];
+    const client = getICD10ToICD11MapClient();
+    const inputCode = params.icd10_code.trim();
+    const entry = client.lookup(inputCode);
 
     const lines: string[] = [];
-    lines.push(`# ICD-11 search results for ICD-10 code "${code}"`);
+    lines.push(`# ICD-10 → ICD-11 mapping for "${inputCode.toUpperCase()}"`);
     lines.push('');
+
+    if (!entry) {
+      lines.push('## No authoritative mapping');
+      lines.push('');
+      lines.push(
+        `The code "${inputCode}" is not in the WHO ICD-10 → ICD-11 transition table (release ${client.getVersion()}). This usually means one of:`,
+      );
+      lines.push('');
+      lines.push(
+        '- The code is a chapter or block (e.g. "A00-A09") — those aren\'t included; query a category instead.',
+      );
+      lines.push('- The code is mis-typed or not a valid ICD-10 category.');
+      lines.push('- The code was removed in the WHO restructuring; try a parent category.');
+      lines.push('');
+      lines.push('**Alternative:** Use `icd11_search` with the condition name to explore ICD-11 directly.');
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+
     lines.push(
-      `This output is a text search of the ICD-11 catalog using "${code}" as the query string. The hits below are ICD-11 entities whose titles, definitions, or synonyms contain that string. They are not curated ICD-10 → ICD-11 mappings. For authoritative mappings, use the WHO transition tables: https://icd.who.int/browse11/Downloads/Download.`,
+      `**ICD-10:** ${entry.icd10.code} — ${entry.icd10.title} (chapter ${entry.icd10.chapter})`,
     );
     lines.push('');
 
-    if (results.length === 0) {
-      lines.push('## No search hits');
-      lines.push('');
-      lines.push('Nothing in the ICD-11 catalog matched this code as a text query.');
-      lines.push('');
-      lines.push('**Next steps:**');
-      lines.push('- Try `icd11_search` with the condition name instead of the ICD-10 code');
-      lines.push('- The concept may have been restructured between revisions');
-      lines.push('- Consult the WHO transition tables linked above');
-    } else {
-      lines.push(`## Search hits (${Math.min(results.length, 10)} shown)`);
-      lines.push('');
-      lines.push('| ICD-11 Code | Title |');
-      lines.push('|-------------|-------|');
+    lines.push('## Primary ICD-11 mapping');
+    lines.push('');
+    lines.push(`- **Code:** ${entry.primary.code}`);
+    lines.push(`- **Title:** ${entry.primary.title}`);
+    lines.push(`- **Chapter:** ${entry.primary.chapter}`);
+    lines.push(`- **Foundation URI:** ${entry.primary.foundationUri}`);
+    lines.push(`- **Linearization (MMS) URI:** ${entry.primary.linearizationUri}`);
+    lines.push('');
 
-      for (const result of results.slice(0, 10)) {
-        const code11 = result.theCode || 'N/A';
-        const title = result.title || 'N/A';
-        lines.push(`| ${code11} | ${title} |`);
+    if (entry.alternatives.length > 0) {
+      lines.push(`## Alternative ICD-11 candidates (${entry.alternatives.length})`);
+      lines.push('');
+      lines.push('WHO documents multiple ICD-11 entities that may map to this ICD-10 concept. Review the alternatives below to pick the best match for your context.');
+      lines.push('');
+      lines.push('| Code | Title | Chapter |');
+      lines.push('|------|-------|---------|');
+      for (const alt of entry.alternatives) {
+        lines.push(`| ${alt.code} | ${alt.title} | ${alt.chapter} |`);
       }
-
       lines.push('');
-      lines.push(
-        'These are search candidates intended for manual review. To assign an ICD-11 code for clinical coding or billing, verify each candidate against the WHO transition tables linked above.',
-      );
+    } else {
+      lines.push('_No additional ICD-11 candidates beyond the primary mapping._');
+      lines.push('');
     }
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-    };
+    lines.push('---');
+    lines.push(
+      `Source: WHO ICD-10 → ICD-11 transition tables, release ${client.getVersion()} (${client.getReleaseDate()}). Authoritative mapping, not a text-search heuristic.`,
+    );
+
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
   } catch (error) {
     return handleToolError(error);
   }
