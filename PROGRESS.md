@@ -49,7 +49,7 @@ to understand why specific code patterns exist. Outreach copy
 **Resources today:** 3 (`info://server`, `info://cid10/chapters`, `info://licenses`) — added 1.3.0
 **Per-tool `language` parameter** on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` — propagates as `Accept-Language` upstream (added 11.4)
 **Tools projected after Phase 13:** ~38–40 default / ~44–46 with SNOMED
-**Tests today:** 271 across 16 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
+**Tests today:** 287 across 17 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
 
 ---
 
@@ -208,7 +208,7 @@ to understand why specific code patterns exist. Outreach copy
 
 | Tool | Description | Status |
 |------|-------------|--------|
-| map_icd10_to_icd11 | Text search ICD-11 using ICD-10 code (not authoritative) | ✅ — real WHO transition tables planned in Phase 13.1 |
+| map_icd10_to_icd11 | Authoritative WHO ICD-10 → ICD-11 mapping (transition tables, release 2025-01) | ✅ — Phase 13.1 landed 2026-05-11; tool now returns authoritative mapping, not text search |
 | map_snomed_to_icd10 | SNOMED → ICD-10 guidance | ⚠️ — real refset planned in Phase 13.7 |
 | map_loinc_to_snomed | LOINC → SNOMED guidance | ✅ |
 | find_equivalent | Cross-terminology search | ✅ |
@@ -636,7 +636,7 @@ turning point. Same audiences, broader coverage.
 
 | # | Sub-task | Effort | Notes |
 |---|----------|--------|-------|
-| 13.1 | Real `map_icd10_to_icd11` via WHO transition tables (open download from icd.who.int/browse11/Downloads/Download); bundle as JSON via build script (same pattern as CID-10) | ~6-8 h | Replaces current text-search behavior; description rewritten to claim authoritative |
+| 13.1 | Real `map_icd10_to_icd11` via WHO transition tables (open download from icd.who.int/browse11/Downloads/Download); bundle as JSON via build script (same pattern as CID-10) | ~6-8 h (came in ~3h) | ✅ shipped 2026-05-11 in feat commit 33f2d0f — 2025-01 release bundled as `src/data/icd10-to-icd11.json` (5.4 MB raw / 0.95 MB gzipped), 11,243 category entries (1,461 with WHO-documented alternatives), in-memory client `ICD10ToICD11MapClient` mirrors the CID-10 pattern. Tool description rewritten to claim authoritativeness; returns null (not a fuzzy fallback) when the code isn't in the WHO category table |
 | 13.2 | `validate_codes` cross-terminology validator: accepts mixed list, returns per-item `{ code, valid, active, replaced_by, source }` | ~3-4 h | Useful for retrospective analysis of legacy databases |
 | 13.3 | CID-O (oncology) tools — dataset already in DataSUS CID10CSV.zip (`CID-O-CATEGORIAS.CSV`, `CID-O-GRUPOS.CSV`); add `cid_o_search`, `cid_o_lookup` | ~3-5 h | Audit excluded as "niche"; reversed because RHC/RCBP/INCA use it operationally |
 | 13.4 | TUSS (Terminologia Unificada da Saúde Suplementar — ANS/private health) tools: `tuss_search`, `tuss_lookup`, `tuss_chapters`. Bundled static dataset (~5k items, public ANS source) | ~5-6 h | Brazilian supplementary-health analysts |

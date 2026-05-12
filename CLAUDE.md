@@ -65,8 +65,13 @@ Tool/prompt/resource files and clients all import from `../server-core.js` (not 
 ### Error handling — `handleToolError`
 Tool handlers wrap their body in `try { ... } catch (e) { return handleToolError(e); }` (`src/utils/zod-schema.ts`). It maps `ZodError` → validation-error result, `ApiError` → API-error result, and re-throws everything else so `server.ts`'s dispatcher logs and wraps it. For axios failures inside clients, `extractErrorMessage()` (`src/utils/extract-error-message.ts`) handles the production response shapes that the previous one-liner collapsed to "undefined" — including the OAuth `error_description` that the WHO token endpoint returns on 401/400.
 
-### Bundled CID-10 dataset
-`src/clients/cid10-client.ts` is the only client without HTTP — it loads `src/data/cid10.json` (DataSUS V2008, ~1.9 MB tabular header+rows shape) at startup and serves all CID-10 tools from memory. The dataset is frozen (DataSUS hasn't published a successor since 2008), so it's checked into git. `scripts/build-cid10-dataset.mjs` regenerates the JSON from the DataSUS CSV release on demand — only relevant if a new V20XX ever ships.
+### Bundled datasets (CID-10 + ICD-10 → ICD-11)
+Two clients ship without HTTP — they load their data from `src/data/*.json` at startup and serve queries from memory.
+
+- **`src/clients/cid10-client.ts`** — loads `src/data/cid10.json` (DataSUS V2008, ~1.9 MB tabular header+rows shape). Frozen since 2008; `scripts/build-cid10-dataset.mjs` regenerates the JSON from the DataSUS CSV release on demand — only relevant if a new V20XX ever ships.
+- **`src/clients/icd10-icd11-map-client.ts`** — loads `src/data/icd10-to-icd11.json` (WHO transition tables, release 2025-01, ~5.4 MB raw / 0.95 MB gzipped). 11,243 ICD-10 category entries; 1,461 have WHO-documented alternatives beyond the primary 1:1. `scripts/build-icd10-to-icd11-dataset.mjs` regenerates the JSON from the WHO mapping.zip release; run when WHO publishes a new annual release.
+
+Both datasets are checked into git deliberately — the Workers bundle inlines them, and the compressed size still leaves the worker.js well within Cloudflare's 3 MB-free / 10 MB-paid script limit.
 
 ### Layered client architecture
 Every external API has a dedicated client in `src/clients/` that composes three cross-cutting utilities from `src/utils/` in a fixed order:
@@ -97,7 +102,7 @@ Capability detection was chosen over runtime detection (`process.versions.node`)
 The NLM MeSH `/{id}.json` endpoint returns compact JSON-LD with no `@graph` wrapper — flat top-level fields (`label`, `treeNumber` URI(s), `preferredConcept` URI, `allowableQualifier` URI[s], `annotation`). To assemble a full descriptor, `mesh-client.ts` fans out: descriptor + each tree number + the preferred concept + each term URI on that concept + each qualifier URI, all fetched in parallel under the shared NLM rate limiter and cached separately (descriptor at `LOOKUP` TTL, sub-resources at `STATIC` TTL since they rarely change). `getDescriptor`/`getTreeNumbers`/`getAllowedQualifiers` share the same cached descriptor fetch — calling all three on one MeSH ID in sequence triggers exactly one descriptor HTTP. The "scope note" surfaced to tool consumers comes from the *preferred concept's* `scopeNote`, not the descriptor's `annotation` (which is an indexer note).
 
 ### Crosswalk caveat
-`src/tools/crosswalk.ts` doesn't have authoritative mapping tables yet — `map_icd10_to_icd11` does honest text search (description explicitly says so), `map_loinc_to_snomed` returns guidance only, and `map_snomed_to_icd10` returns guidance only (gated behind `ENABLE_SNOMED_TOOLS=true`). Real mappings are planned in PROGRESS.md Phase 13. When adding a new crosswalk handler today, match the existing convention: rewrite the description honestly if the implementation isn't authoritative, return explanatory text rather than throwing when a mapping isn't available.
+`src/tools/crosswalk.ts` has one authoritative mapping (`map_icd10_to_icd11` — Phase 13.1, shipped 2026-05-11) plus two guidance-only handlers. `map_icd10_to_icd11` consults the bundled WHO transition tables via `ICD10ToICD11MapClient` (`src/clients/icd10-icd11-map-client.ts`) and returns the primary ICD-11 code + chapter + Foundation/Linearization URIs plus any WHO-documented alternatives; it returns `null` (not a fuzzy fallback) when the code isn't in the WHO category table. `map_loinc_to_snomed` returns guidance only (UMLS/LOINC-SNOMED license required for the actual relationships), and `map_snomed_to_icd10` returns guidance only (gated behind `ENABLE_SNOMED_TOOLS=true`; real refset 447562003 planned in Phase 13.7). When adding a new crosswalk handler today, match the existing convention: if you have an authoritative table, bundle it like `icd10-to-icd11.json` and return structured mapping; if you don't, rewrite the description honestly and return explanatory text rather than throwing.
 
 ### Known upstream-degraded behavior
 `/loinc_answers` at `clinicaltables.nlm.nih.gov` returns HTTP 404 in production (verified 2026-05-09). The client catches and returns `[]`, so `loinc_answers` reports "no answers available" for every input. Pinned in a contract test so it doesn't change without notice. Real fix is tracked as PROGRESS.md Phase 14.1 — likely uses `loinc_form_definitions` for form-type LOINCs.
@@ -110,7 +115,7 @@ Three layers, all under `src/`:
 - **Contract tests** (`src/clients/*.contract.test.ts`) — use `nock` (^14, devDep) to intercept axios calls, replaying captured live fixtures from `src/__fixtures__/<api>/`. Pin parser behavior against the actual upstream response shapes. WHO and SNOMED tests use inline mocks because their public hosts don't ship test creds. When adding a new HTTP client method, capture a live fixture and write a contract test pinning the parser.
 - **Integration tests** (`src/integration/*.integration.test.ts`) — hit live APIs. Gated by `INTEGRATION_TESTS=1`; otherwise the `describe` blocks become `describe.skip`. WHO + SNOMED sub-suites skip cleanly when their creds/flags are absent. CI runs them daily on cron — production regressions surface close to when they happen.
 
-Total: 271 unit + contract tests, 11 integration tests (skipped by default).
+Total: 287 unit + contract tests, 11 integration tests (skipped by default).
 
 When adding a tool with an `outputSchema`, add a fixture to `src/types/schemas.test.ts` exercising the typical-result shape *and* one edge case (empty list, all-nullable-fields populated/missing, etc.). Pattern: `<Schema>OutputSchema.safeParse({...}).success` should be `true` for well-formed shapes and `false` when a required field is missing. CONTRIBUTING.md codifies this as a PR-gate expectation.
 

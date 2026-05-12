@@ -7,8 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`map_icd10_to_icd11` now returns an authoritative WHO mapping**
+  instead of a text-search heuristic. Bundles the WHO ICD-10 → ICD-11
+  transition tables (release 2025-01) as `src/data/icd10-to-icd11.json`
+  (5.4 MB raw / 0.95 MB gzipped). 11,243 ICD-10 categories covered,
+  including 1,461 with multiple WHO-documented ICD-11 candidates. Tool
+  description rewritten to claim authoritativeness; returns null
+  (not a fuzzy fallback) when the code isn't in the WHO category table.
+  Closes PROGRESS.md Phase 13.1.
+
 ### Added
 
+- `scripts/build-icd10-to-icd11-dataset.mjs` regenerates the bundled
+  WHO transition mapping JSON from the WHO `mapping.zip` release. Run
+  on each new WHO annual release.
+- `src/clients/icd10-icd11-map-client.ts` — in-memory singleton client
+  mirroring the CID-10 pattern. Public surface: `lookup(code)`,
+  `getVersion()`, `getReleaseDate()`, `getSourceUrl()`, `size()`. Input
+  normalization handles dotted ("A07.8"), undotted ("A078"), and
+  case-insensitive inputs.
 - Per-tool `language` parameter on `snomed_search`, `snomed_concept`,
   `mesh_search`, and `mesh_descriptor` (`icd11_search` and
   `icd11_lookup` already had it). Propagated as the `Accept-Language`
