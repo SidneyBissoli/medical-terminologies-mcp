@@ -96,6 +96,39 @@ export class ICD10ToICD11MapClient {
   size(): number {
     return Object.keys(ds.entries).length;
   }
+
+  /**
+   * Aggregate stats over the full bundled table. Used by the
+   * terminology_diff tool to surface the structural diff between ICD-10
+   * and ICD-11 (1:1 vs splits) without forcing that consumer to walk the
+   * raw dataset.
+   */
+  getStats(): {
+    total: number;
+    oneToOne: number;
+    split: number;
+    avgAlternativesWhenSplit: number;
+  } {
+    let oneToOne = 0;
+    let split = 0;
+    let totalAltsInSplits = 0;
+    for (const code of Object.keys(ds.entries)) {
+      const entry = ds.entries[code];
+      if (entry.alternatives.length === 0) {
+        oneToOne += 1;
+      } else {
+        split += 1;
+        totalAltsInSplits += entry.alternatives.length;
+      }
+    }
+    const avg = split > 0 ? Math.round((totalAltsInSplits / split) * 100) / 100 : 0;
+    return {
+      total: Object.keys(ds.entries).length,
+      oneToOne,
+      split,
+      avgAlternativesWhenSplit: avg,
+    };
+  }
 }
 
 let singleton: ICD10ToICD11MapClient | null = null;

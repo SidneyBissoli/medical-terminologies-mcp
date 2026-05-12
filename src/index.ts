@@ -33,6 +33,8 @@ import './tools/crosswalk.js';
 import './tools/atc.js';
 // Phase 8: CID-10 (Brazilian, DataSUS V2008, bundled dataset)
 import './tools/cid10.js';
+// Phase 13.6: versioning + diff tools
+import './tools/versioning.js';
 
 // Prompts — orchestration templates exposed to MCP clients
 import './prompts/index.js';

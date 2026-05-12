@@ -718,6 +718,79 @@ export type ValidateCodesOutput = z.infer<typeof ValidateCodesOutputSchema>;
 export type ValidateCodesResult = z.infer<typeof ValidateCodesResultSchema>;
 
 // ============================================================================
+// terminology_versions + terminology_diff params + outputs
+// ============================================================================
+
+export const TerminologyVersionsParamsSchema = z.object({
+  terminology: ValidateCodesTerminologyEnum
+    .optional()
+    .describe('Filter to a single terminology. Omit to return all 8.'),
+});
+
+const TerminologyVersionEntrySchema = z.object({
+  code: ValidateCodesTerminologyEnum,
+  name: z.string(),
+  full_name: z.string(),
+  publisher: z.string(),
+  current_version: z.string(),
+  release_date: z.string(),
+  source_url: z.string(),
+  changelog_url: z.string().nullable(),
+  update_cadence: z.string(),
+  bundled_in_server: z.boolean(),
+  notes: z.string().nullable(),
+});
+
+export const TerminologyVersionsOutputSchema = z.object({
+  generated: z.string().describe('Date this snapshot was generated.'),
+  total: z.number().int(),
+  terminologies: z.array(TerminologyVersionEntrySchema),
+});
+
+export type TerminologyVersionsOutput = z.infer<typeof TerminologyVersionsOutputSchema>;
+
+export const TerminologyDiffParamsSchema = z.object({
+  terminology: ValidateCodesTerminologyEnum
+    .describe('Which terminology to report on.'),
+  from_version: z
+    .string()
+    .optional()
+    .describe('Version you have data from. Optional; behavior depends on terminology.'),
+  to_version: z
+    .string()
+    .optional()
+    .describe('Version you want to compare to. Optional.'),
+});
+
+const CrossRevisionSummarySchema = z.object({
+  icd10_categories_total: z.number().int(),
+  one_to_one_mappings: z.number().int(),
+  one_to_many_splits: z.number().int(),
+  avg_alternatives_when_split: z.number(),
+});
+
+export const TerminologyDiffOutputSchema = z.object({
+  terminology: ValidateCodesTerminologyEnum,
+  from_version: z.string().nullable(),
+  to_version: z.string().nullable(),
+  diff_available: z
+    .boolean()
+    .describe(
+      'True when this server has the data to compute a real diff for the requested terminology. False = guidance-only response.',
+    ),
+  message: z.string(),
+  changelog_url: z.string().nullable(),
+  bundled_versions: z.array(z.string()),
+  cross_revision_summary: CrossRevisionSummarySchema
+    .nullable()
+    .describe(
+      'Populated only for terminology="icd10" today — the bundled WHO ICD-10 → ICD-11 transition tables let us surface a real structural diff between the two WHO revisions.',
+    ),
+});
+
+export type TerminologyDiffOutput = z.infer<typeof TerminologyDiffOutputSchema>;
+
+// ============================================================================
 // ATC params (Anatomical Therapeutic Chemical, served via NLM RxClass)
 // ============================================================================
 

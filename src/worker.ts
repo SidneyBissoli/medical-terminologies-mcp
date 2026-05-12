@@ -33,6 +33,7 @@ import './tools/snomed.js';
 import './tools/crosswalk.js';
 import './tools/atc.js';
 import './tools/cid10.js';
+import './tools/versioning.js';
 
 // Prompts — orchestration templates exposed to MCP clients
 import './prompts/index.js';
