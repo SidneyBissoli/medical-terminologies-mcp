@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-05-12
+
+Metadata-only release tuning the `server.json` surface for the Smithery
+quality-score rubric. No code changes, no behavior changes, no new or
+removed tools (still 31 default / 37 with SNOMED). Bundle hashes for
+`dist/index.js` and `dist/worker.js` are unchanged modulo the embedded
+version string.
+
+### Changed
+
+- **`server.json` enriched** — added `title` (`"Medical Terminologies
+  MCP"`), `websiteUrl` (pointing at the canonical Medium walkthrough),
+  and `icons[]` with dark + light 1024×1024 PNG variants hosted via
+  `raw.githubusercontent.com`. Expanded `description` so it lists all
+  seven terminologies (the prior copy stopped at MeSH) and mentions
+  the authoritative WHO ICD-10→ICD-11 mapping plus the hosted endpoint.
+- **Description synced across three files** — `package.json` and
+  `SERVER_INFO` in `src/server-core.ts` now match `server.json`. The
+  previous copies were missing ATC and CID-10 from the terminologies
+  list — drift inherited from 1.0.x.
+- **`server.json` `packages[1].version` realigned to `1.4.1`** — the
+  streamable-http transport entry had been frozen at `1.2.1` (the
+  release where the transport was added) and silently skipped by the
+  release tooling since. Both `packages[]` entries now declare the
+  current package version.
+
+### Notes
+
+- A 3-of-37 `outputSchema` gap remains in `src/tools/crosswalk.ts`
+  (`map_icd10_to_icd11`, `map_snomed_to_icd10`, `map_loinc_to_snomed`).
+  Closing it requires new Zod schemas and handler refactors to return
+  `structuredContent`, scoped as PROGRESS.md Phase 14.6 and
+  deliberately deferred from this metadata-only release.
+
 ## [1.4.0] - 2026-05-11
 
 Data-integrity release. Bundles authoritative WHO ICD-10 → ICD-11
