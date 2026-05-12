@@ -8,13 +8,13 @@
     {
       "src": "https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-dark.png",
       "mimeType": "image/png",
-      "sizes": ["1024x1024"],
+      "sizes": ["512x512"],
       "theme": "dark"
     },
     {
       "src": "https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-light.png",
       "mimeType": "image/png",
-      "sizes": ["1024x1024"],
+      "sizes": ["512x512"],
       "theme": "light"
     }
   ],
