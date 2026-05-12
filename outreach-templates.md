@@ -7,18 +7,24 @@
 >
 > **Tool counts and version numbers in these drafts reflect the project
 > state when each template was last refreshed.** Quick verification
-> before publishing: current state is **28 tools default / 34 with
-> SNOMED enabled, v1.2.1, 247 unit + contract tests + 11 integration
-> tests (gated by `INTEGRATION_TESTS=1`)**. Refresh inline if any of
-> these have changed.
+> before publishing: current state is **31 tools default / 37 with
+> SNOMED enabled, v1.4.0, 313 unit + contract tests + 11 integration
+> tests (gated by `INTEGRATION_TESTS=1`)**. The v1.4.0 "data integrity"
+> release (2026-05-11) bundles authoritative WHO ICD-10 → ICD-11
+> transition tables, adds `validate_codes`, `terminology_versions`,
+> `terminology_diff`, and a per-tool `language` parameter. Refresh
+> inline if any of these have changed.
 >
 > Templates assume Phases 11.1 (server.json sync), 11.2 (Streamable
-> HTTP transport), 11.3 (README polish with output samples), 11.8
-> (Smithery listing), and 11.9 Stage 1 (Cloudflare Workers production
-> deployment) are done. The hosted endpoint
+> HTTP transport), 11.3 (README polish with output samples), 11.4
+> (per-tool language), 11.5 (Glama), 11.6 (mcpservers.org), 11.7
+> (punkpeye PR), 11.8 (Smithery), 11.9 Stage 1 (Cloudflare Workers
+> deploy), 11.10 (LobeHub), 13.1 (authoritative ICD-10 → ICD-11),
+> 13.2 (validate_codes), and 13.6 (terminology_versions + diff) are
+> all done. The hosted endpoint
 > `https://medical-terminologies-mcp.sidneybissoli.workers.dev` is the
-> single most important new asset since the original draft — link to
-> it in any submission that accepts an HTTP endpoint.
+> single most important asset to link in any submission that accepts
+> an HTTP endpoint.
 
 ---
 
@@ -393,7 +399,9 @@ If you've ever asked an LLM to "find the LOINC code for procalcitonin" or "list 
 - **CID-10** (Brazilian Portuguese translation of ICD-10, DataSUS V2008 — bundled)
 - **SNOMED CT** (Systematized Nomenclature of Medicine, optional, license required)
 
-Twenty-three tools work out of the box with no authentication for LOINC, RxNorm, MeSH, ATC, and CID-10. ICD-11 needs free WHO API credentials (a five-minute signup), bringing the default count to 28. SNOMED is gated behind an explicit feature flag and requires an IHTSDO license plus a self-hosted Snowstorm instance — more on why below.
+Twenty-six tools work out of the box with no authentication for LOINC, RxNorm, MeSH, ATC, CID-10, plus a bundled authoritative ICD-10 → ICD-11 mapping, a cross-terminology batch validator, and versioning + cross-revision diff. ICD-11 live lookup needs free WHO API credentials (a five-minute signup), bringing the default count to 31. SNOMED is gated behind an explicit feature flag and requires an IHTSDO license plus a self-hosted Snowstorm instance — more on why below.
+
+The server also exposes 3 MCP **Prompts** that orchestrate tool calls into named user actions (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) and 3 **Resources** for in-process reference content (server metadata, CID-10 chapter listing, per-terminology license disclaimers) — MCP clients render Prompts as one-click actions and read Resources by URI.
 
 This post walks through three concrete clinical and research workflows where the server earns its place in the toolbelt.
 
@@ -414,7 +422,9 @@ This post walks through three concrete clinical and research workflows where the
 }
 ```
 
-Drop that into your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS), restart Claude, and 28 tools appear. WHO credentials are optional — without them the 5 ICD-11 tools throw a clear configuration error and the other 23 work fine.
+Drop that into your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS), restart Claude, and 31 tools appear. WHO credentials are optional — without them the 5 ICD-11 live-lookup tools throw a clear configuration error and the other 26 work fine (including the authoritative ICD-10 → ICD-11 mapping, which uses bundled WHO data and needs no auth).
+
+**Prefer a hosted endpoint?** The server runs on Cloudflare Workers at the edge — point any Streamable-HTTP MCP client at `https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp` and skip the local install. Also listed on [Smithery](https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp), [Glama](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp), and [mcpservers.org](https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp).
 
 ## Use case 1: sepsis triage — finding the right LOINC for procalcitonin
 
@@ -533,25 +543,41 @@ That last detail — the seven allowed qualifiers, with `/utilization` and `/sta
 
 The use case generalizes: any research informatics workflow that needs controlled vocabulary mapping (PubMed, Cochrane, OVID) benefits from `mesh_search` + `mesh_qualifiers` + `mesh_tree`. For systematic reviews specifically, the qualifier list is the part that's hardest to remember and easiest to get wrong.
 
+## What's new in 1.4.0 (data-integrity release)
+
+Three additions that change the depth of what the server can answer:
+
+- **`map_icd10_to_icd11` now returns an authoritative WHO mapping**, not a text-search heuristic. The 2025-01 release of the WHO transition tables is bundled (5.4 MB raw / 0.95 MB gzipped) covering 11,243 ICD-10 categories. 1,461 of those have multiple WHO-documented ICD-11 candidates — the tool surfaces the primary mapping plus all alternatives, with Foundation/Linearization URIs ready to navigate into ICD-11.
+- **`validate_codes`** is a new batch validator. Pass up to 50 `{ code, terminology }` pairs and get back per-item `{ valid, active, title, replaced_by, source, error }`. Designed for retrospective database analysis: flag codes that no longer exist, surface ICD-10 → ICD-11 replacements at scale, grade activity status where the source terminology exposes it (SNOMED's active flag, LOINC's STATUS field).
+- **`terminology_versions` + `terminology_diff`** for pipeline maintainers. The first lists current version, release date, publisher, and update cadence across all 8 terminologies. The second is guidance-only for terminologies without bundled history — except for ICD-10, where the bundled transition tables let it surface a real cross-revision summary (1:1 mappings vs splits vs average alternatives when split).
+
+Together with the per-tool `language` parameter added to SNOMED + MeSH, that's four sub-tasks shipped as one data-integrity release. The earlier 1.3.0 added MCP Prompts (orchestration templates) and Resources (in-process reference content) — both visible in clients like LobeChat and Claude Desktop as one-click actions.
+
 ## What the server doesn't claim to do
 
 A few things worth being explicit about, because the README is honest about them and the LLM should be too:
 
-- **`map_icd10_to_icd11` is a text search** today, not an authoritative ICD-10 → ICD-11 mapping. For clinical coding or billing migration, the WHO transition tables at https://icd.who.int/browse11/Downloads/Download are the source of truth (real implementation is on the roadmap).
 - **`map_loinc_to_snomed` returns guidance**, not a mapping. Direct LOINC ↔ SNOMED CT mappings live in UMLS Metathesaurus (license required) or the LOINC SNOMED CT Expression Association files (LOINC license required).
+- **`map_snomed_to_icd10`** also returns guidance only today. The authoritative source is SNOMED International's ICD-10 Complex Map refset (447562003), which needs a Snowstorm instance with the refset loaded — planned as Phase 13.7 once that's tractable.
 - **SNOMED tools are off by default** because the historical public IHTSDO Snowstorm endpoint was retired (HTTP 410 Gone). Operators with an IHTSDO license and a self-hosted Snowstorm instance flip them on with `ENABLE_SNOMED_TOOLS=true SNOMED_BASE_URL=...`.
 - **None of this is a substitute for clinical judgment.** It's a lookup layer for already-known codes, not a diagnostic tool.
 
 ## Under the hood, briefly
 
-For developers curious about the engineering: TypeScript on Node 20+, bundled with esbuild, built around a token-bucket rate limiter (5 req/s for WHO, 10 req/s for NLM, 20 req/s for RxNorm) and exponential-backoff retry with ±25% jitter. WHO OAuth tokens are cached using the actual `expires_in` from the API response, not a hardcoded TTL. Every default tool declares `outputSchema` and returns `structuredContent` alongside markdown — so MCP clients that consume structured data get typed objects, not parsed prose. The 243-test Vitest suite (unit + contract via nock + integration against live APIs gated by env flag) gates CI on PR. A daily integration cron catches upstream API drift — work that already caught three silent production regressions where the API had drifted and the client gracefully returned empty data.
+For developers curious about the engineering: TypeScript on Node 20+, bundled with esbuild, built around a token-bucket rate limiter (5 req/s for WHO, 10 req/s for NLM, 20 req/s for RxNorm) and exponential-backoff retry with ±25% jitter. WHO OAuth tokens are cached using the actual `expires_in` from the API response, not a hardcoded TTL. Every default tool declares `outputSchema` and returns `structuredContent` alongside markdown — so MCP clients that consume structured data get typed objects, not parsed prose. The 313-test Vitest suite (unit + contract via nock + integration against live APIs gated by env flag) gates CI on PR. A daily integration cron catches upstream API drift — work that already caught three silent production regressions where the API had drifted and the client gracefully returned empty data.
 
-It's MIT licensed. The medical terminology content has its own licenses, all linked in the README.
+Two transports: stdio (default — Claude Desktop, IDE clients) and Streamable HTTP. The HTTP path runs on Cloudflare Workers at the edge by default — single web-standard fetch handler, ~0.95 MB gzipped including the bundled CID-10 (DataSUS V2008) and ICD-10 → ICD-11 (WHO 2025-01) datasets, well within Cloudflare's 3 MB compressed script limit. Same source tree; per-isolate cache + rate limiter (KV + Durable Object swap available when traffic crosses the threshold).
+
+It's MIT licensed. The medical terminology content has its own licenses, all linked in the README and surfaced as the `info://licenses` Resource.
 
 ## Try it
 
 - **npm:** https://www.npmjs.com/package/medical-terminologies-mcp
 - **GitHub:** https://github.com/SidneyBissoli/medical-terminologies-mcp
+- **Hosted endpoint:** https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp (Streamable HTTP, Cloudflare Workers)
+- **Smithery:** https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp
+- **Glama:** https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp
+- **mcpservers.org:** https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp
 - **MCP Registry:** `io.github.SidneyBissoli/medical-terminologies-mcp`
 
 WHO API credentials (free): https://icd.who.int/icdapi.
