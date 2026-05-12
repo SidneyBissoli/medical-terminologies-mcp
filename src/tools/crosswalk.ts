@@ -21,6 +21,7 @@ import { getNLMClient } from '../clients/nlm-client.js';
 import { getRxNormClient } from '../clients/rxnorm-client.js';
 import { getMeSHClient } from '../clients/mesh-client.js';
 import { getICD10ToICD11MapClient } from '../clients/icd10-icd11-map-client.js';
+import { getCID10Client } from '../clients/cid10-client.js';
 import { ApiError } from '../types/index.js';
 import {
   MapICD10ToICD11ParamsSchema,
@@ -29,6 +30,11 @@ import {
   FindEquivalentParamsSchema,
   FindEquivalentOutputSchema,
   FindEquivalentOutput,
+  ValidateCodesParamsSchema,
+  ValidateCodesOutputSchema,
+  ValidateCodesOutput,
+  ValidateCodesResult,
+  ValidateCodesTerminology,
 } from '../types/index.js';
 import {
   buildInputSchema,
@@ -83,6 +89,26 @@ For programmatic LOINC → SNOMED mapping, use UMLS or the LOINC Expression Asso
 
 Provide a LOINC code like "2339-0" (Glucose) or "718-7" (Hemoglobin).`,
   inputSchema: buildInputSchema(MapLOINCToSNOMEDParamsSchema),
+  annotations: READ_ONLY_TOOL_ANNOTATIONS,
+};
+
+const validateCodesTool: Tool = {
+  name: 'validate_codes',
+  description: `Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.
+
+For each input \`{ code, terminology }\`, returns:
+- **valid**: whether the code exists in the source terminology.
+- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; SNOMED and LOINC return a real boolean).
+- **title**: the official label/name when available.
+- **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.
+- **source**: human-readable provenance of the validation (terminology + release/version).
+- **error**: non-null only when validation couldn't be performed (network error, SNOMED feature flag off, etc.). \`valid: false\` + \`error: null\` means "code not found"; \`valid: false\` + \`error: set\` means "couldn't validate".
+
+Terminology is **required per code** — auto-detection isn't supported because category codes like "A00" exist in both ICD-10 and CID-10. Accepted values: \`icd11\`, \`icd10\`, \`snomed\`, \`loinc\`, \`rxnorm\`, \`mesh\`, \`atc\`, \`cid10\`.
+
+Hard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).`,
+  inputSchema: buildInputSchema(ValidateCodesParamsSchema),
+  outputSchema: buildOutputSchema(ValidateCodesOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -290,6 +316,284 @@ async function handleMapLOINCToSNOMED(args: Record<string, unknown>): Promise<Ca
 
     return {
       content: [{ type: 'text', text: lines.join('\n') }],
+    };
+  } catch (error) {
+    return handleToolError(error);
+  }
+}
+
+// ============================================================================
+// validate_codes — batch cross-terminology validator
+// ============================================================================
+
+interface ValidateInput {
+  code: string;
+  terminology: ValidateCodesTerminology;
+}
+
+function notFoundResult(
+  item: ValidateInput,
+  source: string,
+): ValidateCodesResult {
+  return {
+    code: item.code,
+    terminology: item.terminology,
+    valid: false,
+    active: null,
+    title: null,
+    replaced_by: null,
+    source,
+    error: null,
+  };
+}
+
+function errorResult(
+  item: ValidateInput,
+  source: string,
+  message: string,
+): ValidateCodesResult {
+  return {
+    code: item.code,
+    terminology: item.terminology,
+    valid: false,
+    active: null,
+    title: null,
+    replaced_by: null,
+    source,
+    error: message,
+  };
+}
+
+async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult> {
+  try {
+    switch (item.terminology) {
+      case 'icd10': {
+        const cli = getICD10ToICD11MapClient();
+        const entry = cli.lookup(item.code);
+        const source = `WHO ICD-10 → ICD-11 transition tables, release ${cli.getVersion()}`;
+        if (!entry) return notFoundResult(item, source);
+        return {
+          code: item.code,
+          terminology: 'icd10',
+          valid: true,
+          // ICD-10 is frozen at the WHO 10th revision; no per-code active flag.
+          active: null,
+          title: entry.icd10.title,
+          replaced_by: `${entry.primary.code} (ICD-11: ${entry.primary.title})`,
+          source,
+          error: null,
+        };
+      }
+
+      case 'icd11': {
+        const cli = getWHOClient();
+        const source = 'WHO ICD-11 API';
+        try {
+          const entity = await cli.lookup(item.code, 'en');
+          // entity.title is { '@language', '@value' } — flatten for output.
+          const title = (entity as { title?: { '@value'?: string } }).title?.['@value'] ?? null;
+          return {
+            code: item.code,
+            terminology: 'icd11',
+            valid: true,
+            // WHO API doesn't expose explicit active/inactive at the entity
+            // level; releases are versioned rather than retiring codes in place.
+            active: null,
+            title,
+            replaced_by: null,
+            source,
+            error: null,
+          };
+        } catch (err) {
+          if (err instanceof ApiError && err.code === 'NOT_FOUND') {
+            return notFoundResult(item, source);
+          }
+          throw err;
+        }
+      }
+
+      case 'cid10': {
+        const cli = getCID10Client();
+        const hit = cli.lookup(item.code);
+        const source = 'CID-10 DataSUS V2008 (bundled)';
+        if (!hit) return notFoundResult(item, source);
+        return {
+          code: item.code,
+          terminology: 'cid10',
+          valid: true,
+          // CID-10 dataset is frozen at V2008 (since 2008); no active/inactive.
+          active: null,
+          title: hit.title,
+          replaced_by: null,
+          source,
+          error: null,
+        };
+      }
+
+      case 'loinc': {
+        const cli = getNLMClient();
+        const source = 'NLM Clinical Tables LOINC';
+        const details = await cli.getLOINCDetails(item.code);
+        if (!details) return notFoundResult(item, source);
+        // STATUS is one of ACTIVE / TRIAL / DISCOURAGED / DEPRECATED on
+        // canonical LOINC, but Clinical Tables sometimes returns it empty.
+        const status = details.STATUS ?? '';
+        const active = status === 'ACTIVE' ? true : status === '' ? null : false;
+        return {
+          code: item.code,
+          terminology: 'loinc',
+          valid: true,
+          active,
+          title: details.LONG_COMMON_NAME ?? null,
+          replaced_by: null,
+          source,
+          error: null,
+        };
+      }
+
+      case 'rxnorm': {
+        const cli = getRxNormClient();
+        const source = 'NIH RxNorm';
+        const concept = await cli.getConcept(item.code);
+        if (!concept) return notFoundResult(item, source);
+        return {
+          code: item.code,
+          terminology: 'rxnorm',
+          valid: true,
+          // RxNorm has remappedTo for retired concepts but getConcept doesn't
+          // surface it on the current shape; leave active null until a future
+          // enhancement adds an explicit lifecycle lookup.
+          active: null,
+          title: concept.name,
+          replaced_by: null,
+          source,
+          error: null,
+        };
+      }
+
+      case 'mesh': {
+        const cli = getMeSHClient();
+        const source = 'NLM MeSH Linked Data';
+        const desc = await cli.getDescriptor(item.code);
+        if (!desc) return notFoundResult(item, source);
+        return {
+          code: item.code,
+          terminology: 'mesh',
+          valid: true,
+          // MeSH refreshes descriptors annually; no in-place active/inactive.
+          active: null,
+          title: desc.label,
+          replaced_by: null,
+          source,
+          error: null,
+        };
+      }
+
+      case 'atc': {
+        const cli = getRxNormClient();
+        const source = 'NLM RxClass — WHO ATC';
+        const atc = await cli.getATCByCode(item.code);
+        if (!atc) return notFoundResult(item, source);
+        return {
+          code: item.code,
+          terminology: 'atc',
+          valid: true,
+          active: null,
+          title: atc.atc_name,
+          replaced_by: null,
+          source,
+          error: null,
+        };
+      }
+
+      case 'snomed': {
+        const source = 'SNOMED CT (Snowstorm)';
+        if (!SNOMED_TOOLS_ENABLED) {
+          return errorResult(item, source, SNOMED_DISABLED_NOTE);
+        }
+        const cli = getSNOMEDClient();
+        try {
+          const concept = await cli.getConcept(item.code);
+          if (!concept) return notFoundResult(item, source);
+          return {
+            code: item.code,
+            terminology: 'snomed',
+            valid: true,
+            // SNOMED is the one terminology with first-class active/inactive.
+            active: concept.active,
+            title: concept.pt,
+            replaced_by: null,
+            source,
+            error: null,
+          };
+        } catch (err) {
+          if (err instanceof ApiError && err.code === 'NOT_FOUND') {
+            return notFoundResult(item, source);
+          }
+          throw err;
+        }
+      }
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const source = `${item.terminology} (validation failed)`;
+    return errorResult(item, source, message);
+  }
+}
+
+async function handleValidateCodes(args: Record<string, unknown>): Promise<CallToolResult> {
+  try {
+    const params = ValidateCodesParamsSchema.parse(args);
+    const results = await Promise.all(params.codes.map(validateOneCode));
+
+    const validCount = results.filter((r) => r.valid).length;
+    const errorCount = results.filter((r) => r.error !== null).length;
+    const invalidCount = results.length - validCount - errorCount;
+
+    const lines: string[] = [];
+    lines.push(`# Code Validation Results`);
+    lines.push('');
+    lines.push(
+      `Total: ${results.length} · Valid: ${validCount} · Not found: ${invalidCount} · Errors: ${errorCount}`,
+    );
+    lines.push('');
+
+    lines.push('| Code | Terminology | Valid | Active | Title | Replaced by | Source / Error |');
+    lines.push('|------|-------------|-------|--------|-------|-------------|----------------|');
+
+    for (const r of results) {
+      const validCell = r.error
+        ? '⚠️'
+        : r.valid
+          ? '✅'
+          : '❌';
+      const activeCell =
+        r.active === true ? '✅' : r.active === false ? '❌' : '—';
+      const titleCell = (r.title ?? '').replace(/\|/g, '\\|');
+      const replacedCell = (r.replaced_by ?? '—').replace(/\|/g, '\\|');
+      const sourceCell = (r.error ?? r.source).replace(/\|/g, '\\|');
+      lines.push(
+        `| ${r.code} | ${r.terminology} | ${validCell} | ${activeCell} | ${titleCell} | ${replacedCell} | ${sourceCell} |`,
+      );
+    }
+
+    if (results.some((r) => r.terminology === 'snomed' && r.valid)) {
+      lines.push('');
+      lines.push('---');
+      lines.push(SNOMED_DISCLAIMER);
+    }
+
+    const structured: ValidateCodesOutput = {
+      total: results.length,
+      valid_count: validCount,
+      invalid_count: invalidCount,
+      error_count: errorCount,
+      results,
+    };
+
+    return {
+      content: [{ type: 'text', text: lines.join('\n') }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);
@@ -507,6 +811,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
 
 toolRegistry.register(mapICD10ToICD11Tool, handleMapICD10ToICD11);
 toolRegistry.register(mapLOINCToSNOMEDTool, handleMapLOINCToSNOMED);
+toolRegistry.register(validateCodesTool, handleValidateCodes);
 toolRegistry.register(findEquivalentTool, handleFindEquivalent);
 
 // map_snomed_to_icd10 only works against a live Snowstorm; it's gated

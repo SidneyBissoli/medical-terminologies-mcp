@@ -637,6 +637,87 @@ export const FindEquivalentOutputSchema = z.object({
 export type FindEquivalentOutput = z.infer<typeof FindEquivalentOutputSchema>;
 
 // ============================================================================
+// validate_codes params + output
+//
+// Covers the wider terminology set including ICD-10, CID-10, and ATC, which
+// the original TerminologyEnum (built around find_equivalent's search scope)
+// doesn't include. Kept as a separate enum so expanding it here doesn't
+// silently broaden find_equivalent's input acceptance.
+// ============================================================================
+
+export const ValidateCodesTerminologyEnum = z.enum([
+  'icd11',
+  'icd10',
+  'snomed',
+  'loinc',
+  'rxnorm',
+  'mesh',
+  'atc',
+  'cid10',
+]);
+
+export type ValidateCodesTerminology = z.infer<typeof ValidateCodesTerminologyEnum>;
+
+const ValidateCodesItemSchema = z.object({
+  code: z.string().min(1).describe('The code to validate (raw, as it appears in your data).'),
+  terminology: ValidateCodesTerminologyEnum.describe(
+    'Which terminology this code belongs to. Required — auto-detection isn\'t supported because category-level codes like "A00" exist in both ICD-10 and CID-10.',
+  ),
+});
+
+export const ValidateCodesParamsSchema = z.object({
+  codes: z
+    .array(ValidateCodesItemSchema)
+    .min(1, 'At least one code is required.')
+    .max(50, 'Maximum 50 codes per call (rate limits apply per upstream API).')
+    .describe('List of code+terminology pairs to validate. Hard cap of 50 per call to keep total latency under ~10 s given upstream rate limits.'),
+});
+
+const ValidateCodesResultSchema = z.object({
+  code: z.string().describe('The code as submitted.'),
+  terminology: ValidateCodesTerminologyEnum,
+  valid: z
+    .boolean()
+    .describe('True when the upstream API or bundled dataset confirms the code exists.'),
+  active: z
+    .boolean()
+    .nullable()
+    .describe(
+      'Whether the code is currently active. Null when the source terminology doesn\'t expose an explicit active/inactive distinction at the category level (e.g. CID-10, ATC).',
+    ),
+  title: z.string().nullable().describe('Official label/title for the code, when available.'),
+  replaced_by: z
+    .string()
+    .nullable()
+    .describe(
+      'When the code has been superseded by another code, this holds the replacement. Populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables; null otherwise.',
+    ),
+  source: z
+    .string()
+    .describe('Human-readable identifier of the data source used for validation (terminology + release/version where applicable).'),
+  error: z
+    .string()
+    .nullable()
+    .describe(
+      'When the upstream call failed (timeout, server error, feature flag off), this holds the failure message. Distinct from valid=false: valid=false + error=null means "code not found"; valid=false + error set means "couldn\'t validate".',
+    ),
+});
+
+export const ValidateCodesOutputSchema = z.object({
+  total: z.number().int().describe('Number of codes submitted.'),
+  valid_count: z.number().int().describe('How many were confirmed valid.'),
+  invalid_count: z.number().int().describe('How many were not found.'),
+  error_count: z
+    .number()
+    .int()
+    .describe('How many couldn\'t be validated due to upstream/network errors.'),
+  results: z.array(ValidateCodesResultSchema),
+});
+
+export type ValidateCodesOutput = z.infer<typeof ValidateCodesOutputSchema>;
+export type ValidateCodesResult = z.infer<typeof ValidateCodesResultSchema>;
+
+// ============================================================================
 // ATC params (Anatomical Therapeutic Chemical, served via NLM RxClass)
 // ============================================================================
 
