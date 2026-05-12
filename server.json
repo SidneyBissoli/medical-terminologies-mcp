@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.SidneyBissoli/medical-terminologies-mcp",
   "title": "Medical Terminologies MCP",
-  "description": "Unified MCP server for seven medical terminologies (ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC, CID-10) with authoritative WHO ICD-10→ICD-11 mapping. 37 tools, hosted endpoint available, MIT.",
+  "description": "Unified MCP lookup server for ICD-11, SNOMED, LOINC, RxNorm, MeSH, ATC, CID-10. 37 tools, MIT.",
   "websiteUrl": "https://medium.com/@sbissoli76/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-a6c46de9c83b",
   "icons": [
     {
