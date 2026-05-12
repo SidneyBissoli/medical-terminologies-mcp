@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-05-11
+
+Data-integrity release. Bundles authoritative WHO ICD-10 → ICD-11
+transition tables, adds a cross-terminology batch validator, ships
+versioning + cross-revision diff tools, and surfaces a per-tool
+`language` parameter on the SNOMED and MeSH tools. Tool count grows
+from 28 default / 34 with SNOMED (in 1.3.0) to 31 default / 37 with
+SNOMED. No breaking changes.
+
 ### Changed
 
 - **`map_icd10_to_icd11` now returns an authoritative WHO mapping**
