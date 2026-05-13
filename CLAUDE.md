@@ -170,6 +170,32 @@ When Phase 11.9 Stage 2 lands (Workers KV cache + DO rate limiter), the same DO 
 
 `.github/workflows/integration.yml` runs the live-API integration suite on a daily cron (separate from PR gates) — that's how upstream API drift surfaces.
 
+## Release flow
+
+Releases ship to two registries: **npm** (`medical-terminologies-mcp`) and the **MCP Registry** (`io.github.SidneyBissoli/medical-terminologies-mcp`). Driven by `.github/workflows/publish.yml`, which has two trigger paths:
+
+1. **`workflow_dispatch`** (UI / `gh workflow run publish.yml -f version=1.x.y`) — bumps `package.json` via `npm version --no-git-tag-version`, publishes to npm, then creates the matching GitHub release at the end. This is the path the maintainer uses for normal releases.
+2. **`release.created`** (`gh release create vX.Y.Z`) — publishes whatever version is already in `package.json`. Use only if a release was cut manually and the publish step needs to be re-run independently.
+
+Job order: `build` (bundle + tool-count smoke check) → `publish` (npm with `--provenance`) → `publish-registry` (mcp-publisher via GitHub OIDC) → `create-release` (only on `workflow_dispatch`).
+
+### Authentication
+
+- **npm**: `secrets.NPM_TOKEN` (classic automation token). OIDC trusted-publisher is the modern path but is gated on the maintainer's npm 2FA enrollment — until that's resolved, stay on the token.
+- **MCP Registry**: GitHub OIDC (no secret). `mcp-publisher login github-oidc` exchanges the workflow's OIDC token for a registry JWT scoped to `io.github.SidneyBissoli/*`. This is why the workflow requests `id-token: write` on the `publish-registry` job.
+
+### Things that bite
+
+- **`prepublishOnly` runs `npm run build`** — never publish from a dirty `dist/` and never bypass with `--ignore-scripts`. The npm-published artifact is `dist/` only (`files: ["dist"]` in `package.json`), so a stale bundle silently ships old code.
+- **`server.json` version must match `package.json`** at publish time. The workflow re-writes `server.json` from `package.json` in the `publish-registry` job for exactly this reason; manual local publishes via `mcp-publisher publish` need the same sync done by hand.
+- **npm index lag**: the MCP Registry validates that the npm package exists at the declared version before accepting the manifest. The workflow polls `npm view ...@VERSION` up to 10× / 100s. If the wait step times out, npm publish succeeded and you just need to re-run the `publish-registry` job (or run `mcp-publisher publish` locally) — don't bump the version again.
+- **Registry publish does not gate npm publish.** If `publish-registry` fails after `publish` succeeded, npm is at the new version. Don't roll back npm; fix the registry job and re-run it.
+- **`mcp-publisher` is fetched as `latest` deliberately** — pinning a version has triggered "invalid audience" failures when the registry rotates its OIDC audience claim.
+
+### Local-only fallback
+
+If CI is broken and a release is time-sensitive, the manual path is: `npm version X.Y.Z` → `git push --follow-tags` → `npm publish --access public` (uses your local `~/.npmrc` token; no provenance attestation, since that requires the OIDC environment of GitHub Actions). Skip `mcp-publisher` until CI is restored — manifest republish is idempotent.
+
 ## Forward-looking work
 
 `PROGRESS.md` is the implementation diary and current source of truth for what's shipped vs. planned:
