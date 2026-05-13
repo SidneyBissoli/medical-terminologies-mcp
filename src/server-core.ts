@@ -27,6 +27,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import pkg from '../package.json';
 import { logger } from './utils/logger.js';
+import { recordInvocation } from './utils/stats.js';
 
 export const SERVER_INFO = {
   name: pkg.name,
@@ -146,7 +147,12 @@ export function createServer(): Server {
     }
 
     try {
-      return await handler(args ?? {});
+      const result = await handler(args ?? {});
+      // Fire-and-forget stats increment. NoopStatsRecorder on Node (stdio);
+      // DO-backed on Workers. The recorder swallows its own errors so a
+      // counter failure never propagates back to the user's tool response.
+      recordInvocation(name);
+      return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error({ tool: name, err: errorMessage }, 'Tool handler failed');

@@ -5,6 +5,7 @@
 [![MCP](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
 [![LobeHub MCP server](https://lobehub.com/badge/mcp/sidneybissoli-medical-terminologies-mcp)](https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp)
 [![Glama MCP server](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp/badges/score.svg)](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp)
+[![tool calls](https://img.shields.io/endpoint?url=https%3A%2F%2Fmedical-terminologies-mcp.sidneybissoli.workers.dev%2Fstats%2Fbadge)](https://medical-terminologies-mcp.sidneybissoli.workers.dev/stats)
 
 A Model Context Protocol (MCP) server providing unified access to major global medical terminologies:
 
@@ -20,7 +21,7 @@ A Model Context Protocol (MCP) server providing unified access to major global m
 
 - 31 default tools (37 with SNOMED enabled) for medical terminology lookup
 - 3 MCP **Prompts** that orchestrate tool calls into named workflows (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — clients render these as one-click user actions
-- 3 MCP **Resources** for in-process reference content (`info://server`, `info://cid10/chapters`, `info://licenses`) — sub-millisecond reads, no HTTP
+- 4 MCP **Resources** for in-process reference content (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — sub-millisecond reads (except `info://stats` which round-trips to the StatsCounter Durable Object on the hosted endpoint)
 - Multi-terminology support in a single server
 - Cross-terminology mapping and search
 - Built-in caching for improved performance

@@ -41,6 +41,8 @@ import './prompts/index.js';
 
 // Resources — static reference content exposed by URI
 import './resources/index.js';
+// Stats counter resource (Noop recorder on stdio — returns "stats unavailable")
+import './resources/stats.js';
 
 interface CliOptions {
   http: boolean;

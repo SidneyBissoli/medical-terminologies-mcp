@@ -23,8 +23,16 @@ compatibility_flags = ["nodejs_compat"]
 [observability]
 enabled = true
 
-# Stage 1 deploys the Worker as-is. Stage 2 (PROGRESS.md Phase 11.9
-# follow-up) will add:
-#   [[kv_namespaces]]   for cross-isolate cache
-#   [[durable_objects]] for global rate limiting
-# Intentionally absent here so the initial deploy stays minimal.
+# Stats counter — a single Durable Object instance ("global") aggregates
+# per-tool invocation counts across all isolates. Persisted to DO storage
+# (durable SQLite under the hood) so cold starts don't reset the counter.
+# Read by GET /stats, GET /stats/badge, and the info://stats MCP resource.
+# Phase 11.9 Stage 2 (cache KV + DO rate limiter) is still trigger-gated;
+# the stats DO arriving first is fine — it's an isolated workload.
+[[durable_objects.bindings]]
+name = "STATS"
+class_name = "StatsCounter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["StatsCounter"]

@@ -21,6 +21,12 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 // IMPORTANT: import from server-core.js, NOT server.js — the latter pulls
 // in node:http and @hono/node-server which don't exist in Workers.
 import { createServer, SERVER_INFO, toolRegistry } from './server-core.js';
+import { setStatsRecorder, type StatsRecorder, type StatsPayload } from './utils/stats.js';
+
+// Re-export the Durable Object class so wrangler can instantiate it.
+// (The class lives under src/durable-objects/ to keep the worker.ts entry
+// focused on routing; the runtime needs a top-level export to bind to.)
+export { StatsCounter } from './durable-objects/stats-counter.js';
 
 // Tool side-effect imports — each module registers its tools at load time.
 // Same set as src/index.ts; the meta-test in src/index.test.ts pins that
@@ -40,6 +46,8 @@ import './prompts/index.js';
 
 // Resources — static reference content exposed by URI
 import './resources/index.js';
+// Stats counter resource — DO-backed on Workers (see installStatsRecorder below)
+import './resources/stats.js';
 
 // Per-isolate startup timestamp for the /health uptime field. Set lazily
 // on the first request, NOT at module init — Cloudflare Workers' Date.now()
@@ -61,6 +69,24 @@ let transport: WebStandardStreamableHTTPServerTransport | null = null;
  * 2026-05-10 with WHO_CLIENT_ID set in dashboard but undefined at runtime).
  * We bridge them explicitly below on first request.
  */
+/**
+ * Minimal types for the platform bindings we touch. The full
+ * `@cloudflare/workers-types` package gives proper types but adds 100s of
+ * KB to the build for a few interfaces we use shallowly. These local
+ * shapes match the runtime contract and keep the typecheck honest.
+ */
+interface DurableObjectNamespace {
+  idFromName(name: string): DurableObjectId;
+  get(id: DurableObjectId): DurableObjectStub;
+}
+interface DurableObjectId {}
+interface DurableObjectStub {
+  fetch(request: Request): Promise<Response>;
+}
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+}
+
 interface WorkerEnv {
   WHO_CLIENT_ID?: string;
   WHO_CLIENT_SECRET?: string;
@@ -69,6 +95,7 @@ interface WorkerEnv {
   SNOMED_BASE_URL?: string;
   SNOMED_LANGUAGE?: string;
   LOG_LEVEL?: string;
+  STATS?: DurableObjectNamespace;
 }
 
 let envBridged = false;
@@ -146,7 +173,7 @@ function notFound(): Response {
   return new Response(
     JSON.stringify({
       error: 'Not Found',
-      hint: 'POST JSON-RPC to /mcp; GET /health for liveness',
+      hint: 'POST JSON-RPC to /mcp; GET /health for liveness; GET /stats for usage counters',
     }),
     {
       status: 404,
@@ -155,8 +182,119 @@ function notFound(): Response {
   );
 }
 
+/**
+ * Worker-side StatsRecorder — forwards to the single global StatsCounter
+ * Durable Object via DO.fetch(). The fetch returns immediately (≤ a few
+ * ms) but the DO call's full lifecycle is kept alive by ctx.waitUntil()
+ * which the dispatcher accesses via globalThis.__MCP_WAIT_UNTIL.
+ *
+ * Reads (`read()`) are synchronous-ish — we await the DO's response and
+ * return it. Used by /stats, /stats/badge, and the info://stats resource.
+ */
+class DurableObjectStatsRecorder implements StatsRecorder {
+  private stub: DurableObjectStub;
+
+  constructor(namespace: DurableObjectNamespace) {
+    // Single named instance — every isolate gets the same DO, which is
+    // the whole point of using DO for counters.
+    const id = namespace.idFromName('global');
+    this.stub = namespace.get(id);
+  }
+
+  async increment(toolName: string): Promise<void> {
+    await this.stub.fetch(
+      new Request('https://do/increment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tool: toolName }),
+      }),
+    );
+  }
+
+  async read(): Promise<StatsPayload | null> {
+    const response = await this.stub.fetch(new Request('https://do/read', { method: 'GET' }));
+    if (!response.ok) return null;
+    return (await response.json()) as StatsPayload;
+  }
+}
+
+let statsBridged = false;
+function bridgeStats(env: WorkerEnv): void {
+  if (statsBridged) return;
+  if (env.STATS) {
+    setStatsRecorder(new DurableObjectStatsRecorder(env.STATS));
+  }
+  // If the binding is missing (e.g. local dev without DO migrations applied)
+  // we leave the Noop recorder in place — incrementing is harmless, reads
+  // return null, and the info://stats resource renders its placeholder.
+  statsBridged = true;
+}
+
+/**
+ * GET /stats — full JSON payload for human/programmatic consumption.
+ * Cached briefly via Cache-Control so a curl-loop or badge-poller
+ * doesn't hammer the DO. 60s is short enough for fresh-feeling numbers,
+ * long enough to absorb traffic spikes.
+ */
+async function statsResponse(env: WorkerEnv): Promise<Response> {
+  const payload = await new DurableObjectStatsRecorder(env.STATS!).read();
+  const body = payload ?? {
+    scope: 'hosted endpoint at medical-terminologies-mcp.sidneybissoli.workers.dev',
+    since: null,
+    as_of: new Date().toISOString(),
+    total_invocations: 0,
+    by_tool: {},
+    top_tool: null,
+  };
+  return new Response(JSON.stringify(body, null, 2), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=60',
+      ...corsHeaders(),
+    },
+  });
+}
+
+/**
+ * GET /stats/badge — shields.io endpoint format. The badge URL in README
+ * is `https://img.shields.io/endpoint?url=<encoded>/stats/badge` and
+ * shields.io polls this every few minutes to refresh the badge image.
+ *
+ * Color thresholds reflect adoption signal: zero (lightgrey, "no data
+ * yet"), <100 (yellow, "early days"), <1000 (blue, "growing"),
+ * ≥1000 (brightgreen, "real traction"). Adjustable as the project
+ * matures.
+ */
+async function statsBadgeResponse(env: WorkerEnv): Promise<Response> {
+  const payload = await new DurableObjectStatsRecorder(env.STATS!).read();
+  const total = payload?.total_invocations ?? 0;
+  const color =
+    total === 0
+      ? 'lightgrey'
+      : total < 100
+        ? 'yellow'
+        : total < 1000
+          ? 'blue'
+          : 'brightgreen';
+  const body = {
+    schemaVersion: 1,
+    label: 'tool calls',
+    message: total.toLocaleString('en-US'),
+    color,
+  };
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=300',
+      ...corsHeaders(),
+    },
+  });
+}
+
 export default {
-  async fetch(request: Request, env: WorkerEnv): Promise<Response> {
+  async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
     // First fetch sets the uptime baseline. Date.now() inside a request
     // handler is the real clock, unlike at module-init time.
     if (isolateStartMs === null) {
@@ -166,6 +304,14 @@ export default {
     // Bridge Worker bindings into process.env so platform-agnostic clients
     // (who-client.ts etc.) see the credentials. Idempotent per isolate.
     bridgeEnv(env);
+    bridgeStats(env);
+
+    // Expose ctx.waitUntil to the dispatcher so the fire-and-forget stats
+    // increment in server-core.ts keeps the isolate alive long enough to
+    // flush its DO RPC after the response is sent. Set on every request
+    // (not cached) because ctx instances are per-request.
+    (globalThis as { __MCP_WAIT_UNTIL?: (p: Promise<unknown>) => void }).__MCP_WAIT_UNTIL =
+      ctx.waitUntil.bind(ctx);
 
     const url = new URL(request.url);
 
@@ -175,6 +321,14 @@ export default {
 
     if (request.method === 'GET' && url.pathname === '/health') {
       return healthResponse();
+    }
+
+    if (request.method === 'GET' && url.pathname === '/stats') {
+      return statsResponse(env);
+    }
+
+    if (request.method === 'GET' && url.pathname === '/stats/badge') {
+      return statsBadgeResponse(env);
     }
 
     if (url.pathname === '/mcp' || url.pathname === '/') {

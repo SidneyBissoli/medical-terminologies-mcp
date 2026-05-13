@@ -56,7 +56,7 @@ When adding a new `src/tools/*.ts`, `src/prompts/*.ts`, or `src/resources/*.ts`,
 
 **Prompts** (`src/prompts/index.ts`) — orchestration templates the client renders as named user actions (3 today: `find-medical-code`, `drug-info`, `cid10-portuguese-lookup`). Each Prompt declares `name`, `description`, `arguments[]`. Handler returns `GetPromptResult` with a `messages[]` array — the prompt body is a plain-text user message that *suggests* tool calls but doesn't constrain the LLM. Lives in a single file because three prompts don't justify per-domain splitting yet; revisit if the file grows past ~300 lines.
 
-**Resources** (`src/resources/index.ts`) — static or in-process reference content addressable by URI (3 today: `info://server`, `info://cid10/chapters`, `info://licenses`). The `info://` scheme is a self-contained namespace; URIs don't dereference over HTTP. Content is built once at module-load time from server metadata / the bundled CID-10 dataset / a hard-coded markdown block, so `resources/read` is sub-millisecond.
+**Resources** (`src/resources/*.ts`) — static or in-process reference content addressable by URI (4 today: `info://server`, `info://cid10/chapters`, `info://licenses` from `index.ts`; `info://stats` from `stats.ts`). The `info://` scheme is a self-contained namespace; URIs don't dereference over HTTP. The first three are built once at module-load time from server metadata / the bundled CID-10 dataset / a hard-coded markdown block, so `resources/read` is sub-millisecond. The fourth (`info://stats`) round-trips to the `StatsCounter` Durable Object on the Worker path (or returns a "stats unavailable on this transport" placeholder on stdio, since local installs have no shared counter by design).
 
 Adding a new tool/prompt/resource: define + register at the bottom of its file, and (if a brand-new file) `import './<dir>/newfile.js'` in BOTH `src/index.ts` AND `src/worker.ts`. The meta-test in `src/index.test.ts` covers all three directories (`tools/`, `prompts/`, `resources/`) and fails if the new file isn't wired into `src/index.ts` — that's the cheap defense against silent missing-from-list bugs. The Workers side has no equivalent meta-test yet; remembering to wire it is on you.
 
@@ -133,9 +133,17 @@ The hosted endpoint at `https://medical-terminologies-mcp.sidneybissoli.workers.
 
 - `compatibility_date = 2025-12-01`, `compatibility_flags = ["nodejs_compat"]` — enough to run the bundled axios/pino/Map-cache code without further polyfills.
 - Stateless mode (`sessionIdGenerator: undefined`) — every request is independent, no session storage.
-- Endpoints: `POST /mcp` (JSON-RPC), `GET /health` (liveness), `OPTIONS` preflight. Permissive CORS.
+- Endpoints: `POST /mcp` (JSON-RPC), `GET /health` (liveness), `GET /stats` (full counter JSON), `GET /stats/badge` (shields.io endpoint format for README badge), `OPTIONS` preflight. Permissive CORS on all of them.
 
 Required GitHub secrets for the deploy workflow: `CLOUDFLARE_API_TOKEN` (Account API token with Workers Scripts: Edit) and `CLOUDFLARE_ACCOUNT_ID`. Per-server runtime secrets (WHO_CLIENT_ID, WHO_CLIENT_SECRET, optional SNOMED_*) are set on the Cloudflare side via `npx wrangler secret put` or the dashboard — they're never in GitHub.
+
+### Durable Objects in use
+
+One DO today: `StatsCounter` (`src/durable-objects/stats-counter.ts`, bound as `STATS` in `wrangler.toml`). Singleton-by-name (`idFromName('global')`) so every isolate writes to the same counter. The dispatcher in `src/server-core.ts` calls `recordInvocation(toolName)` after every successful tool dispatch — abstracted via `src/utils/stats.ts` so the same call is a no-op on stdio (where there's no shared counter by design) and a DO fetch on Workers.
+
+The fire-and-forget pattern: `recordInvocation` queues the DO RPC and bridges it through `globalThis.__MCP_WAIT_UNTIL` (set per request to `ctx.waitUntil`) so the isolate stays alive long enough to flush after the user's response is sent. Latency-neutral to callers. Increment failures are swallowed by the recorder — a broken counter must never break the user's tool response.
+
+When Phase 11.9 Stage 2 lands (Workers KV cache + DO rate limiter), the same DO infrastructure pattern applies — adding a second DO class to `wrangler.toml`'s migrations and exporting it from `src/worker.ts`.
 
 ### Workers-specific gotchas to remember
 
@@ -167,7 +175,7 @@ Required GitHub secrets for the deploy workflow: `CLOUDFLARE_API_TOKEN` (Account
 `PROGRESS.md` is the implementation diary and current source of truth for what's shipped vs. planned:
 
 - Phases 0-10 ✅ complete (the work that built the original 28-tool surface).
-- Phase 11 🔄 effectively complete (Distribution & Discovery — 10 of 11 sub-tasks shipped including the 1.4.1 Smithery quality-score polish that flipped the listing from `unlisted` to listed; only 11.9 Stage 2 (Workers KV + Durable Objects) remains, trigger-gated by traffic).
+- Phase 11 🔄 effectively complete (Distribution & Discovery — 11 of 12 sub-tasks shipped including the 1.4.1 Smithery quality-score polish that flipped the listing from `unlisted` to listed, and the 1.5.0 public usage-stats counter (Durable Object + `/stats` + `info://stats`); only 11.9 Stage 2 (Workers KV cache + DO rate limiter) remains, trigger-gated by traffic).
 - Phase 12 🔄 in progress (Content & Outreach — 12.1 long-form post published on Medium + Dev.to 2026-05-11; remaining channels drafted in `outreach-templates.md`).
 - Phase 13 🔄 in progress (Coverage Expansion — 13.1 authoritative ICD-10→ICD-11 mapping, 13.2 `validate_codes`, and 13.6 `terminology_versions` / `terminology_diff` all shipped, bringing the surface to 31 default + 6 SNOMED-gated = **37 tools**; 13.3 CID-O, 13.4 TUSS, 13.5 SIGTAP remain project-led; 13.7 SNOMED→ICD-10 real refset 447562003 and 13.8 CID-10→CID-11 BR variant are external-dependency-gated).
 - Phase 14 📋 ongoing (Quality & Maintenance — `loinc_answers` upstream-404 fix (14.1) is the only open code-level item; 14.6 outputSchema gap closed 2026-05-12 — all 37 default tools now expose `outputSchema` + `structuredContent`).

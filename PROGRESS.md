@@ -420,6 +420,7 @@ rich tabular outputs.
 | 11.9 Stage 2 | Replace per-isolate `node-cache` with Workers KV; replace per-isolate token-bucket with a Durable Object. Required when traffic saturates per-isolate budgets — not blocking Smithery submission. | ~4-6 h | 📋 deferred — trigger: WHO/NLM rate-limit warnings in logs OR cache hit rate < 50% | 11.9 Stage 1 |
 | 11.10 | LobeHub MCP validator pass | ~3h (came in ~3h) | 🔄 code shipped 2026-05-11 in v1.3.0 — listing page exists at https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp; LobeHub auto-discovered via MCP Registry. Implemented the two missing validator gates (MCP Prompts + Resources surfaces) plus the README badge. Will flip to ✅ when LobeHub's scanner re-runs and the badge URL flips from HTTP 500 ("unvalidated") to "validated". Originally scoped at ~30min — actual scope grew because LobeHub validation requires server feature additions, not just a manifest submission | 11.2 |
 | 11.11 | **Smithery quality-score polish (post-listing)** — after 11.8 established the listing, Smithery's quality rubric scored it 63/orange and kept it `unlisted` in search. The rubric flags 5 axes: display name (`title` field), description (`server.json` has a hard 100-char cap that npm and `SERVER_INFO` don't), homepage (`websiteUrl`), icon (`icons[]` array, ≤1MB per file, HTTPS-served), and per-tool `outputSchema` coverage. Closed 4 of 5 in v1.4.1 (`chore(metadata): polish server.json…` + `chore(release): 1.4.1`): added `title` (`"Medical Terminologies MCP"`), `websiteUrl` (Medium walkthrough), `icons[]` (Gemini-generated PNGs, resized to 512×512 after Smithery rejected the 1024×1024 1.3MB originals), and synced/expanded description across `server.json` / `package.json` / `SERVER_INFO`. Also fixed long-standing drift: `server.json` `packages[1].version` was frozen at `1.2.1` since the streamable-http transport was added — the publish workflow's `jq` step only auto-syncs `packages[0]`. The 5th axis (`outputSchema` on 3 crosswalk tools) is tracked as Phase 14.6 and deferred. Surfaced two CONTRIBUTING.md gaps closed in passing: release procedure now documents the 100-char registry validation cap and the `mcp-publisher` local-recovery path when registry publish fails post-`npm publish`. | ~3h | ✅ shipped 2026-05-12 with v1.4.1 — listing flipped from `unlisted` to `listed` at https://smithery.ai/servers/@sidneybissoli/medical-terminologies | 11.8 |
+| 11.12 | **Public usage stats counter (Durable Object)** — instrument the hosted endpoint with a per-tool invocation counter so the project has real adoption signal beyond npm download counts (which include bot probes). Implementation: a single `StatsCounter` Durable Object aggregates increments across isolates (persistent, survives cold starts unlike per-isolate in-memory state). The dispatcher in `src/server-core.ts` calls a cross-runtime `recordInvocation(name)` after successful tool dispatch — fire-and-forget, latency-neutral thanks to `ctx.waitUntil`. Public surfaces: `GET /stats` (full JSON payload with `total_invocations`, `by_tool`, `top_tool`, `since` timestamp); `GET /stats/badge` (shields.io endpoint format, color-coded by adoption tier — grey for zero, yellow <100, blue <1000, green ≥1000); `info://stats` MCP Resource (same JSON, surfaced via protocol so Smithery / Inspector / LobeHub can render in listing cards). Stdio installs are by-design unmeasurable (privacy property, not bug) — the `scope` field declares "hosted endpoint only" so the counter never lies. README gets a `tool calls` badge. Forward-compatible with Phase 11.9 Stage 2 (cache KV + rate-limit DO) — same DO infrastructure pattern. | ~4-6h (came in ~5h) | ✅ shipped 2026-05-13 with v1.5.0 — endpoint live at https://medical-terminologies-mcp.sidneybissoli.workers.dev/stats, badge live in README, `info://stats` registered (4 resources total) | none |
 
 ### Planned Tools
 
@@ -513,7 +514,7 @@ tools, not a new tool.
 
 ### Status
 
-- Effort spent so far: ~25h (11.1 + 11.2 + 11.3 + 11.4 + 11.5 + 11.6 + 11.7 + 11.8 + 11.9 Stage 1 + 11.10 + 11.11)
+- Effort spent so far: ~30h (11.1 + 11.2 + 11.3 + 11.4 + 11.5 + 11.6 + 11.7 + 11.8 + 11.9 Stage 1 + 11.10 + 11.11 + 11.12)
 - Effort remaining: 0h on the project-led path; Glama Dockerfile upload
   remains as a non-blocking option (the listing is already
   search-visible without it — see 11.5 row)
@@ -526,10 +527,10 @@ tools, not a new tool.
 - Smithery quality grade: was 63/orange/unlisted pre-1.4.1; flipped to
   listed after 4-of-5 axes closed; final axis (outputSchema) tracked
   as Phase 14.6
-- Build: 🔄 In progress — hosted endpoint live, **10 of 11 sub-tasks
+- Build: 🔄 In progress — hosted endpoint live, **11 of 12 sub-tasks
   shipped** (11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9
-  Stage 1, 11.10, 11.11). Only 11.9 Stage 2 remains, trigger-gated by
-  traffic. Phase 11 is effectively complete for the current scope.
+  Stage 1, 11.10, 11.11, 11.12). Only 11.9 Stage 2 remains, trigger-gated
+  by traffic. Phase 11 is effectively complete for the current scope.
 
 ---
 
