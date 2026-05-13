@@ -637,6 +637,130 @@ export const FindEquivalentOutputSchema = z.object({
 export type FindEquivalentOutput = z.infer<typeof FindEquivalentOutputSchema>;
 
 // ============================================================================
+// Crosswalk outputs
+//
+// `map_icd10_to_icd11` returns the real WHO transition-table entry (or null
+// when the code isn't in the category-level table). The other two are
+// guidance-only by design — no authoritative LOINC↔SNOMED or SNOMED→ICD-10
+// mapping is freely available via API, so the structured payload exposes the
+// LOINC/SNOMED lookup result we *can* do plus pointers to the licensed
+// sources operators can use to perform the actual mapping themselves. When
+// 13.7 (Snowstorm refset 447562003) ships, `MapSNOMEDToICD10OutputSchema`
+// becomes the envelope that wraps the real ReferenceSetMember list.
+// ============================================================================
+
+const ICD10SourceSchema = z.object({
+  code: z.string(),
+  title: z.string(),
+  chapter: z.string(),
+  depth: z.number().int(),
+});
+
+const ICD11MappingSchema = z.object({
+  code: z.string(),
+  title: z.string(),
+  chapter: z.string(),
+  foundationUri: z.string(),
+  linearizationUri: z.string(),
+  classKind: z.string(),
+  depth: z.number().int(),
+});
+
+export const MapICD10ToICD11OutputSchema = z.object({
+  query: z.string().describe('The ICD-10 code as submitted (raw, before normalization).'),
+  found: z
+    .boolean()
+    .describe('Whether the code is in the WHO ICD-10 → ICD-11 transition table.'),
+  icd10: ICD10SourceSchema
+    .nullable()
+    .describe('Source ICD-10 entry from the WHO table. Null when found=false.'),
+  primary: ICD11MappingSchema
+    .nullable()
+    .describe('Primary 1:1 ICD-11 mapping. Null when found=false.'),
+  alternatives: z
+    .array(ICD11MappingSchema)
+    .describe(
+      'Additional ICD-11 candidates WHO documents for this ICD-10 code. Empty when the primary is the only documented mapping (or when found=false). 1,461 of the 11,243 indexed codes have non-empty alternatives.',
+    ),
+  source: z.object({
+    publisher: z.string().describe('Authoritative publisher (e.g. "WHO").'),
+    version: z
+      .string()
+      .describe('Transition table release identifier (e.g. "2025-01").'),
+    release_date: z.string().describe('ISO date string for the release.'),
+  }),
+});
+
+export type MapICD10ToICD11Output = z.infer<typeof MapICD10ToICD11OutputSchema>;
+
+const MappingSourceRefSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  url: z.string().nullable(),
+});
+
+export const MapSNOMEDToICD10OutputSchema = z.object({
+  sctid: z.string().describe('The SNOMED CT Identifier as submitted.'),
+  preferred_term: z
+    .string()
+    .nullable()
+    .describe(
+      'SNOMED preferred term for the concept, when the upstream returns one. Null when the SNOMED upstream timed out or returned nothing.',
+    ),
+  status: z
+    .enum(['guidance-only', 'upstream-unavailable'])
+    .describe(
+      '"guidance-only" — no freely available authoritative SNOMED → ICD-10 mapping API exists today; this tool returns pointers to the licensed sources (UMLS, refset 447562003) instead. "upstream-unavailable" — SNOMED was attempted but the Snowstorm host did not respond.',
+    ),
+  guidance: z
+    .string()
+    .describe(
+      'Short human-readable explanation of why this tool returns guidance instead of a mapping.',
+    ),
+  authoritative_sources: z
+    .array(MappingSourceRefSchema)
+    .describe(
+      'Structured list of authoritative SNOMED → ICD-10 mapping sources for programmatic consumers (UMLS Metathesaurus, SNOMED Complex Map refset, national extensions).',
+    ),
+});
+
+export type MapSNOMEDToICD10Output = z.infer<typeof MapSNOMEDToICD10OutputSchema>;
+
+const LOINCDetailsSchema = z.object({
+  code: z.string(),
+  long_common_name: z.string().nullable(),
+  component: z.string().nullable(),
+  system: z.string().nullable(),
+  property: z.string().nullable(),
+});
+
+export const MapLOINCToSNOMEDOutputSchema = z.object({
+  loinc_code: z.string().describe('The LOINC code as submitted.'),
+  loinc_details: LOINCDetailsSchema
+    .nullable()
+    .describe(
+      'NLM Clinical Tables details for the LOINC code (component, system, property, etc.). Null when the code was not found upstream.',
+    ),
+  status: z
+    .enum(['guidance-only'])
+    .describe(
+      'Always "guidance-only" — direct LOINC → SNOMED CT mappings require licensed sources (UMLS Metathesaurus or LOINC SNOMED CT Expression Association). This tool returns pointers, not the mapping itself.',
+    ),
+  guidance: z
+    .string()
+    .describe(
+      'Short human-readable explanation of why this tool returns guidance instead of a mapping.',
+    ),
+  mapping_sources: z
+    .array(MappingSourceRefSchema)
+    .describe(
+      'Structured list of authoritative LOINC → SNOMED CT mapping sources (UMLS Metathesaurus, LOINC SNOMED CT Expression Association, Regenstrief RELMA).',
+    ),
+});
+
+export type MapLOINCToSNOMEDOutput = z.infer<typeof MapLOINCToSNOMEDOutputSchema>;
+
+// ============================================================================
 // validate_codes params + output
 //
 // Covers the wider terminology set including ICD-10, CID-10, and ATC, which

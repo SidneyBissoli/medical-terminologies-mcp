@@ -170,7 +170,7 @@ Required GitHub secrets for the deploy workflow: `CLOUDFLARE_API_TOKEN` (Account
 - Phase 11 🔄 effectively complete (Distribution & Discovery — 10 of 11 sub-tasks shipped including the 1.4.1 Smithery quality-score polish that flipped the listing from `unlisted` to listed; only 11.9 Stage 2 (Workers KV + Durable Objects) remains, trigger-gated by traffic).
 - Phase 12 🔄 in progress (Content & Outreach — 12.1 long-form post published on Medium + Dev.to 2026-05-11; remaining channels drafted in `outreach-templates.md`).
 - Phase 13 🔄 in progress (Coverage Expansion — 13.1 authoritative ICD-10→ICD-11 mapping, 13.2 `validate_codes`, and 13.6 `terminology_versions` / `terminology_diff` all shipped, bringing the surface to 31 default + 6 SNOMED-gated = **37 tools**; 13.3 CID-O, 13.4 TUSS, 13.5 SIGTAP remain project-led; 13.7 SNOMED→ICD-10 real refset 447562003 and 13.8 CID-10→CID-11 BR variant are external-dependency-gated).
-- Phase 14 📋 ongoing (Quality & Maintenance — `loinc_answers` upstream-404 fix (14.1) and the 3-of-37 `outputSchema` gap in `src/tools/crosswalk.ts` (14.6, surfaced during the Smithery audit) are the two open code-level items).
+- Phase 14 📋 ongoing (Quality & Maintenance — `loinc_answers` upstream-404 fix (14.1) is the only open code-level item; 14.6 outputSchema gap closed 2026-05-12 — all 37 default tools now expose `outputSchema` + `structuredContent`).
 
 Each phase has sub-tasks, requirements checklists, dependencies, and effort estimates. When picking up work, check `PROGRESS.md` first — it captures rationale and triggers, not just task lists.
 

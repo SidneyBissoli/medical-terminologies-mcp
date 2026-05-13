@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **All 37 default tools now expose `outputSchema` and return
+  `structuredContent`.** The remaining 3 tools in
+  `src/tools/crosswalk.ts` — `map_icd10_to_icd11`,
+  `map_snomed_to_icd10`, `map_loinc_to_snomed` — gained output
+  schemas in `src/types/index.ts`. `map_icd10_to_icd11` now returns
+  the full WHO transition-table entry (source ICD-10 row, primary
+  ICD-11 mapping, alternative ICD-11 candidates, release metadata)
+  as structured data instead of discarding it as markdown — agents
+  can consume the mapping without text parsing. The two
+  guidance-only tools (`map_snomed_to_icd10`, `map_loinc_to_snomed`)
+  return a structured envelope (`status`, `guidance`, authoritative
+  sources list) alongside the existing markdown narrative. Closes
+  PROGRESS.md Phase 14.6 and the 5th axis of the Smithery
+  quality-score rubric.
+
 ## [1.4.1] - 2026-05-12
 
 Metadata-only release tuning the `server.json` surface for the Smithery

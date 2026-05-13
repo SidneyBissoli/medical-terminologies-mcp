@@ -25,8 +25,14 @@ import { getCID10Client } from '../clients/cid10-client.js';
 import { ApiError } from '../types/index.js';
 import {
   MapICD10ToICD11ParamsSchema,
+  MapICD10ToICD11OutputSchema,
+  MapICD10ToICD11Output,
   MapSNOMEDToICD10ParamsSchema,
+  MapSNOMEDToICD10OutputSchema,
+  MapSNOMEDToICD10Output,
   MapLOINCToSNOMEDParamsSchema,
+  MapLOINCToSNOMEDOutputSchema,
+  MapLOINCToSNOMEDOutput,
   FindEquivalentParamsSchema,
   FindEquivalentOutputSchema,
   FindEquivalentOutput,
@@ -60,6 +66,7 @@ Provide a code like "E11" (Type 2 diabetes), "I21" (Acute MI), or "A07.8" (4 alt
 
 Returns "no mapping" when the code isn't in the WHO category-level table — that's the honest answer rather than a fuzzy search fallback.`,
   inputSchema: buildInputSchema(MapICD10ToICD11ParamsSchema),
+  outputSchema: buildOutputSchema(MapICD10ToICD11OutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -76,6 +83,7 @@ Provide a SNOMED CT ID like "73211009" (Diabetes mellitus).
 
 ⚠️ SNOMED CT content requires IHTSDO license for production use.`,
   inputSchema: buildInputSchema(MapSNOMEDToICD10ParamsSchema),
+  outputSchema: buildOutputSchema(MapSNOMEDToICD10OutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -89,6 +97,7 @@ For programmatic LOINC → SNOMED mapping, use UMLS or the LOINC Expression Asso
 
 Provide a LOINC code like "2339-0" (Glucose) or "718-7" (Hemoglobin).`,
   inputSchema: buildInputSchema(MapLOINCToSNOMEDParamsSchema),
+  outputSchema: buildOutputSchema(MapLOINCToSNOMEDOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -138,6 +147,19 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
     const inputCode = params.icd10_code.trim();
     const entry = client.lookup(inputCode);
 
+    const structured: MapICD10ToICD11Output = {
+      query: inputCode,
+      found: entry !== null,
+      icd10: entry?.icd10 ?? null,
+      primary: entry?.primary ?? null,
+      alternatives: entry?.alternatives ?? [],
+      source: {
+        publisher: 'WHO',
+        version: client.getVersion(),
+        release_date: client.getReleaseDate(),
+      },
+    };
+
     const lines: string[] = [];
     lines.push(`# ICD-10 → ICD-11 mapping for "${inputCode.toUpperCase()}"`);
     lines.push('');
@@ -156,7 +178,10 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
       lines.push('- The code was removed in the WHO restructuring; try a parent category.');
       lines.push('');
       lines.push('**Alternative:** Use `icd11_search` with the condition name to explore ICD-11 directly.');
-      return { content: [{ type: 'text', text: lines.join('\n') }] };
+      return {
+        content: [{ type: 'text', text: lines.join('\n') }],
+        structuredContent: structured,
+      };
     }
 
     lines.push(
@@ -194,17 +219,52 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
       `Source: WHO ICD-10 → ICD-11 transition tables, release ${client.getVersion()} (${client.getReleaseDate()}). Authoritative mapping, not a text-search heuristic.`,
     );
 
-    return { content: [{ type: 'text', text: lines.join('\n') }] };
+    return {
+      content: [{ type: 'text', text: lines.join('\n') }],
+      structuredContent: structured,
+    };
   } catch (error) {
     return handleToolError(error);
   }
 }
+
+const SNOMED_TO_ICD10_GUIDANCE =
+  'Direct SNOMED CT → ICD-10 mapping is not freely available via API. The pointers below are the authoritative sources; each requires a license, extension, or upstream access (the SNOMED Complex Map refset 447562003 itself will become queryable here in Phase 13.7).';
+
+const SNOMED_TO_ICD10_SOURCES = [
+  {
+    name: 'SNOMED Complex Map refset',
+    description:
+      'Reference Set ID: 447562003 (ICD-10 Complex Map). Authoritative SNOMED → ICD-10 mapping with mapGroup / mapPriority / mapRule / mapAdvice semantics. Requires an IHTSDO license and a Snowstorm (or equivalent FHIR terminology server) instance.',
+    url: null,
+  },
+  {
+    name: 'NLM UMLS Metathesaurus',
+    description:
+      'Cross-terminology graph including SNOMED ↔ ICD-10 relationships. Requires a free UMLS Terminology Services (UTS) account with annual renewal.',
+    url: 'https://uts.nlm.nih.gov/uts/',
+  },
+  {
+    name: 'National extensions',
+    description:
+      'Country-specific SNOMED → ICD-10 maps (US: SNOMED CT → ICD-10-CM via NLM; UK: NHS SNOMED-ICD-10; AU: NCTS).',
+    url: null,
+  },
+];
 
 async function handleMapSNOMEDToICD10(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const params = MapSNOMEDToICD10ParamsSchema.parse(args);
     const client = getSNOMEDClient();
     const concept = await client.getConcept(params.sctid);
+
+    const structured: MapSNOMEDToICD10Output = {
+      sctid: params.sctid,
+      preferred_term: concept?.pt ?? null,
+      status: 'guidance-only',
+      guidance: SNOMED_TO_ICD10_GUIDANCE,
+      authoritative_sources: SNOMED_TO_ICD10_SOURCES,
+    };
 
     const lines: string[] = [];
     lines.push(`# SNOMED CT to ICD-10 Mapping`);
@@ -245,25 +305,76 @@ async function handleMapSNOMEDToICD10(args: Record<string, unknown>): Promise<Ca
 
     return {
       content: [{ type: 'text', text: lines.join('\n') }],
+      structuredContent: structured,
     };
   } catch (error) {
     if (error instanceof ApiError && (error.message.includes('ETIMEDOUT') || error.message.includes('timeout'))) {
+      const sctid = String((args as { sctid?: unknown }).sctid ?? '');
+      const fallback: MapSNOMEDToICD10Output = {
+        sctid,
+        preferred_term: null,
+        status: 'upstream-unavailable',
+        guidance:
+          'SNOMED upstream did not respond. The pointers below are the authoritative SNOMED → ICD-10 sources you can use offline or via your own SNOMED-licensed infrastructure.',
+        authoritative_sources: SNOMED_TO_ICD10_SOURCES,
+      };
       return {
         content: [{
           type: 'text',
-          text: `# SNOMED CT to ICD-10 Mapping\n\n**SNOMED CT ID:** ${args.sctid}\n\n⚠️ Unable to connect to SNOMED CT server.\n\nSNOMED CT to ICD-10 mappings are available through:\n\n1. **SNOMED International** - Reference Set 447562003\n2. **NLM UMLS** - Requires license\n3. **National Health Services** - Country-specific maps\n\n---\n${SNOMED_DISCLAIMER}`,
+          text: `# SNOMED CT to ICD-10 Mapping\n\n**SNOMED CT ID:** ${sctid}\n\n⚠️ Unable to connect to SNOMED CT server.\n\nSNOMED CT to ICD-10 mappings are available through:\n\n1. **SNOMED International** - Reference Set 447562003\n2. **NLM UMLS** - Requires license\n3. **National Health Services** - Country-specific maps\n\n---\n${SNOMED_DISCLAIMER}`,
         }],
+        structuredContent: fallback,
       };
     }
     return handleToolError(error);
   }
 }
 
+const LOINC_TO_SNOMED_GUIDANCE =
+  'Direct LOINC → SNOMED CT mapping is not freely available via API. The pointers below are the authoritative sources; each requires either a license (UMLS UTS account or LOINC license) or local processing of release files.';
+
+const LOINC_TO_SNOMED_SOURCES = [
+  {
+    name: 'NLM UMLS Metathesaurus',
+    description:
+      'Cross-terminology graph including LOINC ↔ SNOMED CT relationships. Free UTS license with annual renewal.',
+    url: 'https://uts.nlm.nih.gov/uts/',
+  },
+  {
+    name: 'LOINC SNOMED CT Expression Association',
+    description:
+      'Published by Regenstrief Institute as part of each LOINC release. RF2 files with expression-level mappings; requires acceptance of the LOINC license (free for most uses).',
+    url: 'https://loinc.org/downloads/',
+  },
+  {
+    name: 'Regenstrief RELMA',
+    description:
+      'Free desktop application that bundles the LOINC release including the Expression Association files. Useful for interactive single-code lookups.',
+    url: 'https://loinc.org/relma/',
+  },
+];
+
 async function handleMapLOINCToSNOMED(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const params = MapLOINCToSNOMEDParamsSchema.parse(args);
     const client = getNLMClient();
     const details = await client.getLOINCDetails(params.loinc_code);
+
+    const structured: MapLOINCToSNOMEDOutput = {
+      loinc_code: params.loinc_code,
+      loinc_details: details
+        ? {
+            code: params.loinc_code,
+            long_common_name: details.LONG_COMMON_NAME || null,
+            component: details.COMPONENT || null,
+            system: details.SYSTEM || null,
+            property: details.PROPERTY || null,
+          }
+        : null,
+      status: 'guidance-only',
+      guidance: LOINC_TO_SNOMED_GUIDANCE,
+      mapping_sources: LOINC_TO_SNOMED_SOURCES,
+    };
 
     const lines: string[] = [];
     lines.push(`# LOINC code ${params.loinc_code} → SNOMED CT mapping guidance`);
@@ -316,6 +427,7 @@ async function handleMapLOINCToSNOMED(args: Record<string, unknown>): Promise<Ca
 
     return {
       content: [{ type: 'text', text: lines.join('\n') }],
+      structuredContent: structured,
     };
   } catch (error) {
     return handleToolError(error);

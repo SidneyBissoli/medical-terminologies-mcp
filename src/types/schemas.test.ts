@@ -38,6 +38,9 @@ import {
   RxNormClassesOutputSchema,
   RxNormNDCOutputSchema,
   FindEquivalentOutputSchema,
+  MapICD10ToICD11OutputSchema,
+  MapSNOMEDToICD10OutputSchema,
+  MapLOINCToSNOMEDOutputSchema,
   ATCClassifyOutputSchema,
   ATCLookupOutputSchema,
   ATCMembersOutputSchema,
@@ -849,6 +852,211 @@ describe('find_equivalent output schema — aggregator with mixed results', () =
         results: {},
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('map_icd10_to_icd11 output schema', () => {
+  const sourceMetadata = {
+    publisher: 'WHO',
+    version: '2025-01',
+    release_date: '2025-01-30',
+  };
+
+  it('found with alternatives — full WHO entry payload validates', () => {
+    expect(
+      MapICD10ToICD11OutputSchema.safeParse({
+        query: 'A07.8',
+        found: true,
+        icd10: {
+          code: 'A07.8',
+          title: 'Other specified protozoal intestinal diseases',
+          chapter: 'I',
+          depth: 4,
+        },
+        primary: {
+          code: '1A4Z',
+          title: 'Protozoal intestinal infections, unspecified',
+          chapter: '01',
+          foundationUri: 'http://id.who.int/icd/entity/1234567890',
+          linearizationUri: 'http://id.who.int/icd/release/11/2024-01/mms/1234567890',
+          classKind: 'category',
+          depth: 4,
+        },
+        alternatives: [
+          {
+            code: '1A41',
+            title: 'Microsporidiosis',
+            chapter: '01',
+            foundationUri: 'http://id.who.int/icd/entity/2222222222',
+            linearizationUri: 'http://id.who.int/icd/release/11/2024-01/mms/2222222222',
+            classKind: 'category',
+            depth: 4,
+          },
+        ],
+        source: sourceMetadata,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('found with no alternatives — alternatives must still be present as empty array', () => {
+    expect(
+      MapICD10ToICD11OutputSchema.safeParse({
+        query: 'E11',
+        found: true,
+        icd10: { code: 'E11', title: 'Type 2 diabetes mellitus', chapter: 'IV', depth: 3 },
+        primary: {
+          code: '5A11',
+          title: 'Type 2 diabetes mellitus',
+          chapter: '05',
+          foundationUri: 'http://id.who.int/icd/entity/9999999999',
+          linearizationUri: 'http://id.who.int/icd/release/11/2024-01/mms/9999999999',
+          classKind: 'category',
+          depth: 3,
+        },
+        alternatives: [],
+        source: sourceMetadata,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('not-found case — icd10 and primary nullable, alternatives empty', () => {
+    expect(
+      MapICD10ToICD11OutputSchema.safeParse({
+        query: 'ZZ99',
+        found: false,
+        icd10: null,
+        primary: null,
+        alternatives: [],
+        source: sourceMetadata,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('missing required source.publisher fails parse', () => {
+    expect(
+      MapICD10ToICD11OutputSchema.safeParse({
+        query: 'E11',
+        found: false,
+        icd10: null,
+        primary: null,
+        alternatives: [],
+        source: { version: '2025-01', release_date: '2025-01-30' },
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('map_snomed_to_icd10 output schema (guidance envelope)', () => {
+  const sources = [
+    {
+      name: 'SNOMED Complex Map refset',
+      description: 'Refset 447562003',
+      url: null,
+    },
+    {
+      name: 'NLM UMLS Metathesaurus',
+      description: 'UTS license',
+      url: 'https://uts.nlm.nih.gov/uts/',
+    },
+  ];
+
+  it('typical guidance-only with preferred_term populated', () => {
+    expect(
+      MapSNOMEDToICD10OutputSchema.safeParse({
+        sctid: '73211009',
+        preferred_term: 'Diabetes mellitus',
+        status: 'guidance-only',
+        guidance: 'Direct mapping is not freely available.',
+        authoritative_sources: sources,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('guidance-only with null preferred_term (concept not found upstream)', () => {
+    expect(
+      MapSNOMEDToICD10OutputSchema.safeParse({
+        sctid: '99999999',
+        preferred_term: null,
+        status: 'guidance-only',
+        guidance: 'Direct mapping is not freely available.',
+        authoritative_sources: sources,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('upstream-unavailable status valid', () => {
+    expect(
+      MapSNOMEDToICD10OutputSchema.safeParse({
+        sctid: '73211009',
+        preferred_term: null,
+        status: 'upstream-unavailable',
+        guidance: 'SNOMED upstream did not respond.',
+        authoritative_sources: sources,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('invalid status enum value fails parse', () => {
+    expect(
+      MapSNOMEDToICD10OutputSchema.safeParse({
+        sctid: '73211009',
+        preferred_term: null,
+        status: 'mapped',
+        guidance: 'should fail',
+        authoritative_sources: sources,
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('map_loinc_to_snomed output schema (guidance envelope)', () => {
+  const sources = [
+    {
+      name: 'NLM UMLS Metathesaurus',
+      description: 'UTS license required',
+      url: 'https://uts.nlm.nih.gov/uts/',
+    },
+  ];
+
+  it('typical with full loinc_details', () => {
+    expect(
+      MapLOINCToSNOMEDOutputSchema.safeParse({
+        loinc_code: '2339-0',
+        loinc_details: {
+          code: '2339-0',
+          long_common_name: 'Glucose [Mass/volume] in Blood',
+          component: 'Glucose',
+          system: 'Bld',
+          property: 'MCnc',
+        },
+        status: 'guidance-only',
+        guidance: 'Direct mapping requires licensed sources.',
+        mapping_sources: sources,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('loinc_details null when code not found upstream', () => {
+    expect(
+      MapLOINCToSNOMEDOutputSchema.safeParse({
+        loinc_code: '99999-9',
+        loinc_details: null,
+        status: 'guidance-only',
+        guidance: 'Direct mapping requires licensed sources.',
+        mapping_sources: sources,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('missing required mapping_sources fails parse', () => {
+    expect(
+      MapLOINCToSNOMEDOutputSchema.safeParse({
+        loinc_code: '2339-0',
+        loinc_details: null,
+        status: 'guidance-only',
+        guidance: 'should fail',
+      }).success,
+    ).toBe(false);
   });
 });
 
