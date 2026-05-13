@@ -39,17 +39,17 @@ to understand why specific code patterns exist. Outreach copy
 | 8 | Audit-driven hardening (2026-05-07 → 2026-05-09) | ✅ Complete | - |
 | 9 | ATC + CID-10 expansion (2026-05-09) | ✅ Complete | +7 tools |
 | 10 | Contract + integration testing (2026-05-09) | ✅ Complete | - |
-| 11 | Distribution & Discovery | 🔄 In progress | +3 prompts, +3 resources (1.3.0) |
+| 11 | Distribution & Discovery | 🔄 11 of 12 sub-tasks shipped | +3 prompts (1.3.0), +4 resources (1.3.0 + 1.5.0), stats counter DO (1.5.0) |
 | 12 | Content & Outreach | 📋 Planned | - |
 | 13 | Coverage Expansion | 📋 Planned | +9–11 tools |
 | 14 | Quality & Maintenance | 📋 Ongoing | - |
 
 **Tools today:** 31 default / 37 with SNOMED enabled
 **Prompts today:** 3 (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — added 1.3.0
-**Resources today:** 3 (`info://server`, `info://cid10/chapters`, `info://licenses`) — added 1.3.0
+**Resources today:** 4 — `info://server`, `info://cid10/chapters`, `info://licenses` (added 1.3.0); `info://stats` (added 1.5.0, DO-backed counter on the hosted endpoint)
 **Per-tool `language` parameter** on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` — propagates as `Accept-Language` upstream (added 11.4)
 **Tools projected after Phase 13:** ~38–40 default / ~44–46 with SNOMED
-**Tests today:** 313 across 20 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
+**Tests today:** 339 across 22 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
 
 ---
 

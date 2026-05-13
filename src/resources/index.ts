@@ -163,11 +163,22 @@ system. Codes returned are *suggested matches* — the LLM should
 validate them against clinical context, not present them as
 authoritative diagnoses.
 
-The \`map_icd10_to_icd11\` tool today is a text-search heuristic, not
-an authoritative WHO transition table mapping. The
-\`map_loinc_to_snomed\` and \`map_snomed_to_icd10\` tools return
-guidance only — they do not perform authoritative concept mappings.
-Real authoritative mappings are planned but not yet implemented.
+## Crosswalk tool status
+
+- \`map_icd10_to_icd11\` returns **authoritative WHO transition-table
+  mappings** (release 2025-01, 11,243 categories with documented
+  alternatives) — shipped in v1.4.0. Both primary and alternative
+  ICD-11 candidates are exposed in \`structuredContent\`.
+- \`map_loinc_to_snomed\` and \`map_snomed_to_icd10\` remain
+  **guidance-only**: they describe where to obtain authoritative
+  mappings (UMLS Metathesaurus, LOINC SNOMED CT Expression
+  Association, SNOMED Complex Map refset 447562003) but require
+  licensed sources or a self-hosted Snowstorm to actually perform
+  the mapping. Both return structured payloads
+  (\`status: 'guidance-only'\`, \`authoritative_sources\` /
+  \`mapping_sources\` arrays) so LLM clients can present the options
+  cleanly. Real refset-backed SNOMED → ICD-10 mapping is tracked as
+  PROGRESS.md Phase 13.7.
 `;
 
 const licensesHandler: ResourceHandler = async (uri): Promise<ReadResourceResult> => {

@@ -115,7 +115,7 @@ Three layers, all under `src/`:
 - **Contract tests** (`src/clients/*.contract.test.ts`) — use `nock` (^14, devDep) to intercept axios calls, replaying captured live fixtures from `src/__fixtures__/<api>/`. Pin parser behavior against the actual upstream response shapes. WHO and SNOMED tests use inline mocks because their public hosts don't ship test creds. When adding a new HTTP client method, capture a live fixture and write a contract test pinning the parser.
 - **Integration tests** (`src/integration/*.integration.test.ts`) — hit live APIs. Gated by `INTEGRATION_TESTS=1`; otherwise the `describe` blocks become `describe.skip`. WHO + SNOMED sub-suites skip cleanly when their creds/flags are absent. CI runs them daily on cron — production regressions surface close to when they happen.
 
-Total: 313 unit + contract tests, 11 integration tests (skipped by default).
+Total: 339 unit + contract tests, 11 integration tests (skipped by default).
 
 When adding a tool with an `outputSchema`, add a fixture to `src/types/schemas.test.ts` exercising the typical-result shape *and* one edge case (empty list, all-nullable-fields populated/missing, etc.). Pattern: `<Schema>OutputSchema.safeParse({...}).success` should be `true` for well-formed shapes and `false` when a required field is missing. CONTRIBUTING.md codifies this as a PR-gate expectation.
 
