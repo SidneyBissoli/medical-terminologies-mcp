@@ -44,12 +44,12 @@ to understand why specific code patterns exist. Outreach copy
 | 13 | Coverage Expansion | 📋 Planned | +9–11 tools |
 | 14 | Quality & Maintenance | 📋 Ongoing | - |
 
-**Tools today:** 31 default / 37 with SNOMED enabled
-**Prompts today:** 3 (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — added 1.3.0
-**Resources today:** 4 — `info://server`, `info://cid10/chapters`, `info://licenses` (added 1.3.0); `info://stats` (added 1.5.0, DO-backed counter on the hosted endpoint)
-**Per-tool `language` parameter** on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` — propagates as `Accept-Language` upstream (added 11.4)
-**Tools projected after Phase 13:** ~38–40 default / ~44–46 with SNOMED
-**Tests today:** 339 across 22 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)
+**Tools today:** 31 default / 37 with SNOMED enabled<br>
+**Prompts today:** 3 (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — added 1.3.0<br>
+**Resources today:** 4 — `info://server`, `info://cid10/chapters`, `info://licenses` (added 1.3.0); `info://stats` (added 1.5.0, DO-backed counter on the hosted endpoint)<br>
+**Per-tool `language` parameter** on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` — propagates as `Accept-Language` upstream (added 11.4)<br>
+**Tools projected after Phase 13:** ~38–40 default / ~44–46 with SNOMED<br>
+**Tests today:** 339 across 22 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)<br>
 
 ---
 
