@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-05-12
+
+Closes the 5th and final axis of the Smithery quality-score rubric
+by giving every default tool a real `outputSchema` + `structuredContent`
+return path. No new or removed tools (still 31 default / 37 with
+SNOMED); the change is purely additive — clients reading only the
+existing `content` text continue working.
+
 ### Changed
 
 - **All 37 default tools now expose `outputSchema` and return
@@ -21,8 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   guidance-only tools (`map_snomed_to_icd10`, `map_loinc_to_snomed`)
   return a structured envelope (`status`, `guidance`, authoritative
   sources list) alongside the existing markdown narrative. Closes
-  PROGRESS.md Phase 14.6 and the 5th axis of the Smithery
-  quality-score rubric.
+  PROGRESS.md Phase 14.6.
+
+### Internal
+
+- 11 new fixtures in `src/types/schemas.test.ts` covering the three
+  new output schemas (typical paths + edge cases + one negative
+  case each). Total tests: 313 → 324.
 
 ## [1.4.1] - 2026-05-12
 
