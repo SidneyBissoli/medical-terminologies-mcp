@@ -179,7 +179,7 @@ jobs:
           \`\`\`
 
           ### What's included
-          - 28 default tools (34 with SNOMED enabled) for medical terminology lookup
+          - 31 default tools (37 with SNOMED enabled) for medical terminology lookup
           - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC, CID-10 support
           - Cross-terminology mapping and search
 

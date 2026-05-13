@@ -62,7 +62,7 @@ Or install via Smithery, which proxies the same endpoint through their gateway:
 npx -y smithery mcp add sidneybissoli/medical-terminologies
 ```
 
-The hosted instance has WHO credentials configured, so all 28 tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
+The hosted instance has WHO credentials configured, so all 31 default tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
 
 ## Installation
 
@@ -144,7 +144,7 @@ Quick smoke test from another terminal:
 
 ```bash
 curl -sS http://localhost:3000/health
-# {"status":"ok","name":"medical-terminologies-mcp","version":"1.2.0","tool_count":28}
+# {"status":"ok","name":"medical-terminologies-mcp","version":"1.5.0","tool_count":31}
 
 # Inspector via HTTP
 npx @modelcontextprotocol/inspector --transport streamable-http --server-url http://localhost:3000/mcp
@@ -192,7 +192,7 @@ docker run --rm -p 3000:3000 \
 
 Multi-stage build (~150 MB), runs `node dist/index.js --http`, binds `0.0.0.0:$PORT`. Same MCP endpoints as the Workers deployment.
 
-## Available Tools (28 by default, 34 with SNOMED enabled)
+## Available Tools (31 by default, 37 with SNOMED enabled)
 
 ### ICD-11 Tools (5)
 
@@ -244,13 +244,14 @@ These are only registered when `ENABLE_SNOMED_TOOLS=true`. See [SNOMED CT setup 
 | `snomed_descriptions` | Get all descriptions | `sctid: "22298006"` |
 | `snomed_ecl` | Execute ECL queries | `ecl: "<< 73211009"` |
 
-### Crosswalk Tools (4 — `map_snomed_to_icd10` requires SNOMED)
+### Crosswalk Tools (5 — `map_snomed_to_icd10` requires SNOMED)
 
 | Tool | Description | Example |
 |------|-------------|---------|
-| `map_icd10_to_icd11` | Text search ICD-11 using an ICD-10 code (not authoritative; see [WHO transition tables](https://icd.who.int/browse11/Downloads/Download)) | `icd10_code: "E11"` |
+| `map_icd10_to_icd11` | Authoritative ICD-10 → ICD-11 mapping via bundled WHO transition tables; returns primary code + chapter + URIs and any WHO-documented alternatives | `icd10_code: "E11"` |
 | `map_snomed_to_icd10` | SNOMED CT → ICD-10 guidance (only when `ENABLE_SNOMED_TOOLS=true`) | `sctid: "73211009"` |
 | `map_loinc_to_snomed` | LOINC ↔ SNOMED guidance | `loinc_code: "2339-0"` |
+| `validate_codes` | Batch-validate up to 100 codes across ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 (and SNOMED when enabled); returns per-code valid/invalid + display name | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
 | `find_equivalent` | Cross-terminology search; SNOMED branch is skipped when SNOMED tools are disabled | `term: "diabetes"` |
 
 ### ATC Tools (3)
@@ -273,6 +274,15 @@ Brazilian Portuguese translation of ICD-10 (DataSUS V2008). Bundled as a static 
 | `cid10_lookup` | Code → official Portuguese name | `code: "I21"` or `"A00.1"` |
 | `cid10_chapters` | List the 22 CID-10 chapters | - |
 | `cid10_chapter` | Chapter detail with constituent groups | `num: 9` |
+
+### Versioning Tools (2)
+
+Surface what version of each terminology this server queries against today — useful when running batch validation against a pinned release or when investigating an unexpected lookup miss after an upstream update.
+
+| Tool | Description | Example |
+|------|-------------|---------|
+| `terminology_versions` | List all 8 supported terminologies with current version, release date, publisher, source URL, and update cadence | - |
+| `terminology_diff` | Report what diff data is available between two versions of a terminology (real cross-revision stats for ICD-10 → ICD-11; guidance otherwise) | `terminology: "icd10-icd11"` |
 
 ## Example Outputs
 
@@ -353,7 +363,7 @@ The scope note comes from the descriptor's *preferred concept*, not its annotati
 
 ## SNOMED CT setup (advanced)
 
-The 5 SNOMED tools (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) plus the SNOMED-dependent crosswalk tool (`map_snomed_to_icd10`) are **disabled by default**. With them disabled, the server registers 21 tools instead of 27; `find_equivalent` still works and skips the SNOMED branch with an explanatory note.
+The 5 SNOMED tools (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) plus the SNOMED-dependent crosswalk tool (`map_snomed_to_icd10`) are **disabled by default**. With them disabled, the server registers 31 tools instead of 37; `find_equivalent` still works and skips the SNOMED branch with an explanatory note.
 
 The reason: as of 2026-05-08, the public IHTSDO Snowstorm endpoint that this project historically called (`https://browser.ihtsdotools.org/snowstorm/snomed-ct/...`) returns HTTP 410 Gone for every path. Without a working backend, registering these tools surfaces 6 guaranteed-broken tools to every client.
 
