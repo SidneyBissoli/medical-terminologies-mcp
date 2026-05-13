@@ -22,12 +22,12 @@
     "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
     "source": "github"
   },
-  "version": "1.4.2",
+  "version": "1.5.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "1.4.2",
+      "version": "1.5.0",
       "transport": {
         "type": "stdio"
       },
@@ -79,7 +79,7 @@
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "1.4.2",
+      "version": "1.5.0",
       "transport": {
         "type": "streamable-http",
         "url": "http://localhost:3000/mcp"

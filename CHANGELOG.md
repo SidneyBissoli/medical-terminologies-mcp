@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-05-13
+
+Adds a public per-tool invocation counter to the hosted Cloudflare
+Workers endpoint, surfaced via an HTTP route, an MCP Resource, and
+a README badge. Minor bump because the new `info://stats` resource
+expands the MCP surface; the change is otherwise additive and
+backward-compatible (no breaking changes).
+
+### Added
+
+- **StatsCounter Durable Object** (`src/durable-objects/stats-counter.ts`)
+  — single named instance ("global"), persistent counter aggregating
+  per-tool invocation counts across all isolates. Survives cold
+  starts that an in-memory counter wouldn't. Bound as `STATS` in
+  `wrangler.toml` with a v1 migration declaring it as a new
+  sqlite-backed class.
+- **Cross-runtime stats recorder abstraction** (`src/utils/stats.ts`)
+  — abstract `StatsRecorder` interface; default is a Noop used on
+  stdio (local installs have no shared counter, by design); Worker
+  entry swaps in a DurableObject-backed recorder on first request.
+  The dispatcher in `src/server-core.ts` calls `recordInvocation(name)`
+  after every successful tool dispatch — fire-and-forget,
+  latency-neutral via `ctx.waitUntil` bridged through
+  `globalThis.__MCP_WAIT_UNTIL`.
+- **`GET /stats`** — full JSON payload (total_invocations, by_tool,
+  top_tool, since, as_of, scope). Cached 60s.
+- **`GET /stats/badge`** — shields.io endpoint format for the README
+  badge. Color tiers: grey (zero) / yellow (<100) / blue (<1000) /
+  green (≥1000). Cached 5min.
+- **`info://stats` MCP Resource** — same JSON exposed via the MCP
+  protocol so Smithery / MCP Inspector / LobeHub can render it in
+  listing cards without leaving the marketplace. Returns a "stats
+  unavailable on this transport" placeholder on stdio. Resource
+  count grows from 3 to 4.
+- **README badge** — `tool calls` counter linked to `/stats`. Closes
+  PROGRESS.md Phase 11.12.
+
+### Internal
+
+- 15 new tests (7 DO unit tests with Map-backed mock storage;
+  5 for the recorder abstraction including the waitUntil bridge;
+  3 for the info://stats resource). Total: 324 → 339.
+
 ## [1.4.2] - 2026-05-12
 
 Closes the 5th and final axis of the Smithery quality-score rubric
