@@ -118,11 +118,12 @@ Then web checks:
 
 All drafts assume:
 - Tool count: **31 default / 37 with SNOMED**
-- Version: **v1.4.0**
-- Tests: **313 unit + contract + 11 integration**
+- Version: **v1.5.0**
+- Tests: **339 unit + contract + 11 integration**
 - Hosted endpoint: `https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp`
 - Listings live: Glama ✅, Smithery ✅, mcpservers.org ✅ (LobeHub
-  pending scanner re-run after v1.4.0)
+  submission filed 2026-05-13 as lobehub/lobehub#14768; no
+  auto-discovery, awaiting maintainer label application + batch indexing)
 - punkpeye PR #6208 still pending merge
 
 ## Skip / defer (don't spend time on these)

@@ -129,9 +129,11 @@ because behavior often varies sharply between APIs.
 Releases are driven by `gh release create v<X.Y.Z>` against `main`.
 That fires `.github/workflows/publish.yml`, which runs
 `npm publish --provenance` and then `mcp-publisher publish` to
-register the new version with the MCP Registry (which Smithery,
-mcpservers.org, and LobeHub auto-discover from — re-scans usually
-propagate within minutes to hours of a successful publish).
+register the new version with the MCP Registry (which Smithery and
+mcpservers.org auto-discover from — re-scans usually propagate within
+minutes to hours of a successful publish). LobeHub does **not** auto-discover
+from the MCP Registry; it requires a manual submission via GitHub issue at
+`lobehub/lobehub` (see PROGRESS.md Phase 11.10 for the verified pattern).
 
 Before tagging:
 

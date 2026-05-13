@@ -441,7 +441,7 @@ tools, not a new tool.
 - [x] Cloudflare Workers production deployment live (Stage 1: fetch handler, per-isolate cache + rate-limiter). End-to-end validated 2026-05-10 against the public URL — `/health`, `tools/list` returning 28 tools, and ICD-11 `icd11_search` returning results from WHO API after secrets were set.
 - [ ] Stage 2: Workers KV cache + Durable Object rate limiter — trigger-gated
 - [x] Smithery.ai listing live via URL submission, pointing at the Workers endpoint
-- [ ] LobeHub plugin manifest accepted
+- [ ] LobeHub plugin manifest accepted (submitted as [lobehub/lobehub#14768](https://github.com/lobehub/lobehub/issues/14768) on 2026-05-13; awaiting maintainer label application + batch indexing)
 - [x] CHANGELOG entry for 1.2.0 (HTTP transport ship)
 - [x] Contract test for HTTP transport boot (`src/server.http.test.ts` — 4 tests)
 - [x] Contract test for per-tool language acceptance — shipped 2026-05-11 (6 new tests in `src/clients/snomed-client.contract.test.ts` and `src/clients/mesh-client.contract.test.ts` pinning per-call override + cache-key-includes-language)
@@ -483,6 +483,25 @@ tools, not a new tool.
   in v1.3.0 (released 2026-05-11). Effort actual: ~3h vs ~30min
   estimated — scope grew, not effort overrun.
 
+- **11.10 correction recorded 2026-05-13:** the 2026-05-11 entry above
+  asserted that LobeHub "auto-discovers from the MCP Registry." That
+  was wrong — verified by curl: `/mcp/sidneybissoli-medical-terminologies-mcp`
+  returns HTTP 200 but renders an empty catch-all page (no indexed entry),
+  and `/badge/mcp/sidneybissoli-medical-terminologies-mcp` returns
+  HTTP 500. Submission to LobeHub is manual: open an issue at
+  `lobehub/lobehub` with title `[Request] Add <Name> MCP Server to the
+  MCP marketplace`. Maintainers apply `feature:mcp`, `feature:marketplace`,
+  `priority:low` labels in batches (verified across 5 precedent issues
+  #14133, #14396, #14467, #14522, #14721 — all open weeks later with
+  labels applied). The 1.3.0 Prompts + Resources work still earns its
+  keep (the validator-tier rationale is independent of the indexing
+  question, and the surface is correct for general MCP-client
+  consumption regardless). Submission filed 2026-05-13 as
+  [lobehub/lobehub#14768](https://github.com/lobehub/lobehub/issues/14768).
+  Indexing ETA: unknown; precedent issues range from days to >2 weeks
+  with no closure signal — label application is the proxy for "queued
+  for indexing."
+
 - **Stage 1 / Stage 2 split for 11.9 recorded 2026-05-10:** PR #9 shipped
   the worker as a fetch handler with per-isolate state (Map-based cache,
   in-memory token bucket). Correct for the current traffic profile and
@@ -522,8 +541,12 @@ tools, not a new tool.
 - **Directory listings: 3 of 4 — Phase 12 success criterion MET**
   (Smithery + Glama + mcpservers.org all live; punkpeye PR #6208 open,
   would push count to 4/4 on merge; wong2 is PR-restricted and N/A)
-- LobeHub validator: code shipped in 1.3.0; awaiting scanner re-run to
-  flip badge from "unvalidated" to "validated"
+- LobeHub: indexing prerequisite blocks the validator-tier question
+  entirely. Submission filed 2026-05-13 as lobehub/lobehub#14768
+  (manual issue path; there is no auto-discovery from the MCP Registry,
+  contrary to the 2026-05-11 assumption — see 11.10 correction above).
+  Once labels are applied and the server is indexed, the v1.3.0 Prompts +
+  Resources surfaces should satisfy the validator rubric on first scan.
 - Smithery quality grade: was 63/orange/unlisted pre-1.4.1; flipped to
   listed after 4-of-5 axes closed; final axis (outputSchema) tracked
   as Phase 14.6
