@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-06-09
+
+Documentation and discovery-metadata patch. No runtime or API changes —
+`dist/` is functionally identical to 1.5.0. Released to refresh the npm
+package page and re-publish the MCP Registry manifest.
+
+### Changed
+
+- **README** — added a CodeGuilds discovery badge alongside the existing
+  LobeHub and Glama badges. `npx`/npm remains the canonical install path.
+- **CLAUDE.md** — documented all five tools registered in
+  `src/tools/crosswalk.ts` (the `map_*` handlers plus `validate_codes`
+  and `find_equivalent`), and clarified that `map_snomed_to_icd10` is the
+  6th SNOMED-gated tool.
+
 ## [1.5.0] - 2026-05-13
 
 Adds a public per-tool invocation counter to the hosted Cloudflare

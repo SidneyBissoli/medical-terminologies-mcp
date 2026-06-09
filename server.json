@@ -8,13 +8,17 @@
     {
       "src": "https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-dark.png",
       "mimeType": "image/png",
-      "sizes": ["512x512"],
+      "sizes": [
+        "512x512"
+      ],
       "theme": "dark"
     },
     {
       "src": "https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-light.png",
       "mimeType": "image/png",
-      "sizes": ["512x512"],
+      "sizes": [
+        "512x512"
+      ],
       "theme": "light"
     }
   ],
@@ -22,12 +26,12 @@
     "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
     "source": "github"
   },
-  "version": "1.5.0",
+  "version": "1.5.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "1.5.0",
+      "version": "1.5.1",
       "transport": {
         "type": "stdio"
       },
