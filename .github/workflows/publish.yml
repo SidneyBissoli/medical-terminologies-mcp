@@ -157,9 +157,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get version from package.json
+      # Prefer the workflow_dispatch version input over package.json.
+      # The publish job bumps package.json with `npm version` only on its
+      # own runner (never committed back to main), so a fresh checkout
+      # here still reports the pre-release version. Reading package.json
+      # would make `gh release create` build the previous tag (e.g. trying
+      # to recreate v1.5.0 while npm already has 1.5.1) and fail with
+      # "tag_name already exists". Mirror publish-registry's resolution.
+      - name: Resolve version
         id: get_version
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          fi
 
       # actions/create-release@v1 is archived by GitHub. Use the gh CLI
       # (preinstalled on ubuntu-latest runners) instead.
