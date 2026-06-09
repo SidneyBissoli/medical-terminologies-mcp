@@ -12,8 +12,13 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
-import { SERVER_INFO, toolRegistry } from './server-core.js';
+import {
+  createServer as createHttpServer,
+  type Server as HttpServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
+import { createServer, SERVER_INFO, toolRegistry } from './server-core.js';
 import { logger } from './utils/logger.js';
 
 // Re-exports so existing callers (src/index.ts, tools, tests) keep their
@@ -44,24 +49,39 @@ export async function startServer(server: Server): Promise<void> {
  * story simple (no session-cookie tracking, no Mcp-Session-Id headers to
  * thread through curl).
  *
- * @param mcpServer - Server instance to start
+ * Each /mcp request gets a freshly constructed Server + transport. In
+ * stateless mode the SDK forbids reusing a transport across requests
+ * (`handleRequest` throws "Stateless transport cannot be reused across
+ * requests" on the second call) because a shared transport would collide
+ * message IDs between concurrent clients. `createServer()` only wires up
+ * in-memory handlers against the module-level registries, so the per-request
+ * cost is a few object allocations.
+ *
  * @param port - TCP port to listen on (use 0 for an ephemeral port in tests)
  * @param host - Bind address. Defaults to 127.0.0.1 (loopback) so a dev
  *               machine doesn't accidentally expose the server. Pass
  *               '0.0.0.0' for container/hosted deployments.
- * @returns The underlying http.Server (for shutdown) and the transport
- *          (mostly for tests that need to introspect it).
+ * @returns The underlying http.Server (for shutdown).
  */
-export async function startHttpServer(
-  mcpServer: Server,
-  port: number,
-  host: string = '127.0.0.1',
-): Promise<{ httpServer: HttpServer; transport: StreamableHTTPServerTransport }> {
+async function handleMcpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const server = createServer();
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });
-  await mcpServer.connect(transport);
+  // Tear down the per-request server + transport once the response is done,
+  // so we don't leak handlers/listeners across requests.
+  res.on('close', () => {
+    void transport.close();
+    void server.close();
+  });
+  await server.connect(transport);
+  await transport.handleRequest(req, res);
+}
 
+export async function startHttpServer(
+  port: number,
+  host: string = '127.0.0.1',
+): Promise<{ httpServer: HttpServer }> {
   const httpServer = createHttpServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
@@ -96,7 +116,7 @@ export async function startHttpServer(
     }
 
     if (req.url === '/mcp' || req.url === '/') {
-      transport.handleRequest(req, res).catch((err: unknown) => {
+      handleMcpRequest(req, res).catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         logger.error({ err: msg, method: req.method, url: req.url }, 'HTTP transport error');
         if (!res.headersSent) {
@@ -130,5 +150,5 @@ export async function startHttpServer(
     'Server started over Streamable HTTP',
   );
 
-  return { httpServer, transport };
+  return { httpServer };
 }

@@ -16,7 +16,6 @@
  * and a Durable Object rate limiter.
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 // IMPORTANT: import from server-core.js, NOT server.js — the latter pulls
 // in node:http and @hono/node-server which don't exist in Workers.
@@ -57,8 +56,6 @@ import './resources/stats.js';
 // is what an operator actually wants from /health.
 let isolateStartMs: number | null = null;
 
-let mcpServer: Server | null = null;
-let transport: WebStandardStreamableHTTPServerTransport | null = null;
 
 /**
  * Worker environment bindings — secrets set via `wrangler secret put` and
@@ -128,14 +125,18 @@ function bridgeEnv(env: WorkerEnv): void {
 }
 
 /**
- * Lazy init the MCP server + transport once per isolate. Top-level await
- * in Workers is technically allowed but adds startup latency on cold
- * isolates; doing it on first request keeps the cold path predictable.
+ * Build a fresh MCP server + transport for a single request. In stateless
+ * mode (no sessionIdGenerator) the SDK forbids reusing a transport across
+ * requests — `handleRequest` throws "Stateless transport cannot be reused
+ * across requests" on the second call — because a shared transport would
+ * collide message IDs between concurrent clients. So we create both per
+ * request. `createServer()` only wires up in-memory handlers against the
+ * module-level registries (no network, no I/O), so the per-request cost is
+ * a few object allocations, not a cold start.
  */
-async function ensureInit(): Promise<WebStandardStreamableHTTPServerTransport> {
-  if (transport) return transport;
-  mcpServer = createServer();
-  transport = new WebStandardStreamableHTTPServerTransport({
+async function createRequestTransport(): Promise<WebStandardStreamableHTTPServerTransport> {
+  const mcpServer = createServer();
+  const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined, // stateless mode
   });
   await mcpServer.connect(transport);
@@ -333,7 +334,7 @@ export default {
 
     if (url.pathname === '/mcp' || url.pathname === '/') {
       try {
-        const t = await ensureInit();
+        const t = await createRequestTransport();
         const response = await t.handleRequest(request);
         // Layer CORS on top of whatever the transport produced.
         for (const [key, value] of Object.entries(corsHeaders())) {
