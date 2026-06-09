@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { createServer, startHttpServer, toolRegistry } from './server.js';
+import { startHttpServer, toolRegistry } from './server.js';
 import type { Server as HttpServer } from 'node:http';
 
 // One tool module is enough to verify the transport routes JSON-RPC
@@ -19,8 +19,7 @@ describe('Streamable HTTP transport', () => {
   let baseUrl: string;
 
   beforeAll(async () => {
-    const mcp = createServer();
-    const result = await startHttpServer(mcp, 0, '127.0.0.1');
+    const result = await startHttpServer(0, '127.0.0.1');
     httpServer = result.httpServer;
     const addr = httpServer.address();
     if (typeof addr !== 'object' || !addr) throw new Error('http server has no port');

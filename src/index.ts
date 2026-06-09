@@ -102,15 +102,15 @@ async function main(): Promise<void> {
     const opts = parseArgs(process.argv);
     logger.info({ server: SERVER_INFO.name, transport: opts.http ? 'http' : 'stdio' }, 'Initializing server...');
 
-    const server = createServer();
-
     if (opts.http) {
-      const { httpServer } = await startHttpServer(server, opts.port, opts.host);
-      installShutdown(async () => {
-        await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-        await server.close();
-      });
+      // HTTP runs in stateless mode and builds a fresh Server per request,
+      // so there's no long-lived Server instance to create or close here.
+      const { httpServer } = await startHttpServer(opts.port, opts.host);
+      installShutdown(
+        () => new Promise<void>((resolve) => httpServer.close(() => resolve())),
+      );
     } else {
+      const server = createServer();
       await startServer(server);
       installShutdown(() => server.close());
     }
