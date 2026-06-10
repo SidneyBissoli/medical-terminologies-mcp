@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (private vulnerability reporting via GitHub Security Advisories) —
   completes the GitHub community-standards checklist that registry
   scanners (Snyk, Socket.dev, OpenSSF) score repositories against.
+- **.github/FUNDING.yml** pointing at the maintainer's GitHub Sponsors
+  profile — enables the repo Sponsor button and the "Funding" signal
+  those same scanners check.
 
 ## [1.5.2] - 2026-06-10
 
