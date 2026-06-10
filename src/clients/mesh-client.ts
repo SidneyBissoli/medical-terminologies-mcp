@@ -8,7 +8,7 @@
  * @license MIT
  */
 
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import { HttpClient, HttpError } from '../utils/http.js';
 import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
@@ -32,10 +32,10 @@ const MESH_CONFIG = {
  * - Response caching
  */
 export class MeSHClient {
-  private httpClient: AxiosInstance;
+  private httpClient: HttpClient;
 
   constructor() {
-    this.httpClient = axios.create({
+    this.httpClient = new HttpClient({
       baseURL: MESH_CONFIG.baseUrl,
       timeout: 30000,
       headers: {
@@ -71,8 +71,8 @@ export class MeSHClient {
           });
           return response.data;
         } catch (error) {
-          if (error instanceof AxiosError) {
-            const status = error.response?.status;
+          if (error instanceof HttpError) {
+            const status = error.status;
             const message = extractErrorMessage(error);
 
             if (status === 404) {
@@ -86,7 +86,7 @@ export class MeSHClient {
               `MeSH API error: ${message}`,
               'API_ERROR',
               status,
-              error.response?.data
+              error.data
             );
           }
           throw error;
@@ -505,7 +505,7 @@ function toUriArray(v: unknown): string[] {
 
 /**
  * Converts an absolute MeSH URI to the relative path the client uses
- * (paths are relative to the axios baseURL `https://id.nlm.nih.gov/mesh`).
+ * (paths are relative to the client baseURL `https://id.nlm.nih.gov/mesh`).
  * Appends `.json` if not already present, since the unsuffixed URLs
  * 302-redirect to N-triples.
  */

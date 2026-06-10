@@ -1,12 +1,12 @@
-import type { AxiosError } from 'axios';
+import type { HttpError } from './http.js';
 
 const MAX_STRING_BODY_PREVIEW = 500;
 
 /**
- * Extracts a human-readable message from an AxiosError, handling shapes
- * that show up in production but that the previous one-liner
- * (`error.response?.data?.message || error.message`) collapsed to
- * "undefined" or to the generic axios message:
+ * Extracts a human-readable message from an HttpError, handling body
+ * shapes that show up in production but that a naive one-liner
+ * (`error.data?.message || error.message`) collapses to "undefined" or
+ * to the generic transport message:
  *
  *   - JSON `{ message }`             — most REST APIs (NLM, RxNorm)
  *   - JSON `{ error: { message } }`  — some terminology services
@@ -16,11 +16,11 @@ const MAX_STRING_BODY_PREVIEW = 500;
  *   - Plain string body              — Cloudflare challenges, nginx 502
  *     pages, maintenance HTML. Truncated at 500 chars so an HTML body
  *     doesn't dominate the log line.
- *   - Fallback                       — error.message ("Network Error",
- *     "timeout of 30000ms exceeded", etc.)
+ *   - Fallback                       — error.message ("timeout of
+ *     30000ms exceeded", "Request failed with status code 500", etc.)
  */
-export function extractErrorMessage(error: AxiosError): string {
-  const data = error.response?.data;
+export function extractErrorMessage(error: HttpError): string {
+  const data = error.data;
 
   if (data && typeof data === 'object') {
     const obj = data as Record<string, unknown>;

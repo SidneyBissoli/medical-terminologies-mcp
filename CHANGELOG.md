@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Migrated all HTTP clients from axios to native `fetch`** — a new
+  ~150-line `HttpClient` wrapper (`src/utils/http.ts`) over the `fetch`
+  built into Node >= 20 and Cloudflare Workers replaces axios across the
+  WHO, NLM/LOINC, RxNorm, SNOMED and MeSH clients. Removes axios and its
+  ~15-package transitive tree from `dependencies` (including
+  `follow-redirects` and `form-data`, both with recurring CVE history)
+  — the only remaining runtime deps are the MCP SDK, pino, zod and
+  zod-to-json-schema. Behavior is unchanged: same retry/backoff
+  semantics (network failures and timeouts remain retryable), same
+  error-body extraction shapes, same per-request `Accept-Language`
+  handling. Contract tests keep using nock, which intercepts native
+  fetch since v14.
+
 - **npm bundle no longer inlines dependencies** — the Node build now uses
   esbuild's `--packages=external`, so `dist/index.js` contains only
   project code plus the bundled CID-10 / ICD-10→ICD-11 datasets

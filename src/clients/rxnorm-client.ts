@@ -9,7 +9,7 @@
  * @license MIT
  */
 
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import { HttpClient, HttpError } from '../utils/http.js';
 import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
@@ -33,10 +33,10 @@ const RXNORM_CONFIG = {
  * - Response caching
  */
 export class RxNormClient {
-  private httpClient: AxiosInstance;
+  private httpClient: HttpClient;
 
   constructor() {
-    this.httpClient = axios.create({
+    this.httpClient = new HttpClient({
       baseURL: RXNORM_CONFIG.baseUrl,
       timeout: 30000,
       headers: {
@@ -66,8 +66,8 @@ export class RxNormClient {
           const response = await this.httpClient.get<T>(path, { params });
           return response.data;
         } catch (error) {
-          if (error instanceof AxiosError) {
-            const status = error.response?.status;
+          if (error instanceof HttpError) {
+            const status = error.status;
             const message = extractErrorMessage(error);
 
             if (status === 404) {
@@ -81,7 +81,7 @@ export class RxNormClient {
               `RxNorm API error: ${message}`,
               'API_ERROR',
               status,
-              error.response?.data
+              error.data
             );
           }
           throw error;

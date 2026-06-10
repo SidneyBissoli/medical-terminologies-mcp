@@ -54,7 +54,7 @@ describe('WHOClient — contract tests', () => {
     it('sends form-encoded client_credentials and forwards the bearer token', async () => {
       nock(TOKEN_HOST)
         .post(TOKEN_PATH, (body) => {
-          // The body is x-www-form-urlencoded, axios serializes
+          // The body is x-www-form-urlencoded, the client serializes
           // URLSearchParams to a string. nock receives the parsed form.
           return (
             body.client_id === 'test-client' &&

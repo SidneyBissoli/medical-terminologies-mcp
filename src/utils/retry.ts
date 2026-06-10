@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios';
+import { HttpError } from './http.js';
 import { logger } from './logger.js';
 
 const retryLogger = logger.child({ scope: 'retry' });
@@ -81,32 +81,19 @@ function isRetryableError(error: unknown, retryableStatusCodes: number[]): boole
     }
   }
 
-  // Check Axios errors
-  if (isAxiosError(error)) {
-    // Network error without response
-    if (!error.response) {
+  // Check HTTP errors from the fetch wrapper
+  if (error instanceof HttpError) {
+    // No status means the request never completed (DNS, refused
+    // connection, timeout) — always retryable
+    if (error.status === undefined) {
       return true;
     }
 
     // Check if status code is retryable
-    return retryableStatusCodes.includes(error.response.status);
+    return retryableStatusCodes.includes(error.status);
   }
 
   return false;
-}
-
-/**
- * Type guard for Axios errors
- * @param error - Error to check
- * @returns true if error is an AxiosError
- */
-function isAxiosError(error: unknown): error is AxiosError {
-  return (
-    error !== null &&
-    typeof error === 'object' &&
-    'isAxiosError' in error &&
-    (error as AxiosError).isAxiosError === true
-  );
 }
 
 /**
@@ -120,7 +107,7 @@ function isAxiosError(error: unknown): error is AxiosError {
  * @example
  * ```typescript
  * const result = await withRetry(
- *   () => axios.get('https://api.example.com/data'),
+ *   () => httpClient.get('https://api.example.com/data'),
  *   { maxRetries: 3, initialDelay: 1000 }
  * );
  * ```
@@ -177,7 +164,7 @@ export async function withRetry<T>(
  * @example
  * ```typescript
  * const fetchData = retryable(
- *   async (id: string) => axios.get(`/api/data/${id}`),
+ *   async (id: string) => httpClient.get(`/api/data/${id}`),
  *   { maxRetries: 3 }
  * );
  *
