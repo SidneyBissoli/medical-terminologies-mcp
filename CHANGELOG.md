@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **npm bundle no longer inlines dependencies** — the Node build now uses
+  esbuild's `--packages=external`, so `dist/index.js` contains only
+  project code plus the bundled CID-10 / ICD-10→ICD-11 datasets
+  (8.6 MB → 7.5 MB). axios, pino, zod, zod-to-json-schema and the MCP
+  SDK resolve from `node_modules` at runtime, exactly as the SDK already
+  did. No install-flow change for consumers (the deps were always in
+  `dependencies`); the published artifact is now auditable source-shaped
+  code, and supply chain scanners attribute each dependency's
+  capabilities (network, fs, env access) to that dependency instead of
+  to this package. The obsolete `createRequire` banner shim was removed
+  along with the last bundled CJS code. The Cloudflare Workers build is
+  unchanged — it still inlines everything, as the Workers runtime has no
+  `node_modules`.
+
 ## [1.5.1] - 2026-06-09
 
 Documentation and discovery-metadata patch. No runtime or API changes —
