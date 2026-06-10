@@ -1,82 +1,135 @@
-# Glama Dockerfile reference
+# Glama listing build configuration
 
-This is the Dockerfile pasted into the Glama admin UI for
-`medical-terminologies-mcp` to pass Glama's automated safety and
-quality checks. **It is not used by this repository's build or
-deploy** — Glama stores it on their side; we keep a copy here so the
-content is findable when the package version pin needs bumping.
+Reference for the build configuration of the Glama listing at
+https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp.
+**None of this is used by this repository's build or deploy** — Glama
+stores it on their side; we keep a copy here so the content is
+findable when it needs changing.
 
-Glama re-runs the safety check on each Dockerfile change. The version
-pin (`@1.2.1` below) is the trigger for fresh quality grading after
-each release, so bump it when shipping a new version of the package.
+## History: free-form Dockerfile → structured form
 
-## Current Dockerfile
+Until mid-2026 the Glama admin UI accepted a free-form Dockerfile
+(this file used to hold one: `node:20-alpine`, `npm install -g
+medical-terminologies-mcp@<pin>`, `USER node`). Glama retired that
+field — the admin UI now exposes a structured form whose values
+generate the Dockerfile on their side; the Dockerfile pane itself is
+a read-only preview that only renders once the form validates. Two
+properties of the old setup are no longer expressible and were
+consciously given up:
 
-```dockerfile
-# Dockerfile for Glama's automated safety + quality checks.
-# Installs the published medical-terminologies-mcp npm package and
-# launches the stdio bin entry. Bump the version pin on each release.
+- **Testing the published npm package.** Glama now always builds from
+  a `git clone` of the repository, not from the npm artifact.
+- **Running as non-root.** The generated Dockerfile runs as root;
+  there is no field to change that. Same for every listed server, so
+  it no longer differentiates the safety score.
 
-FROM node:20-alpine
+The upside: no version pin to bump on each release anymore.
 
-# Install the published MCP server. Pinned to the current release so
-# Glama's safety check is reproducible.
-RUN npm install -g medical-terminologies-mcp@1.2.1
+## Current form values (set 2026-06-10)
 
-# Drop privileges — node:20-alpine ships a non-root "node" user. The
-# globally-installed binary at /usr/local/bin/medical-terminologies-mcp
-# remains readable from PATH.
-USER node
+Fields marked *locked* are platform-fixed and not editable.
 
-# Default to stdio transport. The 23 non-ICD-11 tools (LOINC, RxNorm,
-# MeSH, ATC, CID-10) work without any credentials. The 5 ICD-11 tools
-# throw AUTH_CONFIG_ERROR on first call when WHO_CLIENT_ID/SECRET are
-# unset — documented behavior; safe to surface to Glama's quality scan.
-CMD ["medical-terminologies-mcp"]
+| Field | Value | Notes |
+|---|---|---|
+| Base image | `debian:trixie-slim` | Locked. |
+| Node.js version | 24 (nodesource) | Locked. Satisfies `engines` (`>= 20`). |
+| Python version | 3.13 (via uv) | Locked. Unused by this project; baked into their base setup. |
+| Build steps | `["pnpm install", "pnpm run build"]` | Renders as `RUN (pnpm install) && (pnpm run build)`. |
+| CMD arguments | `["pnpm", "run", "start"]` | Server start only — Glama prepends `mcp-proxy --` itself. |
+| Pinned commit SHA | read-only | Glama manages it (shows the HEAD it last indexed). Not maintainer-controlled. |
+| Placeholder parameters | empty | No required startup parameters. |
+
+**Form gotcha:** the JSON-typed fields (build steps, CMD arguments,
+env schema) want a JSON literal typed as text on a **single compact
+line**. Pretty-printed multi-line JSON fails validation with a
+misleading `invalid_type, expected string` / "Invalid JSON" error.
+
+### Environment variables JSON schema
+
+All optional — the server starts with none set (ICD-11 tools throw
+`AUTH_CONFIG_ERROR` at first use without WHO creds; documented
+behavior, safe for Glama's scan to encounter). Stored single-line in
+the form; pretty-printed here for readability:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "WHO_CLIENT_ID": {
+      "type": "string",
+      "description": "WHO ICD-API client ID. Required only for the 5 ICD-11 tools; all other tools work without credentials."
+    },
+    "WHO_CLIENT_SECRET": {
+      "type": "string",
+      "description": "WHO ICD-API client secret (pairs with WHO_CLIENT_ID)."
+    },
+    "ENABLE_SNOMED_TOOLS": {
+      "type": "string",
+      "description": "Set to 'true' to enable the 6 SNOMED tools. Requires SNOMED_BASE_URL."
+    },
+    "SNOMED_BASE_URL": {
+      "type": "string",
+      "description": "Base URL of a self-hosted Snowstorm instance."
+    },
+    "SNOMED_LANGUAGE": {
+      "type": "string",
+      "description": "Default Accept-Language for SNOMED requests."
+    },
+    "WHO_ICD11_RELEASE_ID": {
+      "type": "string",
+      "description": "ICD-11 release ID (default: 2024-01)."
+    },
+    "LOG_LEVEL": {
+      "type": "string",
+      "description": "pino log level (default: info)."
+    }
+  }
+}
 ```
 
-## Design notes
+### Generated Dockerfile (preview captured 2026-06-10)
 
-- **Base image `node:20-alpine`** — ~120 MB, smallest stable Node 20.
-  All this project's deps are pure JS (axios, pino, etc.); no native
-  modules that would clash with musl.
-- **Install via npm, not source checkout** — uses the published
-  package, matching the install path real users follow. Pin avoids
-  non-reproducible scans.
-- **Non-root user (`USER node`)** — Glama scores safety; running as
-  root would dock points. The `node` user is built into the base
-  image and has read access to `/usr/local/bin` and
-  `/usr/local/lib/node_modules`.
-- **No `ENV WHO_CLIENT_ID=""`** — empty string and unset are
-  functionally identical for `getEnv()` (`src/utils/env.ts`), and
-  unset is cleaner. The CLAUDE.md-documented behavior ("server still
-  starts without them; ICD-11 tool calls throw `AUTH_CONFIG_ERROR` at
-  first use") is exactly what Glama's scan will encounter, and is
-  safe.
+```dockerfile
+FROM debian:trixie-slim
+ENV DEBIAN_FRONTEND=noninteractive \
+    GLAMA_VERSION="1.0.0" \
+    PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y --no-install-recommends nodejs && npm install -g mcp-proxy@6.4.3 pnpm@10.14.0 && node --version && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR="/usr/local/bin" sh && uv python install 3.13 --default --preview && ln -s $(uv python find) /usr/local/bin/python && python --version && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+WORKDIR /app
+RUN git clone https://github.com/SidneyBissoli/medical-terminologies-mcp . && git checkout d349c8771ea76cb2e1024527c7ed8d9827a8003b
+RUN (pnpm install) && (pnpm run build)
+CMD ["mcp-proxy","--","pnpm","run","start"]
+```
 
 ## Release procedure
 
-When publishing a new version:
+Nothing Glama-specific anymore. Publishing a release (npm + MCP
+Registry via `publish.yml`) needs no Glama admin step. After merging
+changes that affect startup, env vars, or the build, glance at the
+listing's build status; if the env var surface changed, update the
+JSON schema in the admin form and mirror it here. The commit SHA the
+build checks out is Glama-managed — after a significant push to
+`main`, verify the listing eventually re-indexes (it is not under our
+control).
 
-1. Bump `package.json` version.
-2. `npm publish` (the `prepublishOnly` script builds the bundle).
-3. Sign in to https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp
-   admin UI.
-4. Edit the Dockerfile in the admin UI — update the
-   `medical-terminologies-mcp@X.Y.Z` pin to match the new version.
-5. Save. Glama re-runs the safety/quality checks against the new
-   pinned version. Verify the listing's grade hasn't regressed.
-6. Update the version pin in this file (`docs/glama-dockerfile.md`)
-   to keep the reference current.
+## Operational notes
+
+- **Build failures can be Glama-side.** A failed build whose logs
+  stop at base-image metadata loading with an `AbortError` from their
+  `createShutdownHandler` is their build worker being recycled, not a
+  project error (seen 2026-06-10). Saving the admin form re-triggers
+  the test; they also re-test periodically on their own.
+- The admin "Dockerfile" page's `tests/<id>` sub-pages are read-only
+  build records; the editable form is at `/admin/dockerfile` itself,
+  logged in as the GitHub account listed in `glama.json`.
+- After a passing build test, Glama queues a "Make Release" job to
+  deploy the image for their hosted-server feature. It can sit queued
+  for a while on their infra; it does not affect the listing, score,
+  or the canonical npm/`npx` install path.
 
 ## Why this file exists in the repo
 
-The Dockerfile is owned by Glama; this is a documentation artifact,
-not source. Keeping the reference here means:
-
-- Version bumps don't require digging through chat logs or Glama's
-  admin UI history.
-- Any future maintainer who needs to update the Glama listing can
-  read this and reproduce the exact content.
-- The design rationale is preserved alongside the code it describes
-  (rather than rotting in an external admin UI no one else can read).
+The configuration is owned by Glama; this is a documentation
+artifact, not source. Keeping the reference here means env-schema
+changes don't require digging through chat logs or Glama's admin UI,
+and the design rationale survives next to the code it describes.
