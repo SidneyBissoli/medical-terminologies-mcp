@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-06-10
+
+Supply-chain hardening release. No tool surface or API changes — the
+work is in the dependency tree and the published artifact: axios is
+gone (native `fetch` everywhere), and the npm bundle no longer inlines
+its dependencies. Production dependency tree shrinks from 119 to ~100
+packages.
+
 ### Changed
 
 - **Migrated all HTTP clients from axios to native `fetch`** — a new
