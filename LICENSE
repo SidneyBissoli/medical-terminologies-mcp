@@ -19,26 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-IMPORTANT NOTICE REGARDING MEDICAL TERMINOLOGIES:
-
-This software provides access to medical terminologies that have their own
-licenses and terms of use. Users must comply with the respective licenses:
-
-1. ICD-11 (WHO): CC BY-ND 3.0 IGO
-   https://creativecommons.org/licenses/by-nd/3.0/igo/
-
-2. SNOMED CT: Requires IHTSDO license for production use
-   https://www.snomed.org/snomed-ct/get-snomed
-
-3. LOINC: LOINC License
-   https://loinc.org/license/
-
-4. RxNorm: Public domain (NLM)
-
-5. MeSH: Public domain (NLM)
-
-The MIT license applies only to this software, not to the medical terminology
-content accessed through it.
