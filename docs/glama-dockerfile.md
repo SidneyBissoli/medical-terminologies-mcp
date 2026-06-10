@@ -122,10 +122,14 @@ control).
 - The admin "Dockerfile" page's `tests/<id>` sub-pages are read-only
   build records; the editable form is at `/admin/dockerfile` itself,
   logged in as the GitHub account listed in `glama.json`.
-- After a passing build test, Glama queues a "Make Release" job to
-  deploy the image for their hosted-server feature. It can sit queued
-  for a while on their infra; it does not affect the listing, score,
-  or the canonical npm/`npx` install path.
+- "Make Release" is a maintainer-triggered action in the admin UI
+  (not automatic — the build-success email explicitly asks for it)
+  that publishes the built image for Glama's hosted-server feature.
+  It does not affect the listing, score, or the canonical npm/`npx`
+  install path. The release version shown is Glama's own counter
+  (auto-bumped patch), so it can drift from the npm version — their
+  "1.5.3" shipped while npm was at 1.5.2; it realigns on the next
+  npm release.
 
 ## Why this file exists in the repo
 
