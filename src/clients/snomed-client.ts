@@ -11,7 +11,7 @@
  * @license MIT
  */
 
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import { HttpClient, HttpError } from '../utils/http.js';
 import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
@@ -50,7 +50,7 @@ const SNOMED_CONFIG = {
  * - Response caching
  */
 export class SNOMEDClient {
-  private httpClient: AxiosInstance;
+  private httpClient: HttpClient;
   private branch: string;
 
   /** The default Accept-Language used when a caller doesn't pass an override. */
@@ -65,7 +65,7 @@ export class SNOMEDClient {
     // English on unsupported tags. Per-call language overrides are layered
     // on top of this default via the request() acceptLanguage argument.
     this.defaultAcceptLanguage = getEnv('SNOMED_LANGUAGE') ?? 'en';
-    this.httpClient = axios.create({
+    this.httpClient = new HttpClient({
       baseURL: SNOMED_CONFIG.baseUrl,
       timeout: 60000, // 60 seconds for slow connections
       headers: {
@@ -100,8 +100,8 @@ export class SNOMEDClient {
           });
           return response.data;
         } catch (error) {
-          if (error instanceof AxiosError) {
-            const status = error.response?.status;
+          if (error instanceof HttpError) {
+            const status = error.status;
             const message = extractErrorMessage(error);
 
             if (status === 404) {
@@ -115,7 +115,7 @@ export class SNOMEDClient {
               `SNOMED CT API error: ${message}`,
               'API_ERROR',
               status,
-              error.response?.data
+              error.data
             );
           }
           throw error;

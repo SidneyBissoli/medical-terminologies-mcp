@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import { HttpClient, HttpError } from '../utils/http.js';
 import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
@@ -48,7 +48,7 @@ const TOKEN_CACHE_KEY = 'who_oauth_token';
 export class WHOClient {
   private clientId: string;
   private clientSecret: string;
-  private httpClient: AxiosInstance;
+  private httpClient: HttpClient;
 
   /**
    * Creates a new WHO API client
@@ -65,7 +65,7 @@ export class WHOClient {
       );
     }
 
-    this.httpClient = axios.create({
+    this.httpClient = new HttpClient({
       baseURL: WHO_CONFIG.apiBaseUrl,
       timeout: 30000,
       headers: {
@@ -93,7 +93,7 @@ export class WHOClient {
     // Request new token
     const tokenResponse = await withRetry(
       async () => {
-        const response = await axios.post<OAuthTokenResponse>(
+        const response = await this.httpClient.post<OAuthTokenResponse>(
           WHO_CONFIG.tokenUrl,
           new URLSearchParams({
             client_id: this.clientId,
@@ -174,9 +174,9 @@ export class WHOClient {
           log.debug({ status: response.status, duration }, 'HTTP response OK');
           return response.data;
         } catch (error) {
-          if (error instanceof AxiosError) {
-            const status = error.response?.status;
-            const responseData = error.response?.data;
+          if (error instanceof HttpError) {
+            const status = error.status;
+            const responseData = error.data;
             const message = extractErrorMessage(error);
 
             log.error({ status, data: responseData }, 'HTTP error response');
@@ -198,7 +198,7 @@ export class WHOClient {
               `WHO API error: ${message}`,
               'API_ERROR',
               status,
-              error.response?.data
+              error.data
             );
           }
           throw error;
@@ -266,9 +266,9 @@ export class WHOClient {
     // Determine if it's a code or URI
     let path: string;
     if (codeOrUri.startsWith('http')) {
-      // The axios baseURL already includes `/icd`; URIs from WHO start
-      // with that prefix too, so strip it before passing to axios or the
-      // request hits a doubled `/icd/icd/...` path that 404s. (Same
+      // The client baseURL already includes `/icd`; URIs from WHO start
+      // with that prefix too, so strip it before building the request or
+      // it hits a doubled `/icd/icd/...` path that 404s. (Same
       // mistake `getEntity` previously avoided; fixing it here too.)
       const url = new URL(codeOrUri);
       path = url.pathname.replace(/^\/icd/, '');

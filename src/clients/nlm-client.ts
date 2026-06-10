@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import { HttpClient, HttpError } from '../utils/http.js';
 import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
 import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
@@ -43,10 +43,10 @@ const DEFAULT_LOINC_FIELDS = [
  * - Response caching
  */
 export class NLMClient {
-  private httpClient: AxiosInstance;
+  private httpClient: HttpClient;
 
   constructor() {
-    this.httpClient = axios.create({
+    this.httpClient = new HttpClient({
       timeout: 30000,
       headers: {
         'Accept': 'application/json',
@@ -75,8 +75,8 @@ export class NLMClient {
           const response = await this.httpClient.get<T>(url, { params });
           return response.data;
         } catch (error) {
-          if (error instanceof AxiosError) {
-            const status = error.response?.status;
+          if (error instanceof HttpError) {
+            const status = error.status;
             const message = extractErrorMessage(error);
 
             if (status === 404) {
@@ -90,7 +90,7 @@ export class NLMClient {
               `NLM API error: ${message}`,
               'API_ERROR',
               status,
-              error.response?.data
+              error.data
             );
           }
           throw error;
