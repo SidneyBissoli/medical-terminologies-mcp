@@ -44,6 +44,8 @@ There are two bundle entries: `src/index.ts` (Node — stdio + Node `http` serve
 
 The shared core lives in `src/server-core.ts`: `createServer`, `toolRegistry`, `SERVER_INFO`, `ToolHandler`. The Node entry adds stdio + Node-`http` transports in `src/server.ts` (which re-exports the core for callers' convenience). The Workers entry talks to the SDK's `WebStandardStreamableHTTPServerTransport` directly — never importing `src/server.ts`, since that would drag in `node:http` and `@hono/node-server` (the SDK's Node wrapper) which don't exist in the Workers runtime.
 
+**Both HTTP paths build a fresh `Server` + transport per `/mcp` request — never cache either across requests.** Since SDK 1.28, a stateless transport (`sessionIdGenerator: undefined`) throws "Stateless transport cannot be reused across requests" on its second `handleRequest`, so a hoisted/cached pair serves exactly one request and then 500s. Per-request construction is cheap: `createServer()` only wires handlers against the module-level registries (a few allocations, not a cold start). Pinned by two-request tests in `src/server.http.test.ts` (Node) and `src/worker.test.ts` (Workers).
+
 When adding a new `src/tools/*.ts`, `src/prompts/*.ts`, or `src/resources/*.ts`, wire it into BOTH entry points — `src/index.ts` AND `src/worker.ts`. The meta-test in `src/index.test.ts` enforces the Node side for all three dirs; the Workers side is on you.
 
 ### Three registries: tools, prompts, resources
@@ -132,7 +134,7 @@ When adding a tool with an `outputSchema`, add a fixture to `src/types/schemas.t
 The hosted endpoint at `https://medical-terminologies-mcp.sidneybissoli.workers.dev` is built from `src/worker.ts` and deployed by `.github/workflows/deploy-worker.yml` on every push to `main` that touches worker-relevant paths. Configuration lives in `wrangler.toml`:
 
 - `compatibility_date = 2025-12-01`, `compatibility_flags = ["nodejs_compat"]` — enough to run the bundled axios/pino/Map-cache code without further polyfills.
-- Stateless mode (`sessionIdGenerator: undefined`) — every request is independent, no session storage.
+- Stateless mode (`sessionIdGenerator: undefined`) — every request is independent, no session storage, and a fresh `Server` + transport is built per request (see "Two entry points, shared core" for why caching one breaks on SDK >= 1.28).
 - Endpoints: `POST /mcp` (JSON-RPC), `GET /health` (liveness), `GET /stats` (full counter JSON), `GET /stats/badge` (shields.io endpoint format for README badge), `OPTIONS` preflight. Permissive CORS on all of them.
 
 Required GitHub secrets for the deploy workflow: `CLOUDFLARE_API_TOKEN` (Account API token with Workers Scripts: Edit) and `CLOUDFLARE_ACCOUNT_ID`. Per-server runtime secrets (WHO_CLIENT_ID, WHO_CLIENT_SECRET, optional SNOMED_*) are set on the Cloudflare side via `npx wrangler secret put` or the dashboard — they're never in GitHub.
