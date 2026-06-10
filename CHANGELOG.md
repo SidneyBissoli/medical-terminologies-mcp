@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CODE_OF_CONDUCT.md** (Contributor Covenant 2.1) and **SECURITY.md**
+  (private vulnerability reporting via GitHub Security Advisories) —
+  completes the GitHub community-standards checklist that registry
+  scanners (Snyk, Socket.dev, OpenSSF) score repositories against.
+
 ## [1.5.2] - 2026-06-10
 
 Supply-chain hardening release. No tool surface or API changes — the
