@@ -82,8 +82,18 @@ jobs:
         if: ${{ github.event.inputs.version != '' }}
         run: npm version ${{ github.event.inputs.version }} --no-git-tag-version --allow-same-version
 
+      # npm publish is not idempotent: republishing an existing version dies
+      # with EPUBLISHCONFLICT. A re-dispatch after a downstream failure
+      # (publish-registry, create-release) must not die here — skip when npm
+      # already has this exact version.
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$(npm view medical-terminologies-mcp@$VERSION version 2>/dev/null || true)" = "$VERSION" ]; then
+            echo "npm already has $VERSION — skipping publish"
+          else
+            npm publish --access public --provenance
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -110,6 +120,10 @@ jobs:
           else
             VERSION=$(node -p "require('./package.json').version")
           fi
+          # Tolerate a "v1.2.3"-style dispatch input: npm version strings have
+          # no v prefix, so an unstripped v breaks the npm-visibility compare
+          # below and tags the release as vvX.Y.Z.
+          VERSION="${VERSION#v}"
           jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp
           mv server.tmp server.json
           echo "server.json now declares version $VERSION"
@@ -172,10 +186,13 @@ jobs:
         id: get_version
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
-            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            VERSION="${{ github.event.inputs.version }}"
           else
-            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            VERSION=$(node -p "require('./package.json').version")
           fi
+          # Strip a "v1.2.3"-style prefix so the release tag is vX.Y.Z, not
+          # vvX.Y.Z (happened with the 1.5.3 dispatch).
+          echo "version=${VERSION#v}" >> $GITHUB_OUTPUT
 
       # actions/create-release@v1 is archived by GitHub. Use the gh CLI
       # (preinstalled on ubuntu-latest runners) instead.
@@ -184,6 +201,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.get_version.outputs.version }}
         run: |
+          # Idempotent on re-dispatch: gh release create fails if the tag
+          # already has a release.
+          if gh release view "v${VERSION}" --repo "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
+            echo "Release v${VERSION} already exists — skipping"
+            exit 0
+          fi
           gh release create "v${VERSION}" \
             --target "${GITHUB_SHA}" \
             --title "Release v${VERSION}" \
