@@ -74,9 +74,13 @@ jobs:
       - name: Build
         run: npm run build
 
+      # --allow-same-version: the requested version may already be in
+      # package.json (e.g. the bump was committed alongside the fix being
+      # released). Without it, `npm version` exits 1 with "Version not
+      # changed" and kills the job before publish.
       - name: Update version (if provided)
         if: ${{ github.event.inputs.version != '' }}
-        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version
+        run: npm version ${{ github.event.inputs.version }} --no-git-tag-version --allow-same-version
 
       - name: Publish to npm
         run: npm publish --access public --provenance
