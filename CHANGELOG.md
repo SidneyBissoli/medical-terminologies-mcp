@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-06-11
+
+Production incident fix. On 2026-06-10 the hosted Cloudflare Workers
+endpoint logged ~227k errors against ~228k requests in 24 hours (99.6%
+error rate). Root cause: `GET /mcp` — the Streamable HTTP
+server-initiated SSE stream — reached the SDK transport, which returned
+a silent, never-closing SSE response. Because this deployment is
+stateless with a per-request transport, nothing could ever write to
+that stream; the Workers runtime canceled each request as hung
+("would never generate a response") and counted it as an error, while
+MCP clients (observed: Claude Code) sat in 1 req/s SSE reconnect
+loops. POST requests (the actual JSON-RPC traffic) were unaffected
+throughout.
+
+### Fixed
+
+- **`GET`/`HEAD` on `/mcp` now returns `405 Method Not Allowed`**
+  (with an `Allow: POST, DELETE, OPTIONS` header and a JSON-RPC error
+  body) on both entrypoints — the Cloudflare Worker (`src/worker.ts`)
+  and the Node Streamable HTTP server (`src/server.ts`). The MCP
+  Streamable HTTP spec requires exactly this from servers that do not
+  offer a server-initiated SSE stream, and a 405 tells well-behaved
+  clients to stop retrying. On Node the same bug leaked one silently
+  open connection per `GET`. Regression tests pin the behavior in
+  `src/worker.test.ts` and `src/server.http.test.ts`.
+
 ### Added
 
 - **CODE_OF_CONDUCT.md** (Contributor Covenant 2.1) and **SECURITY.md**

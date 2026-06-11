@@ -69,6 +69,23 @@ describe('Streamable HTTP transport', () => {
     expect(body.uptime_s).toBeGreaterThanOrEqual(0);
   });
 
+  it('GET /mcp returns 405 instead of a hanging SSE stream', async () => {
+    // Mirror of the Workers regression pin (src/worker.test.ts): a stateless
+    // per-request transport can never push server-initiated messages, so the
+    // Streamable HTTP spec requires 405 for the SSE-stream GET. Without this,
+    // the SDK holds a silent SSE response open forever — one leaked
+    // connection per GET on Node, a canceled-as-hung errored request on
+    // Cloudflare Workers (the 2026-06-10 incident: ~227k errors/day).
+    const res = await fetch(`${baseUrl}/mcp`, {
+      method: 'GET',
+      headers: { Accept: 'text/event-stream' },
+    });
+    expect(res.status).toBe(405);
+    expect(res.headers.get('allow')).toContain('POST');
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toMatch(/Method Not Allowed/);
+  });
+
   it('OPTIONS /mcp returns CORS preflight', async () => {
     const res = await fetch(`${baseUrl}/mcp`, { method: 'OPTIONS' });
     expect(res.status).toBe(204);

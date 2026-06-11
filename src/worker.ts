@@ -170,6 +170,45 @@ function healthResponse(): Response {
   );
 }
 
+/**
+ * 405 for GET/HEAD on the MCP endpoint.
+ *
+ * Why: in the Streamable HTTP transport, GET /mcp asks the server to open
+ * the server-initiated SSE stream. This deployment is stateless with a
+ * per-request transport, so no server-initiated message can ever be pushed:
+ * the SDK would return a silent, never-closing SSE stream whose controller
+ * becomes unreachable the moment this handler returns. Cloudflare's runtime
+ * then cancels the request as hung ("would never generate a response") and
+ * counts it as an error — observed at ~227k errors/day (99.6% error rate)
+ * on 2026-06-10, driven by MCP clients stuck in SSE reconnect loops.
+ *
+ * The spec's escape hatch is explicit: servers that do not offer an SSE
+ * stream at this endpoint MUST return HTTP 405 Method Not Allowed. A 405
+ * also tells well-behaved clients to stop retrying the stream.
+ * https://modelcontextprotocol.io/specification/2025-03-26/basic/transports
+ */
+function methodNotAllowed(): Response {
+  return new Response(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      error: {
+        code: -32000,
+        message:
+          'Method Not Allowed: this stateless server does not offer a server-initiated SSE stream. POST JSON-RPC messages to /mcp.',
+      },
+      id: null,
+    }),
+    {
+      status: 405,
+      headers: {
+        'Content-Type': 'application/json',
+        Allow: 'POST, DELETE, OPTIONS',
+        ...corsHeaders(),
+      },
+    },
+  );
+}
+
 function notFound(): Response {
   return new Response(
     JSON.stringify({
@@ -333,6 +372,12 @@ export default {
     }
 
     if (url.pathname === '/mcp' || url.pathname === '/') {
+      // Reject the SSE-stream GET before it reaches the SDK transport — see
+      // methodNotAllowed() docstring for the full rationale (hang → canceled
+      // request → error-rate blowup → client reconnect loop).
+      if (request.method === 'GET' || request.method === 'HEAD') {
+        return methodNotAllowed();
+      }
       try {
         const t = await createRequestTransport();
         const response = await t.handleRequest(request);

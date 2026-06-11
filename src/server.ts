@@ -116,6 +116,31 @@ export async function startHttpServer(
     }
 
     if (req.url === '/mcp' || req.url === '/') {
+      // GET /mcp asks for the server-initiated SSE stream. This server is
+      // stateless with a per-request transport, so it can never push
+      // server-initiated messages — the SDK would hold a silent SSE stream
+      // open forever, leaking one connection per GET (and, on Cloudflare
+      // Workers, getting the request canceled as hung and counted as an
+      // error). Per the Streamable HTTP spec, servers that do not offer the
+      // SSE stream MUST return 405; this also stops client reconnect loops.
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        res.writeHead(405, {
+          'Content-Type': 'application/json',
+          Allow: 'POST, DELETE, OPTIONS',
+        });
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            error: {
+              code: -32000,
+              message:
+                'Method Not Allowed: this stateless server does not offer a server-initiated SSE stream. POST JSON-RPC messages to /mcp.',
+            },
+            id: null,
+          }),
+        );
+        return;
+      }
       handleMcpRequest(req, res).catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         logger.error({ err: msg, method: req.method, url: req.url }, 'HTTP transport error');

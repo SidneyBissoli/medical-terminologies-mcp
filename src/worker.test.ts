@@ -57,6 +57,27 @@ describe('Workers fetch handler', () => {
     expect(body.name).toBe('medical-terminologies-mcp');
   });
 
+  it('GET /mcp returns 405 instead of a hanging SSE stream', async () => {
+    // Regression pin for the 2026-06-10 production incident: GET /mcp (the
+    // Streamable HTTP server-initiated SSE stream) reached the SDK transport,
+    // which returned a silent, never-closing stream. Cloudflare canceled each
+    // request as hung (~227k errors/day, 99.6% error rate) while MCP clients
+    // sat in SSE reconnect loops. A stateless per-request transport can never
+    // push server-initiated messages, so the spec requires 405 here.
+    const res = await worker.fetch(
+      new Request('https://worker.test/mcp', {
+        method: 'GET',
+        headers: { Accept: 'text/event-stream' },
+      }),
+      env,
+      ctx,
+    );
+    expect(res.status).toBe(405);
+    expect(res.headers.get('allow')).toContain('POST');
+    const body = (await res.json()) as { error: { message: string } };
+    expect(body.error.message).toMatch(/Method Not Allowed/);
+  });
+
   it('serves tools/list on a SECOND request (per-request transport, not a reused one)', async () => {
     // Regression pin for the stateless-transport-reuse bug: SDK >= 1.28 throws
     // "Stateless transport cannot be reused across requests" on the second
