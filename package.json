@@ -64,7 +64,7 @@
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/node": "^25.9.3",
     "esbuild": "^0.28.0",
     "nock": "^14.0.15",
     "pino-pretty": "^13.1.3",
