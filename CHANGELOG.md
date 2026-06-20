@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-06-20
+
+Endpoint move. The hosted server is now reachable at a neutral, rename-proof
+custom domain, matching the `<name>.sidneybissoli.com/mcp` convention used
+across the maintainer's MCP servers (Phase 15.4).
+
+### Changed
+
+- **Canonical hosted endpoint is now `https://medical.sidneybissoli.com/mcp`.**
+  A Cloudflare Workers custom domain mapped to the same Worker. The legacy
+  `medical-terminologies-mcp.sidneybissoli.workers.dev` hostname stays enabled
+  as a fallback (`workers_dev = true` in `wrangler.toml`), so existing clients
+  keep working with no interruption. `server.json`'s `remotes[]`, the README
+  hosted-endpoint section + tool-calls badge, `SECURITY.md`, `CLAUDE.md`, and
+  the runtime `info://server` / `info://stats` resources now reference the
+  custom domain. The npm package name is unchanged.
+
 ## [1.5.3] - 2026-06-11
 
 Production incident fix. On 2026-06-10 the hosted Cloudflare Workers
