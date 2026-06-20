@@ -39,6 +39,15 @@ scripts/_tmp/
 # if this project ever needs one)
 .claude/settings.local.json
 
+# Local-only planning docs (kept out of the repo per maintainer preference).
+# NOTE: PROGRESS.md is still git-tracked, so this entry has no effect until it
+# is also untracked (`git rm --cached PROGRESS.md` to remove from the repo, or
+# `git update-index --skip-worktree PROGRESS.md` to keep it in the repo but
+# ignore local edits). PHASE-15-IMPLEMENTATION-PLAN.md is untracked, so this
+# ignores it immediately.
+/PROGRESS.md
+/PHASE-15-IMPLEMENTATION-PLAN.md
+
 # Pandoc-generated HTML companions of the project's .md docs. The .md
 # files are the source of truth; rebuild locally with `pandoc x.md -o x.html`.
 /PROGRESS.html
