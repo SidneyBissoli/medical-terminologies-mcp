@@ -38,5 +38,5 @@ What to expect:
   respective upstream maintainers; this project can only mitigate, not
   fix, upstream issues.
 - The hosted endpoint at
-  `https://medical-terminologies-mcp.sidneybissoli.workers.dev` is
+  `https://medical.sidneybissoli.com` is
   covered by this policy.

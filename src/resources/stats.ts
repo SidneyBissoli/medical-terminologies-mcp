@@ -35,7 +35,7 @@ const statsHandler: ResourceHandler = async (uri): Promise<ReadResourceResult> =
     payload === null
       ? {
           scope: 'stats unavailable on this transport',
-          note: 'Per-tool counters are recorded only by the hosted Cloudflare Workers endpoint at https://medical-terminologies-mcp.sidneybissoli.workers.dev. The local stdio transport has no shared state with that counter — query the hosted endpoint`s GET /stats route or info://stats resource to read live numbers.',
+          note: 'Per-tool counters are recorded only by the hosted Cloudflare Workers endpoint at https://medical.sidneybissoli.com. The local stdio transport has no shared state with that counter — query the hosted endpoint`s GET /stats route or info://stats resource to read live numbers.',
         }
       : payload;
 

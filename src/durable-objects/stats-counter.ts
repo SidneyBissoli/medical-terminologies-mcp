@@ -56,7 +56,7 @@ interface StatsPayload {
   top_tool: string | null;
 }
 
-const HOSTED_ENDPOINT = 'medical-terminologies-mcp.sidneybissoli.workers.dev';
+const HOSTED_ENDPOINT = 'medical.sidneybissoli.com';
 
 export class StatsCounter {
   private state: DurableObjectState;

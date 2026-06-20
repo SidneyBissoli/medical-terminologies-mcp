@@ -155,7 +155,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp"
+      "url": "https://medical.sidneybissoli.com/mcp"
     }
   ]
 }

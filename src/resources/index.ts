@@ -48,7 +48,7 @@ const serverInfoHandler: ResourceHandler = async (uri): Promise<ReadResourceResu
     ],
     snomed_enabled: SNOMED_TOOLS_ENABLED,
     transport_options: ['stdio (default)', 'Streamable HTTP (Node)', 'Cloudflare Workers (hosted)'],
-    hosted_endpoint: 'https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp',
+    hosted_endpoint: 'https://medical.sidneybissoli.com/mcp',
     license: 'MIT (server code); terminology content has its own licenses — see info://licenses',
   };
 

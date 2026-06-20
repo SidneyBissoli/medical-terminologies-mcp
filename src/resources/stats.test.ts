@@ -34,7 +34,7 @@ describe('info://stats resource', () => {
   it('returns the live payload when the recorder has data', async () => {
     setStatsRecorder(
       new FixedRecorder({
-        scope: 'hosted endpoint at medical-terminologies-mcp.sidneybissoli.workers.dev',
+        scope: 'hosted endpoint at medical.sidneybissoli.com',
         since: '2026-05-13T00:00:00.000Z',
         as_of: '2026-05-15T12:00:00.000Z',
         total_invocations: 42,

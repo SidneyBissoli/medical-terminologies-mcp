@@ -279,7 +279,7 @@ function bridgeStats(env: WorkerEnv): void {
 async function statsResponse(env: WorkerEnv): Promise<Response> {
   const payload = await new DurableObjectStatsRecorder(env.STATS!).read();
   const body = payload ?? {
-    scope: 'hosted endpoint at medical-terminologies-mcp.sidneybissoli.workers.dev',
+    scope: 'hosted endpoint at medical.sidneybissoli.com',
     since: null,
     as_of: new Date().toISOString(),
     total_invocations: 0,

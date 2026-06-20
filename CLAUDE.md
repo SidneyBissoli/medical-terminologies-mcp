@@ -132,7 +132,7 @@ When adding a tool with an `outputSchema`, add a fixture to `src/types/schemas.t
 
 ## Cloudflare Workers deployment
 
-The hosted endpoint at `https://medical-terminologies-mcp.sidneybissoli.workers.dev` is built from `src/worker.ts` and deployed by `.github/workflows/deploy-worker.yml` on every push to `main` that touches worker-relevant paths. Configuration lives in `wrangler.toml`:
+The hosted endpoint at `https://medical.sidneybissoli.com` (custom domain mapped to the Worker; the legacy `medical-terminologies-mcp.sidneybissoli.workers.dev` hostname stays enabled as a fallback) is built from `src/worker.ts` and deployed by `.github/workflows/deploy-worker.yml` on every push to `main` that touches worker-relevant paths. Configuration lives in `wrangler.toml`:
 
 - `compatibility_date = 2025-12-01`, `compatibility_flags = ["nodejs_compat"]` — enough to run the bundled pino/Map-cache code without further polyfills; HTTP uses the Workers-native `fetch`.
 - Stateless mode (`sessionIdGenerator: undefined`) — every request is independent, no session storage, and a fresh `Server` + transport is built per request (see "Two entry points, shared core" for why caching one breaks on SDK >= 1.28).

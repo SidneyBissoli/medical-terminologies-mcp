@@ -6,7 +6,7 @@
 [![LobeHub MCP server](https://lobehub.com/badge/mcp/sidneybissoli-medical-terminologies-mcp)](https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp)
 [![Glama MCP server](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp/badges/score.svg)](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp)
 [![Available on CodeGuilds](https://img.shields.io/badge/Available_on-CodeGuilds-6366f1)](https://codeguilds.dev/packages/medical-terminologies-mcp)
-[![tool calls](https://img.shields.io/endpoint?url=https%3A%2F%2Fmedical-terminologies-mcp.sidneybissoli.workers.dev%2Fstats%2Fbadge)](https://medical-terminologies-mcp.sidneybissoli.workers.dev/stats)
+[![tool calls](https://img.shields.io/endpoint?url=https%3A%2F%2Fmedical.sidneybissoli.com%2Fstats%2Fbadge)](https://medical.sidneybissoli.com/stats)
 [![GitHub Sponsors](https://img.shields.io/github/sponsors/SidneyBissoli?logo=githubsponsors&label=Sponsor&color=db61a2)](https://github.com/sponsors/SidneyBissoli)
 
 A Model Context Protocol (MCP) server providing unified access to major global medical terminologies:
@@ -48,14 +48,14 @@ This server is **not** a clinical-care decision tool — practicing clinicians h
 A public Cloudflare Workers deployment runs at:
 
 ```
-https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp
+https://medical.sidneybissoli.com/mcp
 ```
 
 Connect via the MCP Inspector or any Streamable HTTP MCP client:
 
 ```bash
 npx @modelcontextprotocol/inspector --transport streamable-http \
-  --server-url https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp
+  --server-url https://medical.sidneybissoli.com/mcp
 ```
 
 Or install via Smithery, which proxies the same endpoint through their gateway:
