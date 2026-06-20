@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.5] - 2026-06-20
+
+Discovery tuning.
+
+### Changed
+
+- **Sharpened the registry `description`** to lead with plain-language value
+  ("Diagnoses, drugs & lab codes: …") before the terminology acronyms, so
+  non-expert searches match and the listing ranks better in Smithery search
+  and the Toolbox's semantic discovery. All 7 terminology names are retained
+  (highest-value keywords); within the registry's 100-char limit. No code or
+  API changes.
+
 ## [1.5.4] - 2026-06-20
 
 Endpoint move. The hosted server is now reachable at a neutral, rename-proof
