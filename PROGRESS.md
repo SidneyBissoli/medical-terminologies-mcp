@@ -1,4 +1,120 @@
-# Medical Terminologies MCP - Progress Tracker
+# Medical Terminologies MCP — Progress Tracker & Strategic Roadmap
+
+## Strategic Position & 10-Year Outlook
+
+> Added 2026-06-15. This section sits above the phase-by-phase diary below. The
+> phases are *how* the project got here; this is *where it should go* and the
+> boundaries that govern it.
+
+### North Star
+
+This server's durable purpose is to be the **authoritative, provenance-first
+reference layer for medical and drug data that AI agents can cite** — the tool an
+agent calls when it must *not* guess and must show its source. It is **not** a
+clinical decision-support or advice system. That single boundary (retrieval with
+provenance, never clinical recommendation) governs every roadmap decision below.
+
+### Why an MCP needs a 10-year thesis
+
+The protocol is standardizing fast; every major model vendor now speaks it. The
+*transport* therefore commoditizes — "being an MCP server" is not, by itself, a
+moat. Durable value migrates to **what the protocol carries**:
+
+1. **Provenance & authoritativeness.** As foundation models absorb more
+   knowledge, pure lookups erode ("the model already knows the ICD-11 code").
+   What does *not* erode is a **citeable, dated answer from a named authority**.
+   In medicine, law, and finance, "the model is probably right" is unacceptable;
+   "WHO/FDA/NLM says X, as of release Y" is the product. This is the moat.
+2. **Currency.** Data that changes — drug approvals, label revisions, new
+   terminology releases — cannot live in model weights.
+3. **Gated access.** Data behind auth/licensing.
+4. **Action.** As agents *do* things, not just read.
+
+The competitive line for a solo/OSS medical MCP: **models will know the common
+stuff; we provide the version you can cite — dated, from the official source.**
+Long-term defensibility is provenance + currency, *not* breadth of lookups.
+
+### Where the project actually is (evidence, not assumption)
+
+The only hard usage signal — the hosted `/stats` counter, 80 tool calls over
+~33 days (2026-05-13 → 2026-06-15) — says the project is used as a **drug
+information gateway first**:
+
+- RxNorm 35/80 (44%) + ATC 9 = **55% drug-centric**; search entry points
+  (`rxnorm_search` 31, `mesh_search` 9, `loinc_search` 7) = 47/80.
+- Phase-13 data-integrity breadth (crosswalks, validation, versioning) = 12/80 (15%).
+- Brazilian content already shipped (CID-10) ≈ 2 calls; `cid10_search` = 0. SNOMED = 0 (gated).
+
+Kept honest: the hosted endpoint sees only a sliver (npm/stdio installs are the
+bulk and are unmeasured by design); n=80 is thin, so this is *directional*, not a
+census. (The 2026-06-10 "228k requests/day" was a transport reconnect storm from
+the `GET /mcp` bug — noise, not adoption; fixed in 1.5.3.) **Read:** the signal
+rewards the drug axis and authoritative retrieval — not catalog breadth, least of
+all more Brazilian-operational coverage.
+
+### The pivot: from "terminologies" to "provenance-first drug & clinical reference"
+
+The center of gravity is drugs. Deepen *that*, with authoritative, free,
+redistributable sources: RxNorm/RxClass (have), ATC (have), and — new — **official
+drug-label retrieval** via openFDA / DailyMed (US) and the ANVISA bulário (BR):
+dosing, interactions, and pregnancy/lactation sections, returned as **sourced
+retrieval** (text + source + label date), never as advice. Highest-defensibility
+direction available: signal-aligned, free + authoritative, international, squarely
+the "cite the official source" wedge. Concrete plan in Phase 15.
+
+### The hard boundary: retrieval, never clinical decision support
+
+A practising physician's real asks — *"prescribe drug X at dose Y for disease Z"*
+and *"does X interact with Y / with pregnancy / with condition W"* — are, as
+phrased, **clinical decision support**. This project serves the *information need*
+behind them (return what the official label says, with source and date) but will
+**not** emit dosing or interaction *verdicts/recommendations*. Four reasons, each
+sufficient alone:
+
+1. **Audience & identity.** The stated, correct audience is researchers,
+   informatics developers, and educators — not point-of-care clinicians, who have
+   UpToDate / Lexicomp / Micromedex / OpenEvidence. A prescribing assistant
+   competes with regulated, clinically-governed, insured products. Different game.
+2. **Regulation & liability.** Dosing/interaction *advice* acted on in care is
+   clinical decision support — potentially a regulated medical device (FDA SaMD,
+   EU MDR, ANVISA SaMD rules). Untenable for a free OSS project authored by a
+   non-clinician researcher.
+3. **Data availability.** The free, authoritative, structured US drug-drug
+   interaction API (NLM RxNav) was **discontinued 2 Jan 2024** and not replaced;
+   its severity-bearing source (DrugBank) is commercial. A "is X+Y safe?" verdict
+   engine would have to use licensed data (can't redistribute) or fall back to the
+   model's guess / scraped free text — exactly the unreliable thing an MCP exists
+   to *prevent*. Building advice on non-authoritative data here is worse than not
+   building it.
+4. **Safety.** Dosing is intensely contextual (renal/hepatic function, weight,
+   age, indication, comorbidity, pregnancy, co-medication). A tool that emits
+   "the dose" invites dangerous oversimplification — the worst place to let an LLM
+   decide.
+
+So the verdict on the physician's two use cases is a **reframe, not a yes/no**:
+the need is real and signal-aligned; serve it as **provenance-first retrieval of
+official drug-label sections** (Phase 15.3), never as dosing/interaction advice.
+
+### Identity, name, and domain (consequences of the pivot)
+
+- **Name — do not rename the package yet.** "Medical *Terminologies*" will
+  undersell a drug-reference future, but `medical-terminologies-mcp` has accrued
+  real identity (~456 npm dl/mo, 4 directory listings, badges, the stable registry
+  id `io.github.SidneyBissoli/medical-terminologies-mcp`, a Medium article). A
+  rename is one-way and costly (SEO, install docs, directory continuity, a reset
+  `/stats` history). Reposition the *display* identity now — title, description,
+  README framing toward "drug & clinical reference" — which is cheap and
+  reversible; rename the package only when the drug-label axis is **shipped and
+  used** (evidence, not anticipation). Criteria + candidates in Phase 15.5.
+- **Domain — yes, adopt a custom domain, rename-proof.** Confirmed
+  `senado.sidneybissoli.com` is a live Cloudflare Worker custom domain; this
+  server still runs on the default `…workers.dev`. Map a **neutral, rename-proof**
+  custom domain on `sidneybissoli.com` (same Workers mechanism, ~5 min) — e.g.
+  `mcp.sidneybissoli.com/medical` or `med.sidneybissoli.com` — so the public
+  endpoint survives a future rename and decouples URL from package name. Additive:
+  the `workers.dev` URL keeps working. Plan in Phase 15.4.
+
+---
 
 ## Overview
 
@@ -43,13 +159,14 @@ to understand why specific code patterns exist. Outreach copy
 | 12 | Content & Outreach | 📋 Planned | - |
 | 13 | Coverage Expansion | 📋 Planned | +9–11 tools |
 | 14 | Quality & Maintenance | 📋 Ongoing | - |
+| 15 | Observability, SNOMED decision & the drug-reference pivot | 📋 Planned | +3–5 (drug-label retrieval) |
 
 **Tools today:** 31 default / 37 with SNOMED enabled<br>
 **Prompts today:** 3 (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — added 1.3.0<br>
 **Resources today:** 4 — `info://server`, `info://cid10/chapters`, `info://licenses` (added 1.3.0); `info://stats` (added 1.5.0, DO-backed counter on the hosted endpoint)<br>
 **Per-tool `language` parameter** on `snomed_search`, `snomed_concept`, `icd11_search`, `icd11_lookup`, `mesh_search`, `mesh_descriptor` — propagates as `Accept-Language` upstream (added 11.4)<br>
 **Tools projected after Phase 13:** ~38–40 default / ~44–46 with SNOMED<br>
-**Tests today:** 339 across 22 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)<br>
+**Tests today:** 356 across 24 files (+ 11 integration tests gated by `INTEGRATION_TESTS=1`)<br>
 
 ---
 
@@ -759,6 +876,7 @@ upstream-drift triage and small fixes as they surface.
 | 14.4 | Continuous: triage upstream-drift failures from daily integration cron (`.github/workflows/integration.yml`) | Variable | Cron failure notification |
 | 14.5 | Annual: refresh `src/data/cid10.json` if DataSUS ever publishes a successor to V2008 (frozen since 2008) | ~30 min | DataSUS publishes V20XX |
 | 14.6 | Close `outputSchema` gap on the 3 remaining crosswalk tools | ~70 min (came in ~70min) | ✅ shipped 2026-05-12. Added 3 new schemas to `src/types/index.ts` (`MapICD10ToICD11OutputSchema`, `MapSNOMEDToICD10OutputSchema`, `MapLOINCToSNOMEDOutputSchema`) + 3 new types. `map_icd10_to_icd11` now returns the full WHO transition-table entry (`icd10`, `primary`, `alternatives`, `source`) as `structuredContent` instead of discarding it as markdown — agents can consume the mapping without regex. The two guidance-only tools (`map_snomed_to_icd10`, `map_loinc_to_snomed`) gained an envelope schema (`status: 'guidance-only' \| 'upstream-unavailable'`, structured `authoritative_sources` / `mapping_sources` arrays). Shared `MappingSourceRefSchema` keeps both envelope tools consistent. 11 new fixtures in `src/types/schemas.test.ts` covering typical + edge cases (found-with-alternatives, found-no-alternatives, not-found, null preferred_term, upstream-unavailable, invalid enum, etc.). Total tests: 313 → 324. Tool count unchanged at 37; the CI gate doesn't need adjustment. All 37 default tools now expose `outputSchema` + `structuredContent` — closing the 5th and final axis of the Smithery quality rubric |
+| 14.7 | **Dependency refresh + zod 4 migration** (consolidated four Dependabot PRs) | ~1h | ✅ shipped 2026-06-20 with v1.5.7. Bumped runtime `zod` 3 → 4 and dev tooling (`typescript` 5 → 6, `@types/node` 20 → 25, `esbuild` 0.28.1, `vitest` 4.1.9). zod 4 is a breaking major: `ZodError.errors` was removed for `.issues`, and `zod-to-json-schema@3` (built against zod 3's internal `_def`) silently emits invalid schemas under zod 4 — 5 tests caught it. `src/utils/zod-schema.ts` moved to zod 4's native `z.toJSONSchema` (`target: 'draft-07'`, `reused: 'inline'`, and the `io: 'input'`/`'output'` projections that match `buildInputSchema`/`buildOutputSchema`). Direct `zod-to-json-schema` dependency dropped (still transitive via the MCP SDK). Same draft-07 schema contract — pinned by the existing fixture tests; worker bundle steady at ~1.00 MB gzipped. The four Dependabot PRs (#5, #7, #15, #16) all touched `package-lock.json` so couldn't be merged sequentially — consolidated in PR #17 (merged `6671b49`) and closed as superseded. Released via `publish.yml` dispatch: npm `1.5.7`, MCP Registry `1.5.7` (`isLatest`), GitHub release `v1.5.7`, hosted endpoint redeployed (`/health` → 1.5.7). Pre-existing transitive `hono`/`ajv`/`fast-uri` advisories (deps of the MCP SDK) noted, out of scope. |
 
 ### Planned Requirements
 
@@ -782,6 +900,39 @@ upstream-drift triage and small fixes as they surface.
 
 - Effort: ~5–8 h initial (mostly 14.1) + ongoing variable
 - Build: 📋 Ongoing
+
+---
+
+## Phase 15: Observability, SNOMED decision & the provenance-first drug-reference pivot 📋 Planned
+
+### Scope
+
+Three threads, in priority order: (1) close the production observability gap the
+2026-06-10 incident exposed; (2) resolve SNOMED (revive via FHIR, or retire); (3)
+execute the drug-reference pivot as provenance-first retrieval — plus the
+identity/domain consequences. Discipline unchanged: trigger-gated deferrals, no
+breadth without a demand signal, retrieval never advice. See "Strategic Position &
+10-Year Outlook" at the top of this file for the rationale.
+
+### Sub-tasks
+
+| # | Sub-task | Effort | Status | Trigger / dep |
+|---|----------|--------|--------|---------------|
+| 15.1 | **Per-tool error telemetry (Analytics Engine).** `/stats` (StatsCounter DO) counts only *successful* dispatch and over-counts (a returned `isError:true` is logged as success); the 2026-06-10 99.6%-error event was caught by Cloudflare's raw dashboard + a stuck client, not the project's own signal. Add an AE binding (`MEDICAL_ANALYTICS` / dataset `medical_terminologies_tool_calls`) + dispatcher instrumentation (`src/utils/instrument.ts`, port of senado-br-mcp's `instrument.ts`): one data point per dispatch, `blob1`=tool, `blob2`=`ok\|error`, `double1`=error flag, captured on **both** the success and catch paths in `server-core.ts`. Reuse the AE SQL baseline query; set an error-rate alert. Catches the project's documented failure mode (silent upstream drift — Phase 10 found 3) in production between integration-cron runs. | ~2-3h | 📋 P0 | none — code sketch ready (2026-06-15 session) |
+| 15.2 | **SNOMED decision: revive via FHIR, or formally retire.** Snowstorm public hosts are dead (`browser.ihtsdotools.org` 503; `snowstorm.ihtsdotools.org` redirects to a "denied — browser only" page). But two public FHIR terminology servers serve live SNOMED (verified 2026-06-15): `tx.fhir.org/r4` (HL7; `$lookup` + `$expand` text search, Intl edition v20250201) and `r4.ontoserver.csiro.au` (CSIRO; `$lookup` with parent/child). Decide **(a)** rewrite `snomed-client.ts` from Snowstorm-native to FHIR ops (`$lookup` concept; `$expand` over `?fhir_vs` for search; `?fhir_vs=ecl/…` for hierarchy/ECL) — restores the marquee terminology for the international audience; at current light volume the shared-server load is negligible; or **(b)** formally retire the SNOMED tools and stop advertising "7 terminologies incl. SNOMED CT". Recommendation **(a)** — bounded rewrite, restores credibility (but a credibility play, not measured demand: SNOMED=0, gated). Document FHIR-server license/SLA caveats. **Supersedes Phase 13.7.** | ~5-6h | 📋 Planned | public SNOMED endpoint now exists (resolved) |
+| 15.3 | **Drug-label retrieval tools (the pivot) — provenance-first, never advice.** New tools over openFDA / DailyMed (US) and ANVISA bulário (BR): `drug_label_dosing` (Dosage & Administration), `drug_label_interactions` (Drug Interactions), `drug_label_pregnancy` (Use in Specific Populations). Each returns the official label text + source + label date + an explicit "official label, not individualized advice" frame; keyed by RxCUI/name reusing the existing RxNorm normalization. **Retrieval, never verdict** (see Strategic boundary). Directly serves the physician use cases without crossing into decision support. | ~8-12h | 📋 Planned | 15.1 shipped (usage measurable) + source audit (openFDA/DailyMed confirmed viable; ANVISA programmatic access **to verify** — may need scraping) |
+| 15.4 | **Custom domain + display repositioning.** Map a neutral, rename-proof custom domain on `sidneybissoli.com` to the Worker; update `server.json` `remotes[]`, README, the Smithery URL, and the `/stats` badge URL. Evolve `title`/`description` toward "drug & clinical reference" — **without** renaming the npm package. | ~1-2h | 📋 Planned | none |
+| 15.5 | **Package rename — deferred, evidence-gated.** Reopen only when 15.3 tools are shipped *and* `/stats` shows the drug-label/reference tools are load-bearing. Criteria: international; signals authoritative *reference/retrieval*; **no** clinical-advice connotation; not Brazil-specific; npm name free; short. Decide the name at rename-time (don't bikeshed now); direction is a "reference/source" framing. Until then the package name stays. | — | 📋 Deferred | 15.3 shipped + demand signal |
+
+### Explicitly NOT in scope (rejected/deferred, with reasons)
+
+- **Clinical decision support** — dosing/interaction *advice* engines. Regulatory + liability + safety + identity; see the Strategic Position boundary. Hard no.
+- **Brazilian-operational terminology breadth (TUSS / SIGTAP, formerly Phase 13.4/13.5).** Signal: the CID-10 already shipped is ~dead; these re-anchor the one internationally-reaching asset to the Brazil niche it escaped, and they are operational *billing* tables, not clinical reference. If pursued at all, they belong in a separate `br-mcp`.
+- **Generic catalog-width expansion** absent a demand signal. The `/stats` data, not a hunch, gates new terminologies.
+
+### Status
+
+- Build: 📋 Planned. 15.1 is the immediate P0 (cheap; closes a real blind spot). 15.2 and 15.3 are the substantive bets; 15.4 is a quick win that de-risks 15.5.
 
 ---
 
@@ -848,3 +999,73 @@ Versioned release notes live in [CHANGELOG.md](./CHANGELOG.md) in the
 standard Keep-a-Changelog format. PROGRESS.md is preserved as the
 phase-by-phase implementation diary; CHANGELOG.md is the consumer-facing
 release log.
+
+---
+
+## Appendix A — Phase 12 outreach plan (consolidated from OUTREACH-PLAN.md)
+
+> Folded in 2026-06-15 from the transient `OUTREACH-PLAN.md` resume doc, which can
+> now be deleted. Raw copy drafts stay in `outreach-templates.md` (operational
+> annex — see Appendix C for why that one file is kept separate).
+
+**Status anchor:** 12.1 long-form post published (Medium canonical + Dev.to
+crosspost, 2026-05-11). Remaining channels drafted in `outreach-templates.md`.
+
+**Crosspost order (first 24-48h):** 1. Mastodon (lowest friction; 3 variants —
+clinical/research/dev — carried by hashtags, instance-agnostic; space same-instance
+posts 3-4h apart). 2. Bluesky (short post + pinned reply with the Medium URL).
+3. LinkedIn (clinical-informatics audience; normal feed post, not newsletter;
+reply to comments within 4-6h).
+
+**Decision tree after 48h:** LinkedIn ≥5 substantive comments → Show HN (Tue/Wed
+~8-9h EST). Mastodon/Bluesky ≥200 boosts → r/healthIT (lower self-promo risk than
+r/medicine, r/medicalcoding). Both lukewarm (≤20 likes, 0 comments) → 5 hand-picked
+1:1 emails (informatics fellows, MCP authors, health-tech bloggers). ≥2 external
+issues/stars → hold outreach 3-5 days, let inbound flow, respond <24h.
+
+**Monitoring (5 min/day):** GitHub stars/issues, npm last-day downloads,
+Medium/Dev.to dashboards. Any issue from outside the immediate circle = strong
+adoption signal; respond <24h.
+
+**Skip/defer:** Anthropic MCP Catalog (low approval until ≥10 stars + a third-party
+mention); ResearchGate (low priority); chat.fhir.org (reactive only, never
+proactive); Discord MCP communities (after Reddit/HN, to reuse responses).
+
+## Appendix B — Baseline metrics + the real demand signal (consolidated from metrics-baseline.txt)
+
+> Folded in 2026-06-15 from `metrics-baseline.txt`, which can now be deleted.
+
+**Outreach baseline (2026-05-11; 60-day review target 2026-07-10):** npm 456
+dl/30d; GitHub 3★ / 1 fork / 1 open issue / 6 open PRs; 14-day traffic 840 clones
+(176 unique) — spike coincident with the Workers deploy + Smithery listing
+(discovery pulse, not adoption); directories 3/4 (Glama, Smithery, mcpservers.org;
+punkpeye PR #6208 pending; wong2 N/A).
+
+**Success criteria (≥2 of 5 at day 60):** npm ≥400/mo sustained (3+ windows);
+stars 3→≥33; ≥2 external issues/PRs; ≥1 third-party mention; directories ≥3/4
+(already met). Anti-metrics (do NOT count): LinkedIn likes, Mastodon boosts, hours
+spent, positive comments without click-through.
+
+**Hosted demand signal (NEW, captured 2026-06-15 — the stronger signal):** `/stats`
+since 2026-05-13, 80 tool calls. By tool: `rxnorm_search` 31, `mesh_search` 9,
+`loinc_search` 7, `atc_classify` 6, `validate_codes` 5, `atc_lookup` 3, then 2 each
+for `cid10_chapters` / `find_equivalent` / `loinc_details` / `loinc_panels` /
+`map_icd10_to_icd11` / `rxnorm_concept` / `terminology_diff`, and 1 each for
+`loinc_answers` / `mesh_descriptor` / `rxnorm_ingredients` / `rxnorm_ndc` /
+`terminology_versions`. Top tool `rxnorm_search`. Drugs (RxNorm+ATC) = 55%. Caveat:
+hosted-only (stdio/npm bulk unmeasured); directional, n=80. Read in the Strategic
+section above.
+
+**Day-60 re-capture:** rerun the npm/GitHub/traffic fetches + the `/stats` pull;
+append a second dated block; score against the 5 criteria.
+
+## Appendix C — Document consolidation note (2026-06-15)
+
+This file is now the single canonical planning document (strategy + phase diary +
+outreach plan + metrics). **Merged in and safe to delete:** `OUTREACH-PLAN.md`
+(→ Appendix A), `metrics-baseline.txt` (→ Appendix B). **Kept separate, by design:**
+`CHANGELOG.md` (consumer-facing release notes — different purpose/audience);
+`CLAUDE.md` (agent build instructions, not planning); `outreach-templates.md`
+(48 KB of raw post/email *copy* — operational execution asset, not a plan; inlining
+it would bury the roadmap — referenced from Appendix A); the `*.html` exports
+(derived renders — regenerate or ignore).
