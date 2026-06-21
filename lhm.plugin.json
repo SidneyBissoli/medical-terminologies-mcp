@@ -1,0 +1,320 @@
+{
+  "identifier": "sidneybissoli-medical-terminologies-mcp",
+  "name": "Medical Terminologies MCP",
+  "version": "1.5.7",
+  "description": "Unified MCP server for global medical terminologies - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
+  "author": "Sidney Bissoli",
+  "authorUrl": "https://github.com/SidneyBissoli",
+  "homepage": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
+  "icon": "⚕️",
+  "category": "healthcare",
+  "tags": [
+    "icd-11",
+    "snomed",
+    "loinc",
+    "rxnorm",
+    "mesh",
+    "atc",
+    "cid-10",
+    "medical",
+    "terminology",
+    "health"
+  ],
+  "tools": [
+    {
+      "name": "icd11_search",
+      "description": "Search ICD-11 for diseases/conditions by name or keyword; returns codes, titles and relevance.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "icd11_lookup",
+      "description": "Get full ICD-11 entity details (definition, notes, exclusions, synonyms) by code or URI.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "icd11_hierarchy",
+      "description": "Navigate ICD-11 parents/children of an entity.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "icd11_chapters",
+      "description": "List all 28 ICD-11 chapters (top-level categories).",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "icd11_postcoordination",
+      "description": "Get ICD-11 postcoordination axes for building composite codes.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "snomed_search",
+      "description": "Search SNOMED CT concepts by term (SCTID, FSN, PT). Reference only; production needs IHTSDO license.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "snomed_concept",
+      "description": "Get SNOMED CT concept details by SCTID. Reference only; IHTSDO license for production.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "snomed_hierarchy",
+      "description": "Get SNOMED CT IS-A parents/children for a concept.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "snomed_descriptions",
+      "description": "Get all descriptions/synonyms for a SNOMED CT concept.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "snomed_ecl",
+      "description": "Run an ECL (Expression Constraint Language) query over SNOMED CT.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "loinc_search",
+      "description": "Search LOINC for lab tests, clinical observations and measurements.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "loinc_details",
+      "description": "Get full LOINC details (component, property, timing, system, scale) for a code.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "loinc_answers",
+      "description": "Get the valid answer list for a LOINC questionnaire item.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "loinc_panels",
+      "description": "Get the structure/members of a LOINC panel or form.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "rxnorm_search",
+      "description": "Search RxNorm drugs by brand or generic name (RxCUI, term types).",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "rxnorm_concept",
+      "description": "Get RxNorm concept details by RxCUI (names, status, related concepts).",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "rxnorm_ingredients",
+      "description": "Get the active ingredients for a drug by RxCUI.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "rxnorm_classes",
+      "description": "Get therapeutic/pharmacologic classes for a drug.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "rxnorm_ndc",
+      "description": "Map between RxNorm RxCUI and National Drug Codes (NDC).",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "mesh_search",
+      "description": "Search MeSH descriptors for indexing / PubMed terms.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "mesh_descriptor",
+      "description": "Get full MeSH descriptor details (scope note, tree numbers, synonyms) by ID.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "mesh_tree",
+      "description": "Get the MeSH tree hierarchy location(s) for a descriptor.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "mesh_qualifiers",
+      "description": "Get the allowed qualifiers (subheadings) for a MeSH descriptor.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "atc_classify",
+      "description": "Look up the WHO ATC classification(s) for a drug by name.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "atc_lookup",
+      "description": "Resolve an ATC code (levels 1-4) to its class name and level.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "atc_members",
+      "description": "List the drugs/substances belonging to an ATC class.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "cid10_search",
+      "description": "Search the Brazilian CID-10 (Portuguese, DataSUS V2008) by text; diacritic-insensitive.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "cid10_lookup",
+      "description": "Look up a CID-10 code and return its Portuguese name and restriction flags.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "cid10_chapters",
+      "description": "List the 22 CID-10 chapters with code ranges and Portuguese titles.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "cid10_chapter",
+      "description": "Get one CID-10 chapter and its constituent groups.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "map_icd10_to_icd11",
+      "description": "Authoritative ICD-10 to ICD-11 mapping using WHO transition tables (release 2025-01).",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "map_snomed_to_icd10",
+      "description": "Map a SNOMED CT concept to ICD-10. Reference only; IHTSDO license for production.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "map_loinc_to_snomed",
+      "description": "Guidance on obtaining a LOINC to SNOMED CT mapping (not freely available via API).",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "validate_codes",
+      "description": "Validate a mixed batch of medical codes against their source terminologies.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "find_equivalent",
+      "description": "Search equivalent terms across ICD-11, SNOMED CT, LOINC, RxNorm and MeSH.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "terminology_versions",
+      "description": "List the current version/release/publisher of every terminology the server queries.",
+      "inputSchema": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "terminology_diff",
+      "description": "Report available diff data between two versions of a terminology (real ICD-10 to ICD-11 summary).",
+      "inputSchema": {
+        "type": "object"
+      }
+    }
+  ],
+  "resources": [
+    {
+      "name": "Server info",
+      "uri": "info://server",
+      "description": "Version, tool count, supported terminologies and feature-flag state."
+    },
+    {
+      "name": "CID-10 chapters",
+      "uri": "info://cid10/chapters",
+      "description": "The 22 CID-10 chapters (Brazilian Portuguese ICD-10, DataSUS V2008) with code ranges and descriptions."
+    },
+    {
+      "name": "Terminology licenses",
+      "uri": "info://licenses",
+      "description": "Per-terminology license disclaimers and access requirements."
+    },
+    {
+      "name": "Usage stats (hosted endpoint)",
+      "uri": "info://stats",
+      "description": "Per-tool invocation counts recorded by the hosted Cloudflare Workers endpoint."
+    }
+  ],
+  "prompts": [
+    {
+      "name": "find-medical-code",
+      "description": "Search a clinical condition across all terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10) in parallel and synthesize the matches with their codes."
+    },
+    {
+      "name": "drug-info",
+      "description": "Compile comprehensive drug information - normalized name, RxCUI, ingredients, therapeutic classes and WHO ATC - by composing RxNorm and ATC calls."
+    },
+    {
+      "name": "cid10-portuguese-lookup",
+      "description": "Look up a Portuguese medical term in the Brazilian CID-10 (DataSUS V2008) with chapter context and clinical description."
+    }
+  ]
+}
