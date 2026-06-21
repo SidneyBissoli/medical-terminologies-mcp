@@ -8,9 +8,9 @@
 [![smithery badge](https://smithery.ai/badge/sidneybissoli/medical-terminologies-mcp)](https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp)
 [![Glama MCP server](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp/badges/score.svg)](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp)
 [![Available on CodeGuilds](https://img.shields.io/badge/Available_on-CodeGuilds-6366f1)](https://codeguilds.dev/packages/medical-terminologies-mcp)
-[![tool calls](https://img.shields.io/endpoint?url=https%3A%2F%2Fmedical.sidneybissoli.com%2Fstats%2Fbadge)](https://medical.sidneybissoli.com/stats)
-[![GitHub Sponsors](https://img.shields.io/github/sponsors/SidneyBissoli?logo=githubsponsors&label=Sponsor&color=db61a2)](https://github.com/sponsors/SidneyBissoli)
 [![GitHub stars](https://img.shields.io/github/stars/SidneyBissoli/medical-terminologies-mcp?style=flat&logo=github)](https://github.com/SidneyBissoli/medical-terminologies-mcp)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/SidneyBissoli?logo=githubsponsors&label=Sponsor&color=db61a2)](https://github.com/sponsors/SidneyBissoli)
+[![tool calls](https://img.shields.io/endpoint?url=https%3A%2F%2Fmedical.sidneybissoli.com%2Fstats%2Fbadge)](https://medical.sidneybissoli.com/stats)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-blue.svg)](https://modelcontextprotocol.io)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
