@@ -114,7 +114,7 @@ describe('input param schemas — strict validators run', () => {
       const r = ICD11LookupParamsSchema.safeParse({});
       expect(r.success).toBe(false);
       if (!r.success) {
-        expect(r.error.errors[0].message).toMatch(/code.*or.*uri/i);
+        expect(r.error.issues[0].message).toMatch(/code.*or.*uri/i);
       }
     });
 
