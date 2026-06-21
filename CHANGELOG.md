@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.6] - 2026-06-20
+
+### Changed
+
+- Re-publish so the sharpened registry `description` introduced for 1.5.5
+  actually reaches the MCP Registry. The 1.5.5 publish job built from the
+  commit immediately before the description edit, so the registry kept the
+  old text. No code or package changes versus 1.5.5.
+
 ## [1.5.5] - 2026-06-20
 
 Discovery tuning.
