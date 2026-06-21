@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.7] - 2026-06-20
+
+Dependency refresh. Consolidates four Dependabot PRs into one tested
+release; no change to tool behavior, the public API, or the emitted
+JSON Schema contract.
+
+### Changed
+
+- **Bumped `zod` 3 → 4** (runtime) and dev tooling: `typescript` 5 → 6,
+  `@types/node` 20 → 25, `esbuild` → 0.28.1, `vitest` → 4.1.9.
+- **Migrated JSON Schema generation to zod 4's native `z.toJSONSchema`.**
+  `zod-to-json-schema@3` is built against zod 3's internals and silently
+  emits invalid schemas under zod 4, so tool `inputSchema`/`outputSchema`
+  now use the native generator (`target: 'draft-07'`, `reused: 'inline'`,
+  and the `io: 'input'`/`'output'` projections that match each helper's
+  purpose). Same draft-07 shapes as before — pinned by the existing schema
+  fixture tests — and the direct `zod-to-json-schema` dependency is dropped
+  (still present transitively via the MCP SDK).
+
 ## [1.5.6] - 2026-06-20
 
 ### Changed
