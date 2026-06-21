@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/medical-terminologies-mcp.svg)](https://www.npmjs.com/package/medical-terminologies-mcp)
 [![node](https://img.shields.io/node/v/medical-terminologies-mcp)](https://www.npmjs.com/package/medical-terminologies-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://registry.modelcontextprotocol.io)
-[![LobeHub](https://lobehub.com/badge/mcp-full/sidneybissoli-medical-terminologies-mcp?theme=light)](https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp)
+[![LobeHub](https://lobehub.com/badge/mcp/sidneybissoli-medical-terminologies-mcp)](https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp)
 [![smithery badge](https://smithery.ai/badge/sidneybissoli/medical-terminologies-mcp)](https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp)
 [![Glama MCP server](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp/badges/score.svg)](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp)
 [![Available on CodeGuilds](https://img.shields.io/badge/Available_on-CodeGuilds-6366f1)](https://codeguilds.dev/packages/medical-terminologies-mcp)
