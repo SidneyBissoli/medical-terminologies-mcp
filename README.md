@@ -62,7 +62,7 @@ npx @modelcontextprotocol/inspector --transport streamable-http \
 Or install via Smithery, which proxies the same endpoint through their gateway:
 
 ```bash
-npx -y smithery mcp add sidneybissoli/medical-terminologies
+npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
 The hosted instance has WHO credentials configured, so all 31 default tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.

@@ -22,7 +22,7 @@
 > deploy), 11.10 (LobeHub), 13.1 (authoritative ICD-10 → ICD-11),
 > 13.2 (validate_codes), and 13.6 (terminology_versions + diff) are
 > all done. The hosted endpoint
-> `https://medical-terminologies-mcp.sidneybissoli.workers.dev` is the
+> `https://medical.sidneybissoli.com` is the
 > single most important asset to link in any submission that accepts
 > an HTTP endpoint.
 
@@ -82,9 +82,9 @@ for fast-track merging.)
 > gated by `INTEGRATION_TESTS=1`. Daily integration cron in CI catches
 > upstream API drift.
 >
-> Hosted production endpoint: `https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp`
+> Hosted production endpoint: `https://medical.sidneybissoli.com/mcp`
 > (Cloudflare Workers, Streamable HTTP transport).
-> Smithery: `https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp`
+> Smithery: `https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp`
 > Glama: `https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp`
 > MCP Registry: `io.github.SidneyBissoli/medical-terminologies-mcp`
 > npm: `https://www.npmjs.com/package/medical-terminologies-mcp`
@@ -150,10 +150,10 @@ for fast-track merging.)
 >   live-API integration tests (gated by `INTEGRATION_TESTS=1`), gating
 >   CI on PR. Daily integration cron catches upstream API drift.
 > - **Hosted production endpoint:**
->   `https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp`
+>   `https://medical.sidneybissoli.com/mcp`
 >   (Cloudflare Workers, Streamable HTTP transport, stateless mode).
 >   Also listed on Smithery at
->   `https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp`.
+>   `https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp`.
 >
 > **What it deliberately does not do:**
 >
@@ -424,7 +424,7 @@ This post walks through three concrete clinical and research workflows where the
 
 Drop that into your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS), restart Claude, and 31 tools appear. WHO credentials are optional — without them the 5 ICD-11 live-lookup tools throw a clear configuration error and the other 26 work fine (including the authoritative ICD-10 → ICD-11 mapping, which uses bundled WHO data and needs no auth).
 
-**Prefer a hosted endpoint?** The server runs on Cloudflare Workers at the edge — point any Streamable-HTTP MCP client at `https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp` and skip the local install. Also listed on [Smithery](https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp), [Glama](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp), and [mcpservers.org](https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp).
+**Prefer a hosted endpoint?** The server runs on Cloudflare Workers at the edge — point any Streamable-HTTP MCP client at `https://medical.sidneybissoli.com/mcp` and skip the local install. Also listed on [Smithery](https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp), [Glama](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp), and [mcpservers.org](https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp).
 
 ## Use case 1: sepsis triage — finding the right LOINC for procalcitonin
 
@@ -574,8 +574,8 @@ It's MIT licensed. The medical terminology content has its own licenses, all lin
 
 - **npm:** https://www.npmjs.com/package/medical-terminologies-mcp
 - **GitHub:** https://github.com/SidneyBissoli/medical-terminologies-mcp
-- **Hosted endpoint:** https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp (Streamable HTTP, Cloudflare Workers)
-- **Smithery:** https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp
+- **Hosted endpoint:** https://medical.sidneybissoli.com/mcp (Streamable HTTP, Cloudflare Workers)
+- **Smithery:** https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp
 - **Glama:** https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp
 - **mcpservers.org:** https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp
 - **MCP Registry:** `io.github.SidneyBissoli/medical-terminologies-mcp`
@@ -651,7 +651,7 @@ If you work in clinical informatics, EMR integration, biomedical research, or he
 📖 Full walkthrough with screenshots: https://medium.com/@sbissoli76/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-a6c46de9c83b
 🔗 npm: https://www.npmjs.com/package/medical-terminologies-mcp
 🔗 GitHub: https://github.com/SidneyBissoli/medical-terminologies-mcp
-☁️ Hosted: https://medical-terminologies-mcp.sidneybissoli.workers.dev/mcp
+☁️ Hosted: https://medical.sidneybissoli.com/mcp
 
 #HealthInformatics #ClinicalInformatics #MedicalCoding #LLM #ModelContextProtocol #OpenSource #DigitalHealth #ClaudeAI
 

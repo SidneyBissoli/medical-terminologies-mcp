@@ -73,7 +73,7 @@ Glama.ai:                              LISTED (approved 2026-05-11 via 11.5)
                                        turned out to be unnecessary for search
                                        visibility.
 Smithery.ai:                           LISTED (shipped 2026-05-10 via 11.8)
-                                       https://smithery.ai/server/@SidneyBissoli/medical-terminologies-mcp
+                                       https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp
 mcpservers.org:                        LISTED (auto-indexed 2026-05-11; no form submission needed — mcpservers.org auto-discovers from the MCP Registry)
                                        https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp
                                        Caveat: page still shows the v1.0.x tool count
