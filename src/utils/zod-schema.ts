@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import { ApiError } from '../types/index.js';
 
@@ -21,22 +20,28 @@ export const READ_ONLY_TOOL_ANNOTATIONS: NonNullable<Tool['annotations']> = {
 };
 
 /**
- * Converts a Zod schema into the JSON Schema shape MCP expects for
- * Tool.inputSchema. Strips the $schema metadata key (MCP doesn't need it)
- * and inlines all references so clients see a flat object schema.
+ * Converts a Zod schema into the JSON Schema shape MCP expects, using Zod 4's
+ * native `z.toJSONSchema`. `target: 'draft-07'` matches what MCP clients expect,
+ * `reused: 'inline'` inlines references so clients see a flat object schema (the
+ * Zod 3 `zod-to-json-schema` equivalent was `$refStrategy: 'none'`), and the
+ * `$schema` metadata key is stripped because MCP doesn't need it.
+ *
+ * `io` distinguishes the input vs output projection of a schema — Zod 4 treats
+ * e.g. `.default()` fields as optional on input but present on output — which is
+ * exactly the input/output split these two helpers exist to express.
  */
-// `zodToJsonSchema`'s typed signature has overloads whose generics chain
-// through Zod v3's branded refinements and trip TS2589 ("type instantiation
-// excessively deep"). Erasing the call-site type sidesteps it; the runtime
-// behavior is unchanged and the return shape is enforced below.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const toJsonSchema = zodToJsonSchema as (schema: unknown, options?: unknown) => any;
+// `z.toJSONSchema`'s return type chains through Zod's branded generics and can
+// trip TS2589 ("type instantiation excessively deep"); erasing the call-site
+// type sidesteps it. Runtime behavior is unchanged and the return shape is
+// enforced by the `as` cast on each helper's result below.
+const toJsonSchema = z.toJSONSchema as (schema: unknown, options?: unknown) => Record<string, unknown>;
 
 export function buildInputSchema(schema: z.ZodTypeAny): Tool['inputSchema'] {
   const json = toJsonSchema(schema, {
-    $refStrategy: 'none',
-    target: 'jsonSchema7',
-  }) as Record<string, unknown>;
+    target: 'draft-07',
+    reused: 'inline',
+    io: 'input',
+  });
   delete json.$schema;
   return json as Tool['inputSchema'];
 }
@@ -47,15 +52,16 @@ export function buildInputSchema(schema: z.ZodTypeAny): Tool['inputSchema'] {
  */
 export function buildOutputSchema(schema: z.ZodTypeAny): NonNullable<Tool['outputSchema']> {
   const json = toJsonSchema(schema, {
-    $refStrategy: 'none',
-    target: 'jsonSchema7',
-  }) as Record<string, unknown>;
+    target: 'draft-07',
+    reused: 'inline',
+    io: 'output',
+  });
   delete json.$schema;
   return json as NonNullable<Tool['outputSchema']>;
 }
 
 function formatZodError(error: z.ZodError): string {
-  return error.errors
+  return error.issues
     .map((e) => {
       const path = e.path.join('.');
       return path ? `${path}: ${e.message}` : e.message;
