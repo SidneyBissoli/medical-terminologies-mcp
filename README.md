@@ -24,6 +24,17 @@ A Model Context Protocol (MCP) server providing unified access to major global m
 - **ATC** - Anatomical Therapeutic Chemical classification (WHO Collaborating Centre, served via NLM RxClass)
 - **CID-10** - Brazilian Portuguese translation of ICD-10 (DataSUS V2008, bundled)
 
+## See it in action
+
+Ask your assistant:
+
+- *"What's the ICD-11 code for type 2 diabetes?"* → `icd11_search`
+- *"Map ICD-10 code E11 to ICD-11."* → `map_icd10_to_icd11`
+- *"What does LOINC 2339-0 measure?"* → `loinc_details`
+- *"Qual o código CID-10 para infarto agudo do miocárdio?"* → `cid10_search`
+
+The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real codes and mappings, not guesses from training data.
+
 ## Features
 
 - 31 default tools (37 with SNOMED enabled) for medical terminology lookup
