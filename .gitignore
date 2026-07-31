@@ -55,3 +55,6 @@ scripts/_tmp/
 /roadmap.html
 /OUTREACH-PLAN.html
 /outreach-templates.html
+
+# Claude Code skills (area de trabalho local, ex.: lobehub-mcp-publisher)
+.claude/skills/
