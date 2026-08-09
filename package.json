@@ -63,7 +63,7 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.1.2",
     "esbuild": "^0.28.0",
     "nock": "^14.0.15",
     "pino-pretty": "^13.1.3",
