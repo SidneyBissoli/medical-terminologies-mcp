@@ -1,0 +1,49 @@
+// Configuração do Worker medical-terminologies-mcp — instância do template de
+// hosting da Fase 0, retrofit do worker pré-template (mesmo nome de worker =
+// mesmo storage dos Durable Objects; a migration v1 do StatsCounter já está
+// aplicada em produção e permanece no histórico abaixo).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "medical-terminologies-mcp",
+  "main": "src/index.ts",
+  "account_id": "5c499208eebced4e34bd98ffa204f2fb",
+  "compatibility_date": "2026-08-07",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Hostname *.workers.dev legado segue habilitado ao lado do domínio próprio —
+  // server.json/README/listagens antigas ainda apontam para ele.
+  "workers_dev": true,
+
+  // Domínio próprio preservado do deploy anterior — o endpoint MCP público é
+  // https://medical.sidneybissoli.com/mcp. O hostname também está listado em
+  // SERVER_CONFIG.extraAllowedHostnames (src/config.ts) — o createMcpHandler valida Host.
+  "routes": [{ "pattern": "medical.sidneybissoli.com", "custom_domain": true }],
+
+  "vars": {
+    "ALLOWED_ORIGIN": "*"
+  },
+
+  // Dois Durable Objects:
+  //  - STATS (StatsCounter, classe no pacote pai): contador público legado das
+  //    rotas /stats e /stats/badge — histórico desde 13/05/2026, storage
+  //    preservado pela migration v1 já aplicada (condição do decisor).
+  //  - USAGE (UsageTracker, template Fase 0): estatísticas agregadas por
+  //    tool/dia em GET /metrics — nasce zerado na migration v2.
+  "durable_objects": {
+    "bindings": [
+      { "name": "STATS", "class_name": "StatsCounter" },
+      { "name": "USAGE", "class_name": "UsageTracker" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["StatsCounter"] },
+    { "tag": "v2", "new_sqlite_classes": ["UsageTracker"] }
+  ],
+
+  // Metadados do último deploy (id/tag/timestamp) — expostos em GET /status para que
+  // a liveness e o build corrente sejam verificáveis sem o handshake MCP.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+
+  // Logs estruturados no painel da Cloudflare (Workers Logs).
+  "observability": { "enabled": true }
+}

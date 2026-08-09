@@ -58,3 +58,6 @@ scripts/_tmp/
 
 # Claude Code skills (area de trabalho local, ex.: lobehub-mcp-publisher)
 .claude/skills/
+
+# wrangler dev/build temp area (worker/)
+.wrangler/

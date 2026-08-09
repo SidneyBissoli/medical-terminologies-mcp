@@ -6,7 +6,12 @@ name: Deploy to Cloudflare Workers
 # - workflow_dispatch: manual redeploy without a code change (e.g. after
 #   rotating a secret or after a Cloudflare runtime update).
 #
-# Requires three GitHub secrets:
+# The Worker (worker/) is an instance of the portfolio's Fase 0 hosting
+# template. It consumes the parent package through dist/worker-lib.js
+# (npm run build:worker-lib at the repo root), so the root install+build
+# happens before the wrangler deploy from worker/.
+#
+# Requires two GitHub secrets:
 #   CLOUDFLARE_API_TOKEN — scoped token with "Workers Scripts: Edit"
 #                         permission for the target account
 #   CLOUDFLARE_ACCOUNT_ID — account ID the worker deploys into
@@ -19,9 +24,9 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'worker/**'
       - 'package.json'
       - 'package-lock.json'
-      - 'wrangler.toml'
       - '.github/workflows/deploy-worker.yml'
   workflow_dispatch:
 
@@ -38,31 +43,26 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      - name: Install dependencies (root)
         run: npm ci
 
-      - name: Typecheck
+      - name: Typecheck (root)
         run: npm run typecheck
 
-      - name: Build Worker bundle
-        run: npm run build:worker
+      - name: Build worker-lib bundle
+        run: npm run build:worker-lib
 
-      - name: Report bundle size (compressed)
-        run: |
-          GZ=$(gzip -c dist/worker.js | wc -c)
-          MB=$(awk "BEGIN {printf \"%.2f\", $GZ/1048576}")
-          echo "Worker bundle: ${MB} MB gzipped (${GZ} bytes)"
-          # Cloudflare free tier limit is 3 MB compressed. Fail early so a
-          # bad bundle blocks the deploy instead of erroring at Cloudflare.
-          if [ "$GZ" -gt 3145728 ]; then
-            echo "ERROR: bundle exceeds 3 MB compressed limit"
-            exit 1
-          fi
+      - name: Install dependencies (worker)
+        run: npm ci
+        working-directory: worker
+
+      - name: Typecheck (worker)
+        run: npm run typecheck
+        working-directory: worker
 
       - name: Deploy via Wrangler
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Wrangler reads wrangler.toml from the repo root; no extra
-          # command needed beyond `wrangler deploy` (the default).
+          workingDirectory: worker

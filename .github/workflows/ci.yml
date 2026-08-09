@@ -43,3 +43,32 @@ jobs:
           count=$(grep -o "toolRegistry.register" dist/index.js | wc -l)
           echo "Source-level register call sites: $count"
           test "$count" -eq 37 || { echo "Expected 37, got $count"; exit 1; }
+
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies (root)
+        run: npm ci
+
+      - name: Build worker-lib bundle
+        run: npm run build:worker-lib
+
+      - name: Install dependencies (worker)
+        run: npm ci
+        working-directory: worker
+
+      - name: Typecheck (worker)
+        run: npm run typecheck
+        working-directory: worker
+
+      - name: Run tests (worker)
+        run: npm test
+        working-directory: worker
