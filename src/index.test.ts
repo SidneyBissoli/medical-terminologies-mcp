@@ -3,12 +3,13 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 
 describe('side-effect import coverage', () => {
   // The side-effect-import pattern (each src/{tools,prompts,resources}/*.ts
-  // registers its entries at module load) only works if src/index.ts
-  // actually imports every such module. `tree-shaking: false` in the
-  // esbuild script protects against the build dropping live code, but
-  // does NOT protect against the human failure mode: a developer
+  // registers its entries at module load) only works if src/register.ts —
+  // the single registration module both entry points import since the SDK
+  // v2 migration — actually imports every such module. `tree-shaking:
+  // false` in the esbuild script protects against the build dropping live
+  // code, but does NOT protect against the human failure mode: a developer
   // creates a new module that calls a registry.register(...), forgets
-  // to add `import './<dir>/X.js'` to src/index.ts, and the new entry
+  // to add `import './<dir>/X.js'` to src/register.ts, and the new entry
   // silently fails to appear in tools/list / prompts/list /
   // resources/list with no compile-time error.
   //
@@ -16,7 +17,7 @@ describe('side-effect import coverage', () => {
   // registries. If you add a non-registry module under a covered dir
   // (e.g., a private helper file), explicitly exclude it below.
 
-  const indexContent = readFileSync('src/index.ts', 'utf8');
+  const indexContent = readFileSync('src/register.ts', 'utf8');
 
   function listModules(dir: string): string[] {
     if (!existsSync(dir)) return [];
@@ -31,36 +32,36 @@ describe('side-effect import coverage', () => {
       .map((d) => d.name.replace(/\.ts$/, '.js'));
   }
 
-  it('every src/tools/*.ts module is imported by src/index.ts', () => {
+  it('every src/tools/*.ts module is imported by src/register.ts', () => {
     const files = listModules('src/tools');
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
       expect(
         indexContent,
-        `src/index.ts is missing 'import "./tools/${file}"' — new tool file added without entry-point wiring?`,
+        `src/register.ts is missing 'import "./tools/${file}"' — new tool file added without register.ts wiring?`,
       ).toContain(`./tools/${file}`);
     }
   });
 
-  it('every src/prompts/*.ts module is imported by src/index.ts', () => {
+  it('every src/prompts/*.ts module is imported by src/register.ts', () => {
     const files = listModules('src/prompts');
     // prompts/ is optional historically — only assert if files exist.
     if (files.length === 0) return;
     for (const file of files) {
       expect(
         indexContent,
-        `src/index.ts is missing 'import "./prompts/${file}"' — new prompt file added without entry-point wiring?`,
+        `src/register.ts is missing 'import "./prompts/${file}"' — new prompt file added without register.ts wiring?`,
       ).toContain(`./prompts/${file}`);
     }
   });
 
-  it('every src/resources/*.ts module is imported by src/index.ts', () => {
+  it('every src/resources/*.ts module is imported by src/register.ts', () => {
     const files = listModules('src/resources');
     if (files.length === 0) return;
     for (const file of files) {
       expect(
         indexContent,
-        `src/index.ts is missing 'import "./resources/${file}"' — new resource file added without entry-point wiring?`,
+        `src/register.ts is missing 'import "./resources/${file}"' — new resource file added without register.ts wiring?`,
       ).toContain(`./resources/${file}`);
     }
   });

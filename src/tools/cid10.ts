@@ -9,7 +9,7 @@
  * Backed by `src/data/cid10.json`, bundled into the build. No HTTP calls.
  */
 
-import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import { getCID10Client } from '../clients/cid10-client.js';
 import {

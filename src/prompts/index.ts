@@ -14,7 +14,7 @@
  * The meta-test in `src/index.test.ts` enforces the Node side.
  */
 
-import type { Prompt, GetPromptResult } from '@modelcontextprotocol/sdk/types.js';
+import type { Prompt, GetPromptResult } from '@modelcontextprotocol/server';
 import { promptRegistry, type PromptHandler } from '../server-core.js';
 
 // --- find-medical-code -------------------------------------------------

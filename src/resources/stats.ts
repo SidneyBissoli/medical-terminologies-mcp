@@ -16,7 +16,7 @@
  * `scope` field in the payload makes this explicit.
  */
 
-import type { Resource, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import type { Resource, ReadResourceResult } from '@modelcontextprotocol/server';
 import { resourceRegistry, type ResourceHandler } from '../server-core.js';
 import { getStatsRecorder } from '../utils/stats.js';
 

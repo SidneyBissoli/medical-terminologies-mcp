@@ -11,7 +11,7 @@
  * @license MIT
  */
 
-import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import { getWHOClient, ICD11DestinationEntity, ICD11EntityResponse } from '../clients/who-client.js';
 import {
@@ -467,8 +467,13 @@ async function handleICD11Postcoordination(args: Record<string, unknown>): Promi
     };
   } catch (error) {
     if (error instanceof ApiError && error.code === 'NOT_FOUND') {
+      // Non-error informational result. structuredContent is mandatory here:
+      // the tool declares an outputSchema, and the SDK v2 rejects any
+      // non-error result without structuredContent before validation runs.
+      const empty: ICD11PostcoordinationOutput = { code: String(args.code ?? ''), axes: [] };
       return {
         content: [{ type: 'text', text: `No postcoordination info found for code: ${args.code}` }],
+        structuredContent: empty,
       };
     }
     return handleToolError(error);

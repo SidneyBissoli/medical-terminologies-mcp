@@ -10,7 +10,7 @@
  * rate limiter, retry policy, and cache.
  */
 
-import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import { getRxNormClient } from '../clients/rxnorm-client.js';
 import {

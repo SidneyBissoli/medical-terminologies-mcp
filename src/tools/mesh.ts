@@ -10,7 +10,7 @@
  * @license MIT
  */
 
-import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import {
   getMeSHClient,

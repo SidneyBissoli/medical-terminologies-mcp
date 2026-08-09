@@ -1,33 +1,25 @@
 /**
- * Platform-agnostic MCP server core — runs unchanged on Node (stdio +
- * Node HTTP) and Cloudflare Workers (web-standard fetch). Lives in its
- * own file because importing `src/server.ts` from a Workers bundle would
- * drag in `node:http` and `@hono/node-server` (the SDK's Node wrapper
- * for StreamableHTTPServerTransport) — neither of which exist in the
- * Workers runtime.
+ * Platform-agnostic MCP server core — runs unchanged on Node (stdio) and
+ * Cloudflare Workers. Holds the three singleton registries that tool/
+ * prompt/resource modules populate at load time, plus SERVER_INFO and the
+ * shared handler types.
  *
- * What goes here:  createServer, ToolRegistry, SERVER_INFO, shared types.
- * What stays in server.ts:  startServer (stdio), startHttpServer (Node http).
+ * Since the SDK v2 migration the actual `McpServer` construction lives in
+ * `src/register.ts` (`createServer` / `registerAll`), which imports every
+ * tool/prompt/resource module for its side effects and then projects the
+ * registries onto a `McpServer`. This file must NOT import those modules —
+ * they import the registries from here, and a cycle would hit the TDZ.
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  GetPromptRequestSchema,
-  ListPromptsRequestSchema,
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
+import type {
   Tool,
   CallToolResult,
   Prompt,
   GetPromptResult,
   Resource,
   ReadResourceResult,
-} from '@modelcontextprotocol/sdk/types.js';
+} from '@modelcontextprotocol/server';
 import pkg from '../package.json';
-import { logger } from './utils/logger.js';
-import { recordInvocation } from './utils/stats.js';
 
 export const SERVER_INFO = {
   name: pkg.name,
@@ -108,100 +100,3 @@ class ResourceRegistry {
 export const toolRegistry = new ToolRegistry();
 export const promptRegistry = new PromptRegistry();
 export const resourceRegistry = new ResourceRegistry();
-
-export function createServer(): Server {
-  const server = new Server(
-    {
-      name: SERVER_INFO.name,
-      version: SERVER_INFO.version,
-    },
-    {
-      capabilities: {
-        tools: {},
-        prompts: {},
-        resources: {},
-      },
-    },
-  );
-
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: toolRegistry.getTools(),
-    };
-  });
-
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-
-    const handler = toolRegistry.getHandler(name);
-    if (!handler) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error: Unknown tool "${name}". Use list_tools to see available tools.`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    try {
-      const result = await handler(args ?? {});
-      // Fire-and-forget stats increment. NoopStatsRecorder on Node (stdio);
-      // DO-backed on Workers. The recorder swallows its own errors so a
-      // counter failure never propagates back to the user's tool response.
-      recordInvocation(name);
-      return result;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error({ tool: name, err: errorMessage }, 'Tool handler failed');
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error executing tool "${name}": ${errorMessage}`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  });
-
-  server.setRequestHandler(ListPromptsRequestSchema, async () => {
-    return {
-      prompts: promptRegistry.getPrompts(),
-    };
-  });
-
-  server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-
-    const handler = promptRegistry.getHandler(name);
-    if (!handler) {
-      throw new Error(`Unknown prompt "${name}". Use prompts/list to see available prompts.`);
-    }
-
-    return await handler(args ?? {});
-  });
-
-  server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    return {
-      resources: resourceRegistry.getResources(),
-    };
-  });
-
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const { uri } = request.params;
-
-    const handler = resourceRegistry.getHandler(uri);
-    if (!handler) {
-      throw new Error(`Unknown resource "${uri}". Use resources/list to see available resources.`);
-    }
-
-    return await handler(uri);
-  });
-
-  return server;
-}

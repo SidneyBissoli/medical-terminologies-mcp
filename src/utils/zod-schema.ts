@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult, Tool } from '@modelcontextprotocol/server';
 import { ApiError } from '../types/index.js';
 
 /**

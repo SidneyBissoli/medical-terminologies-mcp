@@ -18,7 +18,7 @@
  * @license MIT
  */
 
-import { Tool, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import { getICD10ToICD11MapClient } from '../clients/icd10-icd11-map-client.js';
 import { getEnv } from '../utils/env.js';

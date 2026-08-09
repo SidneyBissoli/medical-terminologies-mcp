@@ -47,22 +47,21 @@
   "sideEffects": true,
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --packages=external --tree-shaking=false",
-    "build:worker": "esbuild src/worker.ts --bundle --platform=browser --target=es2022 --format=esm --outfile=dist/worker.js --tree-shaking=false --conditions=workerd,browser --define:process.env.NODE_ENV=\\\"production\\\" --external:node:* --external:cloudflare:* --alias:events=node:events --alias:stream=node:stream --alias:buffer=node:buffer --alias:util=node:util --alias:path=node:path --alias:os=node:os --alias:fs=node:fs --alias:url=node:url --alias:crypto=node:crypto",
-    "build:all": "npm run build && npm run build:worker",
+    "build:all": "npm run build",
     "start": "node dist/index.js",
     "dev": "npm run build && node dist/index.js",
-    "dev:worker": "npm run build:worker && npx wrangler dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@modelcontextprotocol/server": "^2.0.0",
     "pino": "^10.2.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "@types/node": "^25.9.3",
     "esbuild": "^0.28.0",
     "nock": "^14.0.15",

@@ -16,7 +16,7 @@
  * in `src/index.test.ts` enforces the Node side.
  */
 
-import type { Resource, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import type { Resource, ReadResourceResult } from '@modelcontextprotocol/server';
 import { resourceRegistry, SERVER_INFO, toolRegistry, type ResourceHandler } from '../server-core.js';
 import { getCID10Client } from '../clients/cid10-client.js';
 import { SNOMED_TOOLS_ENABLED } from '../utils/feature-flags.js';
