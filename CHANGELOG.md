@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-08-09
+
+Usability release: ranked unified search, human display names, and server
+instructions. All structured-output changes are additive — existing fields
+keep their names and shapes.
+
+### Added
+
+- **`find_equivalent` is now a ranked unified search.** Every candidate
+  carries `match_score` (lexical similarity to the search term, 0–1) and
+  `rank` (one global position across all searched terminologies), computed
+  server-side — the upstreams don't expose comparable relevance scores.
+  Candidates from different terminologies whose titles are lexically
+  identical are clustered in a new `groups` array (conservative: exact
+  normalized-title equality only). A new `ranking` object self-describes the
+  method, and a new `limit` parameter (1–10, default 5) caps candidates per
+  terminology. Items within each terminology now come back ordered by rank
+  (best first) instead of upstream order.
+- **Human display names (`title`) on all 37 tools** — English throughout,
+  Portuguese for the natively Brazilian `cid10_*` tools. Clients that render
+  tool lists can now show "Map ICD-10 to ICD-11" instead of
+  `map_icd10_to_icd11`. A test gate keeps every tool titled.
+- **Server `instructions` on the MCP handshake** (both stdio and the hosted
+  Worker): routing map across the seven terminologies, when to use
+  `find_equivalent` vs. a dedicated search, where official Portuguese
+  content lives, and the honest caveats (guidance-only crosswalks, gated
+  SNOMED, retrieval-not-CDS).
+
+### Changed
+
+- **Official pt-BR is now discoverable**: the `language` parameter
+  description and the `icd11_search`/`icd11_lookup`/`mesh_search`/
+  `mesh_descriptor`/`snomed_search`/`snomed_concept` tool descriptions now
+  say explicitly that `language: "pt"` returns the source's official
+  Portuguese where it exists (never machine translation), and the README
+  gained an "Official Portuguese (pt-BR) content" section.
+
 ## [1.6.0] - 2026-08-09
 
 Foundation release: MCP SDK v2 on both transports and the hosted Worker
