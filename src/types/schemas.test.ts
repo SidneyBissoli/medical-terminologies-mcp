@@ -172,6 +172,14 @@ describe('input param schemas — strict validators run', () => {
       });
       expect(r.success).toBe(false);
     });
+
+    it('find_equivalent: limit optional, bounded 1-10, integers only', () => {
+      expect(FindEquivalentParamsSchema.parse({ term: 'x' }).limit).toBeUndefined();
+      expect(FindEquivalentParamsSchema.parse({ term: 'x', limit: 10 }).limit).toBe(10);
+      expect(FindEquivalentParamsSchema.safeParse({ term: 'x', limit: 0 }).success).toBe(false);
+      expect(FindEquivalentParamsSchema.safeParse({ term: 'x', limit: 11 }).success).toBe(false);
+      expect(FindEquivalentParamsSchema.safeParse({ term: 'x', limit: 2.5 }).success).toBe(false);
+    });
   });
 });
 
@@ -788,7 +796,12 @@ describe('RxNorm output schemas — fixtures parse cleanly', () => {
   });
 });
 
-describe('find_equivalent output schema — aggregator with mixed results', () => {
+describe('find_equivalent output schema — ranked aggregator with mixed results', () => {
+  const ranking = {
+    method: 'lexical',
+    note: 'match_score and rank are computed by this server.',
+  };
+
   it('full aggregator: hits in some terminologies, error in another, empty in another', () => {
     expect(
       FindEquivalentOutputSchema.safeParse({
@@ -799,15 +812,99 @@ describe('find_equivalent output schema — aggregator with mixed results', () =
           icd11: {
             found: true,
             error: null,
-            items: [{ code: '5A11', title: 'Type 2 diabetes mellitus' }],
+            items: [{ code: '5A11', title: 'Type 2 diabetes mellitus', match_score: 0.45, rank: 2 }],
           },
           snomed: { found: false, error: 'SNOMED tools are disabled', items: [] },
-          loinc: { found: true, error: null, items: [{ code: '2339-0', title: 'Glucose' }] },
+          loinc: {
+            found: true,
+            error: null,
+            items: [{ code: '2339-0', title: 'Glucose', match_score: 0, rank: 3 }],
+          },
           rxnorm: { found: false, error: null, items: [] },
-          mesh: { found: true, error: null, items: [{ code: 'D003920', title: 'Diabetes Mellitus' }] },
+          mesh: {
+            found: true,
+            error: null,
+            items: [{ code: 'D003920', title: 'Diabetes Mellitus', match_score: 0.833, rank: 1 }],
+          },
         },
+        groups: [],
+        ranking,
       }).success,
     ).toBe(true);
+  });
+
+  it('cross-terminology group with members from two terminologies validates', () => {
+    expect(
+      FindEquivalentOutputSchema.safeParse({
+        term: 'diabetes mellitus',
+        source_terminology: null,
+        searched_terminologies: ['icd11', 'mesh'],
+        results: {
+          icd11: {
+            found: true,
+            error: null,
+            items: [{ code: '5A10', title: 'Diabetes mellitus', match_score: 1, rank: 1 }],
+          },
+          mesh: {
+            found: true,
+            error: null,
+            items: [{ code: 'D003920', title: 'Diabetes Mellitus', match_score: 1, rank: 2 }],
+          },
+        },
+        groups: [
+          {
+            normalized_title: 'diabetes mellitus',
+            terminologies: ['icd11', 'mesh'],
+            members: [
+              { terminology: 'icd11', code: '5A10', title: 'Diabetes mellitus', match_score: 1 },
+              { terminology: 'mesh', code: 'D003920', title: 'Diabetes Mellitus', match_score: 1 },
+            ],
+          },
+        ],
+        ranking,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects items without the ranking fields (match_score/rank are required)', () => {
+    expect(
+      FindEquivalentOutputSchema.safeParse({
+        term: 'aspirin',
+        source_terminology: null,
+        searched_terminologies: ['rxnorm'],
+        results: {
+          rxnorm: { found: true, error: null, items: [{ code: '1191', title: 'aspirin' }] },
+        },
+        groups: [],
+        ranking,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects match_score outside [0, 1] and non-positive rank', () => {
+    const base = {
+      term: 'x',
+      source_terminology: null,
+      searched_terminologies: ['rxnorm'],
+      groups: [],
+      ranking,
+    };
+    expect(
+      FindEquivalentOutputSchema.safeParse({
+        ...base,
+        results: {
+          rxnorm: { found: true, error: null, items: [{ code: '1', title: 'x', match_score: 1.2, rank: 1 }] },
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      FindEquivalentOutputSchema.safeParse({
+        ...base,
+        results: {
+          rxnorm: { found: true, error: null, items: [{ code: '1', title: 'x', match_score: 0.5, rank: 0 }] },
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it('source_terminology populated → reflected in output', () => {
@@ -822,34 +919,21 @@ describe('find_equivalent output schema — aggregator with mixed results', () =
           rxnorm: { found: false, error: null, items: [] },
           mesh: { found: false, error: null, items: [] },
         },
+        groups: [],
+        ranking,
       }).success,
     ).toBe(true);
   });
 
-  it('subset of terminologies searched: results object only contains those keys', () => {
-    expect(
-      FindEquivalentOutputSchema.safeParse({
-        term: 'aspirin',
-        source_terminology: null,
-        searched_terminologies: ['rxnorm'],
-        results: {
-          rxnorm: {
-            found: true,
-            error: null,
-            items: [{ code: '1191', title: 'aspirin' }],
-          },
-        },
-      }).success,
-    ).toBe(true);
-  });
-
-  it('zero-targets edge case: empty searched_terminologies and empty results', () => {
+  it('zero-targets edge case: empty searched_terminologies, results, and groups', () => {
     expect(
       FindEquivalentOutputSchema.safeParse({
         term: 'x',
         source_terminology: 'icd11',
         searched_terminologies: [],
         results: {},
+        groups: [],
+        ranking,
       }).success,
     ).toBe(true);
   });

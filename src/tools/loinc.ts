@@ -54,6 +54,7 @@ function loincItemToOutput(item: LOINCItem): LOINCDetailsOutput {
 
 const loincSearchTool: Tool = {
   name: 'loinc_search',
+  title: 'Search LOINC',
   description: `Search for laboratory tests, clinical observations, and measurements in LOINC (Logical Observation Identifiers Names and Codes).
 
 Use this tool to:
@@ -69,6 +70,7 @@ Returns matching LOINC codes with names, components, and properties.`,
 
 const loincDetailsTool: Tool = {
   name: 'loinc_details',
+  title: 'LOINC Code Details',
   description: `Get detailed information about a specific LOINC code.
 
 Use this tool to:
@@ -84,6 +86,7 @@ Provide a LOINC number in format "XXXXX-X" (e.g., "2339-0" for Glucose).`,
 
 const loincAnswersTool: Tool = {
   name: 'loinc_answers',
+  title: 'LOINC Answer Lists',
   description: `Get the list of valid answers for a LOINC questionnaire item.
 
 Use this tool to:
@@ -99,6 +102,7 @@ Only applicable to LOINC codes that represent questions with defined answer sets
 
 const loincPanelsTool: Tool = {
   name: 'loinc_panels',
+  title: 'LOINC Panel Structure',
   description: `Get the structure of a LOINC panel or form.
 
 Use this tool to:

@@ -45,12 +45,15 @@ import {
 
 const meshSearchTool: Tool = {
   name: 'mesh_search',
+  title: 'Search MeSH',
   description: `Search for MeSH (Medical Subject Headings) descriptors.
 
 Use this tool to:
 - Find MeSH terms for indexing medical literature
 - Look up subject headings for PubMed searches
 - Find controlled vocabulary terms
+
+Set \`language\` to request NLM's official translations where they exist (e.g. \`language: "pt"\` for Portuguese labels); content is never machine-translated.
 
 Returns matching descriptors with MeSH IDs and labels.`,
   inputSchema: buildInputSchema(MeSHSearchParamsSchema),
@@ -60,6 +63,7 @@ Returns matching descriptors with MeSH IDs and labels.`,
 
 const meshDescriptorTool: Tool = {
   name: 'mesh_descriptor',
+  title: 'MeSH Descriptor Details',
   description: `Get detailed information about a MeSH descriptor by ID.
 
 Use this tool to:
@@ -67,7 +71,7 @@ Use this tool to:
 - View tree numbers showing hierarchy location
 - See related concepts and synonyms
 
-Provide a MeSH Descriptor ID like "D015242" (Ofloxacin).`,
+Provide a MeSH Descriptor ID like "D015242" (Ofloxacin). Set \`language\` to request NLM's official translations where they exist (e.g. \`language: "pt"\`).`,
   inputSchema: buildInputSchema(MeSHDescriptorParamsSchema),
   outputSchema: buildOutputSchema(MeSHDescriptorOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -75,6 +79,7 @@ Provide a MeSH Descriptor ID like "D015242" (Ofloxacin).`,
 
 const meshTreeTool: Tool = {
   name: 'mesh_tree',
+  title: 'MeSH Tree Locations',
   description: `Get the tree hierarchy location(s) for a MeSH descriptor.
 
 Use this tool to:
@@ -90,6 +95,7 @@ MeSH tree numbers show the hierarchical path (e.g., C14.280.647 for Myocardial I
 
 const meshQualifiersTool: Tool = {
   name: 'mesh_qualifiers',
+  title: 'MeSH Allowable Qualifiers',
   description: `Get allowed qualifiers (subheadings) for a MeSH descriptor.
 
 Use this tool to:

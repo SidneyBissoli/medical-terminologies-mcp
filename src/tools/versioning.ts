@@ -180,6 +180,7 @@ function buildMetadata(): TerminologyMeta[] {
 
 const terminologyVersionsTool: Tool = {
   name: 'terminology_versions',
+  title: 'Terminology Versions',
   description: `List the current version, release date, publisher, source URL, and update cadence of every terminology this server queries against.
 
 Useful for pipeline maintainers who need to:
@@ -195,6 +196,7 @@ Pass \`terminology\` to filter to a single entry; otherwise the full set of 8 is
 
 const terminologyDiffTool: Tool = {
   name: 'terminology_diff',
+  title: 'Terminology Version Diff',
   description: `Report what diff data is available between two versions of a terminology.
 
 For most terminologies this is **guidance only** — the server doesn't ship historical snapshots, so the tool points at the publisher's official changelog and explains the cadence. \`bundled_versions\` lists the version(s) this server actually has on hand.

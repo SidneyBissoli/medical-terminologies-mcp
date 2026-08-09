@@ -37,6 +37,7 @@ import {
 
 const atcClassifyTool: Tool = {
   name: 'atc_classify',
+  title: 'ATC Classification for a Drug',
   description: `Look up the WHO ATC (Anatomical Therapeutic Chemical) classification(s) for a drug by name.
 
 Use this tool to:
@@ -52,6 +53,7 @@ Returns one entry per ATC code the drug belongs to. A single-ingredient drug typ
 
 const atcLookupTool: Tool = {
   name: 'atc_lookup',
+  title: 'ATC Code Details',
   description: `Look up an ATC code at level 1-4 to get its name and hierarchy level.
 
 Use this tool to:
@@ -67,6 +69,7 @@ Accepts codes 1-5 characters long: "A" (anatomical), "A10" (therapeutic), "A10B"
 
 const atcMembersTool: Tool = {
   name: 'atc_members',
+  title: 'ATC Class Members',
   description: `List the drugs (substances) that belong to an ATC class.
 
 Use this tool to:

@@ -18,6 +18,12 @@
  */
 
 export { registerAll, createServer, type ToolUsageRecorder } from './register.js';
-export { SERVER_INFO, toolRegistry, promptRegistry, resourceRegistry } from './server-core.js';
+export {
+  SERVER_INFO,
+  SERVER_INSTRUCTIONS,
+  toolRegistry,
+  promptRegistry,
+  resourceRegistry,
+} from './server-core.js';
 export { setStatsRecorder, type StatsRecorder, type StatsPayload } from './utils/stats.js';
 export { StatsCounter } from './durable-objects/stats-counter.js';

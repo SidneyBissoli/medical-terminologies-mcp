@@ -6,7 +6,9 @@ import { z } from 'zod';
 
 const SupportedLanguageSchema = z
   .enum(['en', 'es', 'pt', 'fr', 'de', 'it', 'zh', 'ja', 'ar', 'ru'])
-  .describe('Language code (default: en)');
+  .describe(
+    "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+  );
 
 const TerminologyEnum = z.enum(['icd11', 'snomed', 'loinc', 'rxnorm', 'mesh']);
 
@@ -593,6 +595,15 @@ export const FindEquivalentParamsSchema = z.object({
     .array(TerminologyEnum)
     .optional()
     .describe('Limit the search to these terminologies. If omitted, all five are searched.'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .optional()
+    .describe(
+      'Maximum candidates returned PER terminology (1-10, default 5). This is a cap, not a page: the live fan-out has no stable cursor across five upstreams, so raise the limit instead of paging.',
+    ),
 });
 
 // ============================================================================
@@ -608,6 +619,15 @@ export const FindEquivalentParamsSchema = z.object({
 const FindEquivalentItemSchema = z.object({
   code: z.string(),
   title: z.string(),
+  // D2 ranking (v1.7.0, additive): lexical similarity to the search term,
+  // computed by THIS server (upstreams don't expose comparable scores).
+  // 0-1, 3 decimals; see src/utils/lexical-score.ts for the formula. The
+  // provenance block (next session) will mark these derived: true.
+  match_score: z.number().min(0).max(1),
+  // Global rank across ALL searched terminologies (1 = best match overall).
+  // Ties break by terminology order (icd11, snomed, loinc, rxnorm, mesh),
+  // then by upstream result order — deterministic for identical responses.
+  rank: z.number().int().min(1),
 });
 
 const FindEquivalentTerminologyResultSchema = z.object({
@@ -615,7 +635,29 @@ const FindEquivalentTerminologyResultSchema = z.object({
   // Populated when the upstream call failed (timeout, server error, or — for
   // SNOMED — when the SNOMED tools are disabled in this server).
   error: z.string().nullable(),
+  // Sorted by match_score descending (i.e. by global rank) since v1.7.0;
+  // before that the order was whatever the upstream returned.
   items: z.array(FindEquivalentItemSchema),
+});
+
+// Cross-terminology grouping (v1.7.0, additive): candidates from DIFFERENT
+// terminologies whose normalized titles are lexically identical are grouped
+// as likely representations of the same concept. Deliberately conservative:
+// exact normalized-title equality only, no fuzzy clustering — a group is a
+// strong signal, absence of a group is not evidence of non-equivalence.
+const FindEquivalentGroupMemberSchema = z.object({
+  terminology: TerminologyEnum,
+  code: z.string(),
+  title: z.string(),
+  match_score: z.number().min(0).max(1),
+});
+
+const FindEquivalentGroupSchema = z.object({
+  // The shared normalized title (lowercase, diacritics stripped) that
+  // members matched on.
+  normalized_title: z.string(),
+  terminologies: z.array(TerminologyEnum),
+  members: z.array(FindEquivalentGroupMemberSchema),
 });
 
 export const FindEquivalentOutputSchema = z.object({
@@ -631,6 +673,15 @@ export const FindEquivalentOutputSchema = z.object({
     loinc: FindEquivalentTerminologyResultSchema.optional(),
     rxnorm: FindEquivalentTerminologyResultSchema.optional(),
     mesh: FindEquivalentTerminologyResultSchema.optional(),
+  }),
+  // Groups of lexically identical candidates across terminologies, sorted
+  // by best member match_score. Empty when nothing groups.
+  groups: z.array(FindEquivalentGroupSchema),
+  // Self-description of the server-side ranking so consumers know the
+  // scores are derived here, not upstream relevance.
+  ranking: z.object({
+    method: z.literal('lexical'),
+    note: z.string(),
   }),
 });
 

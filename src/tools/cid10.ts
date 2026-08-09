@@ -39,6 +39,7 @@ import { z } from 'zod';
 
 const cid10SearchTool: Tool = {
   name: 'cid10_search',
+  title: 'Buscar na CID-10',
   description: `Search the Brazilian CID-10 (Classificação Estatística Internacional de Doenças, 10ª Revisão) by Portuguese text.
 
 Use this tool to:
@@ -54,6 +55,7 @@ Returns matches from CID-10 categories (3-char) and/or subcategories (4-char). S
 
 const cid10LookupTool: Tool = {
   name: 'cid10_lookup',
+  title: 'Consultar Código CID-10',
   description: `Look up a specific CID-10 code and return its Portuguese name.
 
 Use this tool to:
@@ -69,6 +71,7 @@ Accepts both dotted ("A00.1") and undotted ("A001") forms; returns the canonical
 
 const cid10ChaptersTool: Tool = {
   name: 'cid10_chapters',
+  title: 'Capítulos da CID-10',
   description: `List the 22 chapters of CID-10 with their code ranges and Portuguese titles.
 
 Use this tool to:
@@ -84,6 +87,7 @@ Returns 22 entries — CID-10 V2008 has not been updated since 2008.`,
 
 const cid10ChapterTool: Tool = {
   name: 'cid10_chapter',
+  title: 'Capítulo da CID-10',
   description: `Get one CID-10 chapter and its constituent groups (e.g., "Chapter IX → I00-I02 Febre reumática aguda, I05-I09 Doenças reumáticas crônicas do coração, ...").
 
 Use this tool to:

@@ -45,12 +45,15 @@ import {
 
 const icd11SearchTool: Tool = {
   name: 'icd11_search',
+  title: 'Search ICD-11',
   description: `Search for medical conditions, diseases, and health problems in ICD-11 (International Classification of Diseases, 11th Revision).
 
 Use this tool to:
 - Find ICD-11 codes for diagnoses
 - Search for diseases by name or keyword
 - Look up conditions in multiple languages
+
+Set \`language\` for WHO's official translations — e.g. \`language: "pt"\` searches and returns the official Portuguese (pt-BR) ICD-11 labels. Never machine-translated.
 
 Returns matching entities with codes, titles, and relevance scores.`,
   inputSchema: buildInputSchema(ICD11SearchParamsSchema),
@@ -60,6 +63,7 @@ Returns matching entities with codes, titles, and relevance scores.`,
 
 const icd11LookupTool: Tool = {
   name: 'icd11_lookup',
+  title: 'ICD-11 Entity Details',
   description: `Get detailed information about a specific ICD-11 entity by code or URI.
 
 Use this tool to:
@@ -67,7 +71,7 @@ Use this tool to:
 - Retrieve coding notes and exclusions
 - Get the official title and synonyms
 
-Provide either an ICD-11 code (e.g., "BA00") or a full foundation URI.`,
+Provide either an ICD-11 code (e.g., "BA00") or a full foundation URI. Set \`language\` for WHO's official translations (e.g. \`language: "pt"\` for official Portuguese).`,
   inputSchema: buildInputSchema(ICD11LookupParamsSchema),
   outputSchema: buildOutputSchema(ICD11LookupOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -75,6 +79,7 @@ Provide either an ICD-11 code (e.g., "BA00") or a full foundation URI.`,
 
 const icd11HierarchyTool: Tool = {
   name: 'icd11_hierarchy',
+  title: 'Browse ICD-11 Hierarchy',
   description: `Navigate the ICD-11 hierarchy to find parent or child entities.
 
 Use this tool to:
@@ -90,6 +95,7 @@ Direction 'parents' returns ancestor categories, 'children' returns subcategorie
 
 const icd11ChaptersTool: Tool = {
   name: 'icd11_chapters',
+  title: 'List ICD-11 Chapters',
   description: `List all ICD-11 chapters (top-level categories).
 
 Use this tool to:
@@ -105,6 +111,7 @@ ICD-11 has 28 chapters covering all areas of medicine.`,
 
 const icd11PostcoordinationTool: Tool = {
   name: 'icd11_postcoordination',
+  title: 'ICD-11 Postcoordination Options',
   description: `Get postcoordination information for an ICD-11 code.
 
 Use this tool to:

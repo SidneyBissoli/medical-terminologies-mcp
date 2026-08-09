@@ -51,6 +51,7 @@ import {
 
 const rxnormSearchTool: Tool = {
   name: 'rxnorm_search',
+  title: 'Search RxNorm Drugs',
   description: `Search for drugs in RxNorm (Normalized names for clinical drugs).
 
 Use this tool to:
@@ -66,6 +67,7 @@ Returns matching drugs with RxCUI identifiers, names, and term types.`,
 
 const rxnormConceptTool: Tool = {
   name: 'rxnorm_concept',
+  title: 'RxNorm Concept Details',
   description: `Get detailed information about a specific RxNorm concept by RxCUI.
 
 Use this tool to:
@@ -81,6 +83,7 @@ Provide an RxCUI (RxNorm Concept Unique Identifier) like "161".`,
 
 const rxnormIngredientsTool: Tool = {
   name: 'rxnorm_ingredients',
+  title: 'RxNorm Drug Ingredients',
   description: `Get active ingredients for a drug by RxCUI.
 
 Use this tool to:
@@ -96,6 +99,7 @@ Returns ingredient RxCUIs and names.`,
 
 const rxnormClassesTool: Tool = {
   name: 'rxnorm_classes',
+  title: 'RxNorm Drug Classes',
   description: `Get therapeutic and pharmacologic classes for a drug.
 
 Use this tool to:
@@ -111,6 +115,7 @@ Returns class IDs, names, and classification sources.`,
 
 const rxnormNDCTool: Tool = {
   name: 'rxnorm_ndc',
+  title: 'RxNorm / NDC Mapping',
   description: `Map between RxNorm concepts and National Drug Codes (NDC).
 
 Use this tool to:

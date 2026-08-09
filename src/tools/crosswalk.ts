@@ -49,6 +49,7 @@ import {
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
 import { SNOMED_TOOLS_ENABLED, SNOMED_DISABLED_NOTE } from '../utils/feature-flags.js';
+import { lexicalScore, normalizeForMatch, RANKING_METHOD_NOTE } from '../utils/lexical-score.js';
 
 // ============================================================================
 // Tool Definitions
@@ -56,6 +57,7 @@ import { SNOMED_TOOLS_ENABLED, SNOMED_DISABLED_NOTE } from '../utils/feature-fla
 
 const mapICD10ToICD11Tool: Tool = {
   name: 'map_icd10_to_icd11',
+  title: 'Map ICD-10 to ICD-11',
   description: `Authoritative ICD-10 → ICD-11 mapping using WHO transition tables (release 2025-01, bundled with the server).
 
 Returns the primary 1:1 ICD-11 category for the ICD-10 code plus any alternative ICD-11 candidates that WHO documents (some ICD-10 concepts split into multiple ICD-11 entities). For each mapping, includes the ICD-11 code, title, chapter, and the Foundation URI / Linearization URI for navigating to the full entity definition.
@@ -72,6 +74,7 @@ Returns "no mapping" when the code isn't in the WHO category-level table — tha
 
 const mapSNOMEDToICD10Tool: Tool = {
   name: 'map_snomed_to_icd10',
+  title: 'Map SNOMED CT to ICD-10 (Guidance)',
   description: `Map a SNOMED CT concept to ICD-10.
 
 Use this tool to:
@@ -89,6 +92,7 @@ Provide a SNOMED CT ID like "73211009" (Diabetes mellitus).
 
 const mapLOINCToSNOMEDTool: Tool = {
   name: 'map_loinc_to_snomed',
+  title: 'Map LOINC to SNOMED CT (Guidance)',
   description: `This tool looks up a LOINC code in NLM Clinical Tables and returns guidance on where to obtain a LOINC → SNOMED CT mapping. It does not perform the mapping.
 
 Direct LOINC → SNOMED CT mappings are not freely available via API. UMLS Metathesaurus contains the relationships but requires an individual UMLS Terminology Services license; the LOINC SNOMED CT Expression Association is published by Regenstrief Institute as part of the LOINC release and requires authenticated download from loinc.org under the LOINC license.
@@ -103,6 +107,7 @@ Provide a LOINC code like "2339-0" (Glucose) or "718-7" (Hemoglobin).`,
 
 const validateCodesTool: Tool = {
   name: 'validate_codes',
+  title: 'Validate Medical Codes',
   description: `Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.
 
 For each input \`{ code, terminology }\`, returns:
@@ -123,14 +128,19 @@ Hard cap of 50 codes per call; codes are validated in parallel through their res
 
 const findEquivalentTool: Tool = {
   name: 'find_equivalent',
-  description: `Search for equivalent terms across multiple medical terminologies.
+  title: 'Find Equivalents Across Terminologies',
+  description: `Ranked unified search for equivalent terms across multiple medical terminologies.
 
 Use this tool to:
 - Find the same concept in different coding systems
 - Compare how terminologies represent a concept
 - Support terminology mapping and data integration
 
-Searches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH. Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets.`,
+Searches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH. Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. \`limit\` caps candidates per terminology (default 5, max 10).
+
+Every candidate carries \`match_score\` (lexical similarity to the search term, 0-1) and \`rank\` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in \`groups\` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).
+
+Searches upstreams in English. For official pt-BR content, use the dedicated tools: \`icd11_search\`/\`mesh_search\` accept \`language: "pt"\`, and \`cid10_search\` is natively Portuguese.`,
   inputSchema: buildInputSchema(FindEquivalentParamsSchema),
   outputSchema: buildOutputSchema(FindEquivalentOutputSchema),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -726,14 +736,23 @@ const TERMINOLOGY_LABELS: Record<TerminologyKey, string> = {
 
 type FindEquivalentEntry = NonNullable<FindEquivalentOutput['results']['icd11']>;
 
+/** Raw per-terminology fan-out result, before server-side scoring. */
+interface RawFanoutEntry {
+  error: string | null;
+  items: { code: string; title: string }[];
+}
+
 async function handleFindEquivalent(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const params = FindEquivalentParamsSchema.parse(args);
     const term = params.term;
+    const limit = params.limit ?? 5;
     const requestedTargets = params.target_terminologies ?? [...ALL_TERMINOLOGIES];
     const targets: TerminologyKey[] = (params.source_terminology
       ? requestedTargets.filter((t) => t !== params.source_terminology)
       : requestedTargets) as TerminologyKey[];
+
+    const rankingMeta = { method: 'lexical' as const, note: RANKING_METHOD_NOTE };
 
     if (targets.length === 0) {
       const requested = params.target_terminologies
@@ -744,6 +763,8 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         source_terminology: params.source_terminology ?? null,
         searched_terminologies: [],
         results: {},
+        groups: [],
+        ranking: rankingMeta,
       };
       return {
         content: [{
@@ -754,33 +775,30 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       };
     }
 
-    // Build a single typed map keyed by enum key. Markdown is derived from
-    // this same map below — no duplicated data.
-    const entries: Partial<Record<TerminologyKey, FindEquivalentEntry>> = {};
+    // Fan out to each upstream, collecting raw { code, title } candidates.
+    // Scoring/ranking happens after the fan-out so every candidate competes
+    // in one global order regardless of which API resolved first.
+    const raw: Partial<Record<TerminologyKey, RawFanoutEntry>> = {};
     const searches: Promise<void>[] = [];
 
-    const ok = (items: FindEquivalentEntry['items']): FindEquivalentEntry => ({
-      found: items.length > 0,
-      error: null,
-      items,
-    });
-    const fail = (error: string): FindEquivalentEntry => ({ found: false, error, items: [] });
+    const ok = (items: RawFanoutEntry['items']): RawFanoutEntry => ({ error: null, items });
+    const fail = (error: string): RawFanoutEntry => ({ error, items: [] });
 
     if (targets.includes('icd11')) {
       searches.push(
         (async () => {
           try {
             const client = getWHOClient();
-            const response = await client.search(term, 'en', 5);
+            const response = await client.search(term, 'en', limit);
             const icdResults = response.destinationEntities ?? [];
-            entries.icd11 = ok(
-              icdResults.slice(0, 5).map((r) => ({
+            raw.icd11 = ok(
+              icdResults.slice(0, limit).map((r) => ({
                 code: r.theCode ?? 'N/A',
                 title: r.title ?? 'N/A',
               })),
             );
           } catch (e) {
-            entries.icd11 = fail(e instanceof Error ? e.message : 'Error');
+            raw.icd11 = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );
@@ -788,19 +806,19 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
 
     if (targets.includes('snomed')) {
       if (!SNOMED_TOOLS_ENABLED) {
-        entries.snomed = fail(SNOMED_DISABLED_NOTE);
+        raw.snomed = fail(SNOMED_DISABLED_NOTE);
       } else {
         searches.push(
           (async () => {
             try {
               const client = getSNOMEDClient();
-              const snomedResults = await client.searchConcepts(term, true, 5);
-              entries.snomed = ok(
+              const snomedResults = await client.searchConcepts(term, true, limit);
+              raw.snomed = ok(
                 snomedResults.map((r) => ({ code: r.conceptId, title: r.pt })),
               );
             } catch (e) {
               const errMsg = e instanceof Error ? e.message : 'Error';
-              entries.snomed = fail(errMsg.includes('ETIMEDOUT') ? 'Server unavailable' : errMsg);
+              raw.snomed = fail(errMsg.includes('ETIMEDOUT') ? 'Server unavailable' : errMsg);
             }
           })(),
         );
@@ -812,13 +830,13 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         (async () => {
           try {
             const client = getNLMClient();
-            const loincResponse = await client.searchLOINC(term, 5);
+            const loincResponse = await client.searchLOINC(term, limit);
             const loincResults = loincResponse.items ?? [];
-            entries.loinc = ok(
-              loincResults.map((r) => ({ code: r.LOINC_NUM, title: r.LONG_COMMON_NAME })),
+            raw.loinc = ok(
+              loincResults.slice(0, limit).map((r) => ({ code: r.LOINC_NUM, title: r.LONG_COMMON_NAME })),
             );
           } catch (e) {
-            entries.loinc = fail(e instanceof Error ? e.message : 'Error');
+            raw.loinc = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );
@@ -830,11 +848,11 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
           try {
             const client = getRxNormClient();
             const rxResults = await client.searchDrugs(term);
-            entries.rxnorm = ok(
-              rxResults.drugs.slice(0, 5).map((r) => ({ code: r.rxcui, title: r.name })),
+            raw.rxnorm = ok(
+              rxResults.drugs.slice(0, limit).map((r) => ({ code: r.rxcui, title: r.name })),
             );
           } catch (e) {
-            entries.rxnorm = fail(e instanceof Error ? e.message : 'Error');
+            raw.rxnorm = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );
@@ -845,18 +863,95 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         (async () => {
           try {
             const client = getMeSHClient();
-            const meshResults = await client.searchDescriptors(term, 'contains', 5);
-            entries.mesh = ok(
-              meshResults.map((r) => ({ code: r.id, title: r.label })),
+            const meshResults = await client.searchDescriptors(term, 'contains', limit);
+            raw.mesh = ok(
+              meshResults.slice(0, limit).map((r) => ({ code: r.id, title: r.label })),
             );
           } catch (e) {
-            entries.mesh = fail(e instanceof Error ? e.message : 'Error');
+            raw.mesh = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );
     }
 
     await Promise.all(searches);
+
+    // Score every candidate against the search term, then assign one global
+    // rank across all searched terminologies. Ties break by terminology
+    // order then upstream order — deterministic for identical responses.
+    interface ScoredCandidate {
+      key: TerminologyKey;
+      upstreamIndex: number;
+      code: string;
+      title: string;
+      match_score: number;
+      rank: number;
+    }
+    const candidates: ScoredCandidate[] = [];
+    for (const key of targets) {
+      const entry = raw[key];
+      if (!entry) continue;
+      entry.items.forEach((item, upstreamIndex) => {
+        candidates.push({
+          key,
+          upstreamIndex,
+          code: item.code,
+          title: item.title,
+          match_score: lexicalScore(term, item.title),
+          rank: 0,
+        });
+      });
+    }
+    candidates.sort(
+      (a, b) =>
+        b.match_score - a.match_score ||
+        ALL_TERMINOLOGIES.indexOf(a.key) - ALL_TERMINOLOGIES.indexOf(b.key) ||
+        a.upstreamIndex - b.upstreamIndex,
+    );
+    candidates.forEach((c, i) => {
+      c.rank = i + 1;
+    });
+
+    // Project back into the per-terminology result map, items now ordered
+    // by rank (best first) instead of upstream order.
+    const entries: Partial<Record<TerminologyKey, FindEquivalentEntry>> = {};
+    for (const key of targets) {
+      const entry = raw[key];
+      if (!entry) continue;
+      const items = candidates
+        .filter((c) => c.key === key)
+        .sort((a, b) => a.rank - b.rank)
+        .map((c) => ({ code: c.code, title: c.title, match_score: c.match_score, rank: c.rank }));
+      entries[key] = { found: items.length > 0, error: entry.error, items };
+    }
+
+    // Cross-terminology grouping: candidates from DIFFERENT terminologies
+    // whose normalized titles are identical. Conservative by design — see
+    // the output-schema comment. Iterating in rank order makes the group
+    // list come out sorted by best member score.
+    const byNormalizedTitle = new Map<string, ScoredCandidate[]>();
+    for (const c of candidates) {
+      const normalized = normalizeForMatch(c.title);
+      if (normalized.length === 0) continue;
+      const bucket = byNormalizedTitle.get(normalized);
+      if (bucket) bucket.push(c);
+      else byNormalizedTitle.set(normalized, [c]);
+    }
+    const groups: FindEquivalentOutput['groups'] = [];
+    for (const [normalized, members] of byNormalizedTitle) {
+      const terminologies = [...new Set(members.map((m) => m.key))];
+      if (terminologies.length < 2) continue;
+      groups.push({
+        normalized_title: normalized,
+        terminologies,
+        members: members.map((m) => ({
+          terminology: m.key,
+          code: m.code,
+          title: m.title,
+          match_score: m.match_score,
+        })),
+      });
+    }
 
     // Markdown derived from the same entries map, in target order so output
     // is stable regardless of which API resolved first.
@@ -866,6 +961,20 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       lines.push(`_Excluding source_terminology=\`${params.source_terminology}\` from the search._`);
     }
     lines.push('');
+
+    if (groups.length > 0) {
+      lines.push(`## Cross-terminology matches (${groups.length})`);
+      lines.push('');
+      lines.push('Candidates from different terminologies with lexically identical titles — a strong signal they represent the same concept:');
+      lines.push('');
+      for (const group of groups) {
+        const memberList = group.members
+          .map((m) => `${TERMINOLOGY_LABELS[m.terminology]} \`${m.code}\``)
+          .join(' · ');
+        lines.push(`- **${group.members[0].title}** — ${memberList}`);
+      }
+      lines.push('');
+    }
 
     for (const key of targets) {
       const entry = entries[key];
@@ -878,7 +987,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         lines.push('No matches found.');
       } else {
         for (const item of entry.items) {
-          lines.push(`- ${item.code} - ${item.title}`);
+          lines.push(`- ${item.code} - ${item.title} _(rank ${item.rank}, score ${item.match_score.toFixed(3)})_`);
         }
       }
       lines.push('');
@@ -896,6 +1005,9 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       lines.push('**No matches found in any terminology.**');
     }
 
+    lines.push('');
+    lines.push(`_${RANKING_METHOD_NOTE}_`);
+
     if (targets.includes('snomed') && SNOMED_TOOLS_ENABLED) {
       lines.push('');
       lines.push(SNOMED_DISCLAIMER);
@@ -906,6 +1018,8 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       source_terminology: params.source_terminology ?? null,
       searched_terminologies: targets,
       results: entries,
+      groups,
+      ranking: rankingMeta,
     };
 
     return {

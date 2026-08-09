@@ -44,6 +44,7 @@ import {
 } from '@modelcontextprotocol/server';
 import {
   SERVER_INFO,
+  SERVER_INSTRUCTIONS,
   toolRegistry,
   promptRegistry,
   resourceRegistry,
@@ -169,6 +170,7 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
     server.registerTool(
       tool.name,
       {
+        ...(tool.title !== undefined ? { title: tool.title } : {}),
         description: tool.description,
         inputSchema: passthroughSchema(tool.inputSchema),
         ...(tool.outputSchema !== undefined
@@ -215,10 +217,13 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
  * from tests and once per request on stateless HTTP transports.
  */
 export function createServer(): McpServer {
-  const server = new McpServer({
-    name: SERVER_INFO.name,
-    version: SERVER_INFO.version,
-  });
+  const server = new McpServer(
+    {
+      name: SERVER_INFO.name,
+      version: SERVER_INFO.version,
+    },
+    { instructions: SERVER_INSTRUCTIONS },
+  );
   registerAll(server);
   return server;
 }

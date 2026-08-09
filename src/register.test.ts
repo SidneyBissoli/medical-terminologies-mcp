@@ -2,7 +2,12 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { createServer } from './register.js';
-import { toolRegistry, promptRegistry, resourceRegistry } from './server-core.js';
+import {
+  SERVER_INSTRUCTIONS,
+  toolRegistry,
+  promptRegistry,
+  resourceRegistry,
+} from './server-core.js';
 
 /**
  * End-to-end tests of the MCP protocol surface after the SDK v2 migration.
@@ -30,6 +35,17 @@ describe('MCP server protocol surface (SDK v2)', () => {
     await client.close();
   });
 
+  it('sends the server instructions on the handshake (v1.7.0 usability gate)', () => {
+    expect(client.getInstructions()).toBe(SERVER_INSTRUCTIONS);
+    // The routing map must at least cover the seven terminologies and the
+    // honest caveats — pin a few load-bearing fragments so an accidental
+    // truncation fails loudly.
+    expect(SERVER_INSTRUCTIONS).toContain('find_equivalent');
+    expect(SERVER_INSTRUCTIONS).toContain('language: "pt"');
+    expect(SERVER_INSTRUCTIONS).toContain('GUIDANCE ONLY');
+    expect(SERVER_INSTRUCTIONS).toContain('not clinical decision support');
+  });
+
   it('advertises every registered tool with identical wire fields', async () => {
     const { tools } = await client.listTools();
     const registered = toolRegistry.getTools();
@@ -42,6 +58,7 @@ describe('MCP server protocol surface (SDK v2)', () => {
     for (const reg of registered) {
       const wire = byName.get(reg.name);
       expect(wire, `tool ${reg.name} missing from tools/list`).toBeDefined();
+      expect(wire?.title).toBe(reg.title);
       expect(wire?.description).toBe(reg.description);
       // The passthrough registration must advertise the exact JSON Schemas
       // the tool definitions carry — this is the v1×v2 surface contract.
@@ -58,6 +75,22 @@ describe('MCP server protocol surface (SDK v2)', () => {
       expect(tool.annotations?.destructiveHint, `tool ${tool.name}`).toBe(false);
       expect(tool.annotations?.idempotentHint, `tool ${tool.name}`).toBe(true);
       expect(tool.annotations?.openWorldHint, `tool ${tool.name}`).toBe(true);
+    }
+  });
+
+  it('every tool carries a non-empty human display title (v1.7.0 usability gate)', async () => {
+    // Gates every REGISTERED tool (31 here — the 6 SNOMED-gated tools only
+    // register under ENABLE_SNOMED_TOOLS=true; the production smoke's
+    // surface dump covers the 37-tool variant)...
+    for (const tool of toolRegistry.getTools()) {
+      expect(tool.title, `tool ${tool.name} lacks a title`).toBeTruthy();
+      expect(tool.title!.trim().length, `tool ${tool.name} title is blank`).toBeGreaterThan(0);
+    }
+    // ...and at the WIRE level so a registration-layer regression that
+    // drops the field is also caught.
+    const { tools } = await client.listTools();
+    for (const tool of tools) {
+      expect(tool.title, `tool ${tool.name} lacks a wire title`).toBeTruthy();
     }
   });
 

@@ -186,6 +186,17 @@ After your Worker is live, register the URL on Smithery:
 
 ## Available Tools (31 by default, 37 with SNOMED enabled)
 
+### Official Portuguese (pt-BR) content
+
+The server never machine-translates terminology content — but several sources publish official translations, and the tools expose them:
+
+- **CID-10 is natively Portuguese**: `cid10_search` / `cid10_lookup` / `cid10_chapter(s)` serve the DataSUS V2008 dataset (the CID-10 the Brazilian SUS uses operationally).
+- **ICD-11 in official Portuguese**: pass `language: "pt"` to `icd11_search` / `icd11_lookup` to search and read WHO's official pt-BR linearization labels.
+- **MeSH**: pass `language: "pt"` to `mesh_search` / `mesh_descriptor` to request NLM's official translations where they exist.
+- **SNOMED CT** (when enabled): `language` requests the descriptions loaded in your Snowstorm edition (e.g. a national extension's pt-BR refset).
+
+If a source has no official translation for an entry, you get the source language back — never a machine translation.
+
 ### ICD-11 Tools (5)
 
 | Tool | Description | Example |
@@ -244,7 +255,7 @@ These are only registered when `ENABLE_SNOMED_TOOLS=true`. See [SNOMED CT setup 
 | `map_snomed_to_icd10` | SNOMED CT → ICD-10 guidance (only when `ENABLE_SNOMED_TOOLS=true`) | `sctid: "73211009"` |
 | `map_loinc_to_snomed` | LOINC ↔ SNOMED guidance | `loinc_code: "2339-0"` |
 | `validate_codes` | Batch-validate up to 100 codes across ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 (and SNOMED when enabled); returns per-code valid/invalid + display name | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
-| `find_equivalent` | Cross-terminology search; SNOMED branch is skipped when SNOMED tools are disabled | `term: "diabetes"` |
+| `find_equivalent` | Ranked unified search across terminologies: server-computed `match_score`/`rank` per candidate plus cross-terminology `groups` of lexically identical titles; SNOMED branch is skipped when SNOMED tools are disabled | `term: "diabetes"` |
 
 ### ATC Tools (3)
 

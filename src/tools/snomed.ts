@@ -63,6 +63,7 @@ const SNOMED_TOOL_DISCLAIMER = `\n\n---\n${SNOMED_DISCLAIMER}`;
 
 const snomedSearchTool: Tool = {
   name: 'snomed_search',
+  title: 'Search SNOMED CT',
   description: `Search for SNOMED CT concepts by term.
 
 Use this tool to:
@@ -70,7 +71,7 @@ Use this tool to:
 - Look up terms for clinical documentation
 - Search for specific medical concepts
 
-Returns matching concepts with SCTID, Fully Specified Name (FSN), and Preferred Term (PT).
+Returns matching concepts with SCTID, Fully Specified Name (FSN), and Preferred Term (PT). Set \`language\` to request the descriptions loaded in the configured Snowstorm edition (availability depends on that edition's language refsets).
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDSearchParamsSchema),
@@ -80,6 +81,7 @@ Returns matching concepts with SCTID, Fully Specified Name (FSN), and Preferred 
 
 const snomedConceptTool: Tool = {
   name: 'snomed_concept',
+  title: 'SNOMED CT Concept Details',
   description: `Get detailed information about a SNOMED CT concept by SCTID.
 
 Use this tool to:
@@ -87,7 +89,7 @@ Use this tool to:
 - Check if a concept is active
 - View the definition status (primitive vs. fully defined)
 
-Provide a SCTID like "73211009" (Diabetes mellitus).
+Provide a SCTID like "73211009" (Diabetes mellitus). Set \`language\` to request the descriptions loaded in the configured Snowstorm edition.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDConceptParamsSchema),
@@ -97,6 +99,7 @@ Provide a SCTID like "73211009" (Diabetes mellitus).
 
 const snomedHierarchyTool: Tool = {
   name: 'snomed_hierarchy',
+  title: 'Browse SNOMED CT Hierarchy',
   description: `Get the hierarchical relationships (IS-A) for a SNOMED CT concept.
 
 Use this tool to:
@@ -114,6 +117,7 @@ Returns parent and/or child concepts based on IS-A relationships.
 
 const snomedDescriptionsTool: Tool = {
   name: 'snomed_descriptions',
+  title: 'SNOMED CT Concept Descriptions',
   description: `Get all descriptions (names) for a SNOMED CT concept.
 
 Use this tool to:
@@ -131,6 +135,7 @@ Returns all active descriptions with their type and acceptability.
 
 const snomedECLTool: Tool = {
   name: 'snomed_ecl',
+  title: 'SNOMED CT ECL Query',
   description: `Execute an ECL (Expression Constraint Language) query.
 
 Use this tool to:
