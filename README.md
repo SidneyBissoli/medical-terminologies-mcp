@@ -45,7 +45,7 @@ The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real co
 - Built-in caching for improved performance
 - Rate limiting to respect API limits
 - Detailed responses with rich formatting
-- Two transports: **stdio** (default; for Claude Desktop, IDE clients) and **Streamable HTTP** (for hosted deployments — runs on Cloudflare Workers at the edge by default, Smithery URL submission, or self-hosted Docker)
+- Two transports: **stdio** (default; for Claude Desktop, IDE clients) and **Streamable HTTP** (the hosted Cloudflare Worker at `https://medical.sidneybissoli.com/mcp`, or your own instance of `worker/`)
 
 ## Who is this for?
 
@@ -136,47 +136,35 @@ Add to your Claude Desktop configuration file:
 
 ² See [SNOMED CT setup (advanced)](#snomed-ct-setup-advanced) below. LOINC, RxNorm, and MeSH need no configuration.
 
-### HTTP transport (hosted / shared deployments)
+### HTTP transport (hosted)
 
-The server runs over stdio by default — that's what Claude Desktop and IDE clients expect. For hosted deployments (Cloudflare Workers, Smithery, your own Docker container), pass `--http` to switch to Streamable HTTP transport instead:
-
-```bash
-medical-terminologies-mcp --http --port 3000
-# or, in Docker / containers:
-medical-terminologies-mcp --http --host 0.0.0.0 --port 3000
-```
-
-| Flag | Env var | Default | Description |
-|------|---------|---------|-------------|
-| `--http` | `MCP_HTTP=true` | off | Enable Streamable HTTP transport instead of stdio |
-| `--port N` | `PORT` | `3000` | TCP port to listen on (use `0` for an ephemeral port) |
-| `--host H` | `HOST` | `127.0.0.1` | Bind address. Pass `0.0.0.0` for container/hosted use |
-
-Endpoints:
-
-- `POST /mcp` — JSON-RPC over Streamable HTTP (the MCP protocol). Stateless mode: each request is independent, no session cookies.
-- `GET /health` — liveness probe returning `{ status, name, version, tool_count }` for load balancers and uptime monitors.
-- CORS is permissive (`*`) so browser clients (e.g. the MCP Inspector web UI) can connect directly.
-
-Quick smoke test from another terminal:
+The server runs over stdio by default — that's what Claude Desktop and IDE clients expect. The Streamable HTTP transport is served by the Cloudflare Worker in `worker/` (an instance of the maintainer's Fase 0 hosting template). The `--http` flag of the Node entry was removed in v1.6.0 — if you need a local HTTP endpoint, run the Worker locally:
 
 ```bash
-curl -sS http://localhost:3000/health
-# {"status":"ok","name":"medical-terminologies-mcp","version":"1.5.0","tool_count":31}
-
+npm ci && cd worker && npm ci
+npm run dev     # wrangler dev on http://localhost:8787
 # Inspector via HTTP
-npx @modelcontextprotocol/inspector --transport streamable-http --server-url http://localhost:3000/mcp
+npx @modelcontextprotocol/inspector --transport streamable-http --server-url http://localhost:8787/mcp
 ```
+
+Hosted endpoints (production and local alike):
+
+- `POST /mcp` — JSON-RPC over Streamable HTTP (the MCP protocol). Stateless mode: each request is independent.
+- `GET /health` — liveness probe returning `{ status, name, version, tool_count, uptime_s }`.
+- `GET /status` — version + deploy metadata. `GET /metrics` — aggregated per-tool usage.
+- `GET /stats` and `GET /stats/badge` — public tool-call counter (since 2026-05-13) and its shields.io badge.
+- `GET /.well-known/mcp/server-card.json` — static server card for registry scanners.
+- CORS is permissive (`*`) so browser clients (e.g. the MCP Inspector web UI) can connect directly.
 
 ### Hosted on Cloudflare Workers (primary)
 
-The production deployment is a Cloudflare Worker. Source lives in `src/worker.ts`, config in `wrangler.toml`, and CI deploy in `.github/workflows/deploy-worker.yml` (auto-runs on every push to `main`).
+The production deployment is the Cloudflare Worker in `worker/`, config in `worker/wrangler.jsonc`, CI deploy in `.github/workflows/deploy-worker.yml` (auto-runs on every push to `main`).
 
 To deploy your own instance:
 
 ```bash
-npm ci
-npm run build:worker
+npm ci && npm run build:worker-lib
+cd worker && npm ci
 npx wrangler login         # one-time, browser flow
 npx wrangler deploy        # publishes to <name>.<account>.workers.dev
 # Set ICD-11 secrets so those 5 tools work:
@@ -184,9 +172,9 @@ npx wrangler secret put WHO_CLIENT_ID
 npx wrangler secret put WHO_CLIENT_SECRET
 ```
 
-The public endpoint is `POST https://<name>.<account>.workers.dev/mcp`. CORS is permissive so the MCP Inspector web UI connects directly. `/health` returns `{ status, name, version, tool_count, uptime_s }`.
+Note: `worker/wrangler.jsonc` pins the maintainer's `account_id` and custom domain route — remove/replace both for your own deployment.
 
-Why Workers: zero cold start at the edge, $5/mo flat for 10M requests (free tier covers up to 100k req/day), and no VMs to size or restart. Stage-1 deploy uses per-isolate cache + rate-limiter — fine for moderate traffic; under sustained high load, swap in Workers KV cache and a Durable Object rate limiter (tracked as PROGRESS.md Phase 11.9 Stage 2 follow-up).
+Why Workers: zero cold start at the edge, $5/mo flat for 10M requests (free tier covers up to 100k req/day), and no VMs to size or restart. The template ships per-IP rate limiting and a usage-stats Durable Object; the upstream-facing cache/rate-limiter are per-isolate (PROGRESS.md Phase 11.9 Stage 2 tracks the KV/DO upgrade).
 
 ### Listing on Smithery
 
@@ -195,20 +183,6 @@ After your Worker is live, register the URL on Smithery:
 1. Visit https://smithery.ai → **Publish → MCP** (or `https://smithery.ai/new`).
 2. Pick the **URL** submission path (Smithery deprecated container hosting in 2024 — URL is the supported flow now).
 3. Paste `https://<your-worker>.workers.dev/mcp`. Smithery's gateway scans for compliance and proxies traffic.
-
-### Self-hosted Docker (alternative)
-
-If you'd rather run the server in your own infrastructure (private deployment, internal compliance constraints, on-prem), the repo includes a `Dockerfile`:
-
-```bash
-docker build -t medical-terminologies-mcp .
-docker run --rm -p 3000:3000 \
-  -e PORT=3000 \
-  -e WHO_CLIENT_ID=... -e WHO_CLIENT_SECRET=... \
-  medical-terminologies-mcp
-```
-
-Multi-stage build (~150 MB), runs `node dist/index.js --http`, binds `0.0.0.0:$PORT`. Same MCP endpoints as the Workers deployment.
 
 ## Available Tools (31 by default, 37 with SNOMED enabled)
 

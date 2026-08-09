@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-08-09
+
+Foundation release: MCP SDK v2 on both transports and the hosted Worker
+rebuilt on the maintainer's Fase 0 hosting template. The MCP surface is
+untouched — `tools/list`, `prompts/list` and `resources/list` are
+byte-identical to 1.5.7 in both modes (31 default / 37 with
+`ENABLE_SNOMED_TOOLS`), verified by normalized dumps.
+
+### Changed
+
+- **Migrated from `@modelcontextprotocol/sdk` 1.x to `@modelcontextprotocol/server` 2.0**
+  (stdio via `serveStdio`; hosted HTTP via `createMcpHandler`). The new
+  `src/register.ts` projects the existing tool/prompt/resource registries onto
+  a `McpServer`; the advertised JSON Schemas are passed through verbatim
+  (`fromJsonSchema` + permissive validator), so input validation stays in the
+  handlers (Zod) and invalid arguments keep returning friendly `isError`
+  results instead of protocol errors.
+- **Hosted Worker rebuilt on the Fase 0 template** (`worker/`): per-IP rate
+  limiting, optional Bearer auth, landing page, `GET /status` (version +
+  deploy metadata), `GET /metrics` (new per-tool/per-day usage aggregates,
+  UsageTracker Durable Object), MCP server card at
+  `/.well-known/mcp/server-card.json`. Same endpoint
+  (`https://medical.sidneybissoli.com/mcp`), same worker, additive migration.
+- The public `/stats` counter (and `/stats/badge`) is preserved verbatim on
+  the original StatsCounter Durable Object — history since 2026-05-13 intact.
+
+### Fixed
+
+- `icd11_postcoordination` now returns `structuredContent` on the
+  "no postcoordination info" path (SDK v2 requires structured content on
+  every non-error result of a tool that declares an `outputSchema`).
+
+### Removed
+
+- **The `--http` mode of the Node entry point** (and the `Dockerfile` that
+  used it). HTTP is the hosted Worker's job; for a local HTTP endpoint run
+  `cd worker && npm run dev` (wrangler dev on :8787). The stdio transport —
+  what Claude Desktop, IDE clients and `npx medical-terminologies-mcp` use —
+  is unchanged.
+
 ## [1.5.7] - 2026-06-20
 
 Dependency refresh. Consolidates four Dependabot PRs into one tested
