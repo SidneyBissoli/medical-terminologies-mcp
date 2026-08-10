@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-09
+
+Provenance release: every successful response now carries a
+machine-readable provenance block (the portfolio's provenance contract
+v1.0). All wire-schema changes are additive — tool names, descriptions,
+inputs, prompts, and resources are byte-identical to 1.7.0.
+
+### Added
+
+- **Provenance block on every successful tool response** (all 37 tools,
+  three channels): `structuredContent.provenance` — source, canonical
+  URL, data vintage, real extraction instant, ready-to-use citation, and
+  license — plus `structuredContent.attribution` (canonical source
+  URLs); an out-of-band mirror in `_meta` under
+  `com.sidneybissoli.medical/provenance` and `.../attribution`; and a
+  compact text footer appended to the Markdown for text-only clients.
+- **One block per source on multi-source responses** — `find_equivalent`
+  and `validate_codes` return an ARRAY of provenance blocks, one per
+  upstream that answered. License segregation by construction: WHO, NLM,
+  Regenstrief, and DataSUS terms are never merged into one block.
+- **Real extraction instants through the cache** — responses served from
+  cache preserve the ORIGINAL upstream fetch instant in `retrieved_at`
+  (plus a `served_from_cache` flag), so citations carry the legally
+  relevant extraction date. Bundled datasets (CID-10 V2008, WHO
+  transition tables 2025-01) carry their authority in `data_vintage`.
+- **Derived-data flagging** — the server-computed `match_score`/`rank`/
+  `groups` of `find_equivalent` and the cross-revision summary of
+  `terminology_diff` are flagged `derived: true` with a note describing
+  exactly what the server computed; everything else is upstream data,
+  unaltered.
+- **`uri` on `find_equivalent` items** — ICD-11 candidates carry their
+  foundation URI and MeSH candidates their descriptor URI (`null` for
+  terminologies without one). This closes the ICD-11 license invariant:
+  codes and titles always ship together with their URIs.
+- **LOINC third-party copyright pass-through** — `loinc_search` and
+  `loinc_details` now request `EXTERNAL_COPYRIGHT_NOTICE` from Clinical
+  Tables and serve it verbatim when a term carries one (e.g. the PHQ-9's
+  Pfizer notice), per LOINC License §10. New nullable
+  `external_copyright_notice` field on LOINC items.
+- **Tool-selection evals** — live catalog extracted from the real
+  registration path, 40 fixtures across the 8 terminology clusters (with
+  a pt-BR subset for CID-10 and the official-translation parameters),
+  validated offline inside `npm test`.
+
+### Changed
+
+- **`NOTICE.md`, the README "Terminology Licenses" section, and the
+  `info://licenses` resource were rewritten as the consolidated
+  compliance notice**: WHO's required ICD-11 citation and termination
+  clause, the verbatim LOINC §10 notice, the NLM attribution statement,
+  the MeSH courtesy line, the DataSUS/CBCD/WHO credit chain for CID-10,
+  the WHOCC reference for ATC — and an explicit statement that the two
+  bundled datasets are **not** covered by the MIT license.
+
 ## [1.7.0] - 2026-08-09
 
 Usability release: ranked unified search, human display names, and server
