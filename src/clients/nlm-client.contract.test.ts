@@ -87,6 +87,7 @@ describe('NLMClient — contract tests against captured live fixtures', () => {
       const r = await client.searchLOINC('test', 1);
       expect(r.items[0]).toEqual({
         LOINC_NUM: 'T-1',
+        EXTERNAL_COPYRIGHT_NOTICE: '',
         LONG_COMMON_NAME: 'long-name',
         COMPONENT: 'component',
         PROPERTY: 'property',
@@ -184,6 +185,21 @@ describe('NLMClient — contract tests against captured live fixtures', () => {
       expect(item!.COMPONENT).toBe('Glucose');
       expect(item!.PROPERTY).toBe('MCnc');
       expect(item!.SHORTNAME).toBe('Glucose Bld-mCnc');
+    });
+
+    it('passes the EXTERNAL_COPYRIGHT_NOTICE through verbatim (LOINC License §10)', async () => {
+      // Captured live 2026-08-09: PHQ-9 (44249-1) is the canonical LOINC
+      // term with a third-party copyright (Pfizer). The notice comes back
+      // in the ef slot (response index 2) and must be served verbatim.
+      nock(CLINICAL_HOST)
+        .get('/api/loinc_items/v3/search')
+        .query(true)
+        .reply(200, fixture('loinc-details-44249-1-copyright.json'));
+
+      const item = await client.getLOINCDetails('44249-1');
+      expect(item).not.toBeNull();
+      expect(item!.LOINC_NUM).toBe('44249-1');
+      expect(item!.EXTERNAL_COPYRIGHT_NOTICE).toMatch(/^Copyright © Pfizer Inc\./);
     });
   });
 

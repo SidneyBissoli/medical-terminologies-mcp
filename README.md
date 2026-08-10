@@ -42,6 +42,7 @@ The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real co
 - 4 MCP **Resources** for in-process reference content (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — sub-millisecond reads (except `info://stats` which round-trips to the StatsCounter Durable Object on the hosted endpoint)
 - Multi-terminology support in a single server
 - Cross-terminology mapping and search
+- **Provenance on every response** (since v1.8.0): each successful tool result carries a machine-readable provenance block — source, canonical URL, data vintage, real extraction instant (cache hits keep the original fetch instant), ready-to-use citation, and license — in `structuredContent.provenance` + `attribution`, mirrored in `_meta` under `com.sidneybissoli.medical/*`, with a compact text footer for text-only clients. Multi-source responses (`find_equivalent`, `validate_codes`) carry one block per source; server-computed ranking fields are flagged as derived
 - Built-in caching for improved performance
 - Rate limiting to respect API limits
 - Detailed responses with rich formatting
@@ -404,43 +405,58 @@ If you set `ENABLE_SNOMED_TOOLS=true` without configuring a working Snowstorm, t
 
 ## Terminology Licenses
 
+The MIT license covers the server code and server-maintained metadata
+only — **not** the terminology content served through it, and **not**
+the two bundled datasets (`cid10.json`, `icd10-to-icd11.json`), which
+remain under their own terms. The consolidated notice ships with the
+package as [NOTICE.md](./NOTICE.md); every tool response carries a
+per-source provenance block with the applicable license.
+
 ### ICD-11 (WHO)
 
-ICD-11 content is provided under the [Creative Commons Attribution-NoDerivatives 3.0 IGO license (CC BY-ND 3.0 IGO)](https://creativecommons.org/licenses/by-nd/3.0/igo/).
+ICD-11 content is provided under the [Creative Commons Attribution-NoDerivatives 3.0 IGO license (CC BY-ND 3.0 IGO)](https://creativecommons.org/licenses/by-nd/3.0/igo/), per the [ICD-11 Terms of Use and License Agreement](https://icd.who.int/en/docs/icd11-license.pdf).
 
-- You must attribute WHO as the source
-- You may not create derivative works
+- Required citation: *"International Classification of Diseases, Eleventh Revision (ICD-11), World Health Organization (WHO) 2019 https://icd.who.int/browse11. Licensed under the Creative Commons Attribution-NoDerivatives 3.0 IGO licence (CC BY-ND 3.0 IGO)."*
+- This server always serves ICD-11 codes and titles together with their URIs, verbatim; non-English labels are WHO's own official translations (never machine-translated)
+- WHO may terminate the license at any time by notice (§4.7)
 - API access requires registration at https://icd.who.int/icdapi
+
+### WHO ICD-10 → ICD-11 transition tables (bundled)
+
+Format conversion (TSV → JSON, content unaltered) of the tables WHO publishes within the ICD-11 release. © World Health Organization, under the ICD-11 Terms of Use — not under this project's MIT license. WHO's guidance: the tables show correspondence between revisions and *"are not intended for directly converting data from one revision to the other."*
+
+### CID-10 V2008 (DataSUS / CBCD, bundled)
+
+© World Health Organization; Brazilian Portuguese translation © CBCD / Faculdade de Saúde Pública da USP; electronic files published by DataSUS (Ministério da Saúde do Brasil). DataSUS/CBCD permission: developers may use the files **with due credit and at no charge** — this server serves them free with credit in every response. Not under this project's MIT license.
 
 ### SNOMED CT
 
 SNOMED CT use requires an IHTSDO (SNOMED International) license. The SNOMED tools in this server are disabled by default and only enabled by operators with a valid license and a self-hosted Snowstorm instance — see [SNOMED CT setup (advanced)](#snomed-ct-setup-advanced).
 
 - Member countries have national licenses
-- Affiliate licenses available for others
-- More info: https://www.snomed.org/snomed-ct/get-snomed
+- Affiliate licenses available for others (Brazil is not a member country)
+- More info: https://www.snomed.org/get-snomed
 
 ### LOINC
 
-LOINC content is provided under the [LOINC License](https://loinc.org/license/).
+This material contains content from LOINC (http://loinc.org). LOINC is copyright © Regenstrief Institute, Inc. and the Logical Observation Identifiers Names and Codes (LOINC) Committee and is available at no cost under the license at http://loinc.org/license. LOINC® is a registered United States trademark of Regenstrief Institute, Inc.
 
-- Free for most uses
-- Attribution required
-- Registration recommended
+- Served via the free NLM Clinical Tables API; every code comes with its official display name
+- Terms with third-party copyright are served with their notice passed through verbatim
 
 ### RxNorm
 
-RxNorm is produced by the U.S. National Library of Medicine and is freely available.
+RxNorm is produced by the U.S. National Library of Medicine; the RxNav APIs serve non-proprietary, public-domain RxNorm content free of charge.
 
-- No license required for use
-- Attribution appreciated
+> This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.
+
+### ATC (via NLM RxClass)
+
+ATC classification © WHO Collaborating Centre for Drug Statistics Methodology (https://atcddd.fhi.no/), retrieved via NLM RxClass and served verbatim. This server never redistributes the WHOCC ATC/DDD index.
 
 ### MeSH
 
-MeSH is produced by the U.S. National Library of Medicine and is freely available.
-
-- No license required for use
-- Attribution appreciated
+MeSH is a U.S. government work served under the [NLM Terms and Conditions](https://www.nlm.nih.gov/databases/download/terms_and_conditions.html). Courtesy of the U.S. National Library of Medicine.
 
 ## API Rate Limits
 

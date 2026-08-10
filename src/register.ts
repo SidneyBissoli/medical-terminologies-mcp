@@ -52,6 +52,7 @@ import {
 } from './server-core.js';
 import { logger } from './utils/logger.js';
 import { recordInvocation } from './utils/stats.js';
+import { runWithFetchMeta } from './utils/fetch-meta.js';
 
 // Tool side-effect imports — each module registers its tools at load time.
 // This is now the ONLY place that needs the full list; both entry points
@@ -139,7 +140,12 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
   const handle = (name: string, handler: ToolHandler) =>
     async (args: unknown) => {
       try {
-        const result = await handler((args ?? {}) as Record<string, unknown>);
+        // The fetch-meta collector gives the provenance block the REAL
+        // upstream extraction instant per source (cache hits keep the
+        // original fetch instant) — see src/utils/fetch-meta.ts.
+        const result = await runWithFetchMeta(() =>
+          handler((args ?? {}) as Record<string, unknown>),
+        );
         // Fire-and-forget stats increment (StatsCounter DO on the hosted
         // endpoint, no-op on stdio). Counts every dispatch that resolved,
         // including isError results — same semantics as the 1.x dispatcher.

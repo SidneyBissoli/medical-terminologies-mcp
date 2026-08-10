@@ -37,6 +37,18 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
+import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
+
+/**
+ * The version table itself is metadata maintained alongside the server
+ * release, not terminology content — the provenance block says so.
+ */
+const serverMetadataProvenance = () => medicalProvenance('SERVER_METADATA');
+
+const DIFF_SUMMARY_DERIVATION_NOTE =
+  'Cross-revision summary statistics (totals, 1:1 vs split counts, average alternatives) are ' +
+  'computed by this server from the bundled WHO ICD-10 → ICD-11 transition tables; the ' +
+  'underlying mappings are WHO content, unaltered.';
 
 // ============================================================================
 // Static metadata
@@ -190,7 +202,7 @@ Useful for pipeline maintainers who need to:
 
 Pass \`terminology\` to filter to a single entry; otherwise the full set of 8 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.`,
   inputSchema: buildInputSchema(TerminologyVersionsParamsSchema),
-  outputSchema: buildOutputSchema(TerminologyVersionsOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(TerminologyVersionsOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -210,7 +222,7 @@ Inputs:
 
 This tool is intentionally a metadata + guidance layer, not a diff engine — for terminologies that change frequently (SNOMED, LOINC, RxNorm, MeSH), the publisher's official changelog is the authoritative source.`,
   inputSchema: buildInputSchema(TerminologyDiffParamsSchema),
-  outputSchema: buildOutputSchema(TerminologyDiffOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(TerminologyDiffOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -259,10 +271,11 @@ async function handleTerminologyVersions(
       terminologies: filtered,
     };
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: serverMetadataProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -318,10 +331,16 @@ async function handleTerminologyDiff(
         },
       };
 
-      return {
-        content: [{ type: 'text', text: lines.join('\n') }],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: lines.join('\n'),
+        structured,
+        provenance: medicalProvenance('WHO_TRANSITION_TABLES', {
+          dataset: { id: 'icd10-to-icd11', version: client.getVersion() },
+          dataVintage: client.getVersion(),
+          citationDetail: client.getVersion(),
+          derived: { note: DIFF_SUMMARY_DERIVATION_NOTE },
+        }),
+      });
     }
 
     // All other terminologies: guidance only.
@@ -359,10 +378,11 @@ async function handleTerminologyDiff(
       cross_revision_summary: null,
     };
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: serverMetadataProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }

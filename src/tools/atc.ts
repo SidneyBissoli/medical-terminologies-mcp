@@ -30,6 +30,10 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
+import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
+
+/** All atc_* responses come from the WHO ATC index served via NLM RxClass. */
+const atcProvenance = () => medicalProvenance('NLM_RXCLASS_ATC');
 
 // ============================================================================
 // Tool Definitions
@@ -47,7 +51,7 @@ Use this tool to:
 
 Returns one entry per ATC code the drug belongs to. A single-ingredient drug typically maps to one substance-level code; combination products map to multiple. ATC codes are international (WHO Collaborating Centre); this tool retrieves them via NLM RxClass.`,
   inputSchema: buildInputSchema(ATCClassifyParamsSchema),
-  outputSchema: buildOutputSchema(ATCClassifyOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(ATCClassifyOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -63,7 +67,7 @@ Use this tool to:
 
 Accepts codes 1-5 characters long: "A" (anatomical), "A10" (therapeutic), "A10B" (pharmacological), "A10BA" (chemical). Substance-level codes (7 chars, e.g., "A10BA02") are not exposed by this endpoint — use atc_classify with the drug name to retrieve the substance code.`,
   inputSchema: buildInputSchema(ATCByCodeParamsSchema),
-  outputSchema: buildOutputSchema(ATCLookupOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(ATCLookupOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -79,7 +83,7 @@ Use this tool to:
 
 Each member includes its substance-level (7-char) ATC code via source_atc_code, useful for disambiguation when the queried class is at level 1-4. RxNorm's catalog is US-centric; the ATC class names and codes themselves are international.`,
   inputSchema: buildInputSchema(ATCMembersParamsSchema),
-  outputSchema: buildOutputSchema(ATCMembersOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(ATCMembersOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -99,15 +103,11 @@ async function handleATCClassify(args: Record<string, unknown>): Promise<CallToo
     };
 
     if (matches.length === 0) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `No ATC classification found for "${params.drug_name}". The drug may be unknown to RxNorm or have no ATC mapping.`,
-          },
-        ],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `No ATC classification found for "${params.drug_name}". The drug may be unknown to RxNorm or have no ATC mapping.`,
+        structured,
+        provenance: atcProvenance(),
+      });
     }
 
     const lines: string[] = [];
@@ -123,10 +123,11 @@ async function handleATCClassify(args: Record<string, unknown>): Promise<CallToo
       );
     }
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: atcProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -145,15 +146,11 @@ async function handleATCLookup(args: Record<string, unknown>): Promise<CallToolR
     };
 
     if (!details) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `# ATC code "${params.atc_code}" not found at level 1-4.\n\nIf this is a 7-character substance code (e.g., "A10BA02"), use atc_classify with the drug name instead — RxClass byId only exposes ATC1-4 codes.`,
-          },
-        ],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `# ATC code "${params.atc_code}" not found at level 1-4.\n\nIf this is a 7-character substance code (e.g., "A10BA02"), use atc_classify with the drug name instead — RxClass byId only exposes ATC1-4 codes.`,
+        structured,
+        provenance: atcProvenance(),
+      });
     }
 
     const lines: string[] = [
@@ -162,10 +159,11 @@ async function handleATCLookup(args: Record<string, unknown>): Promise<CallToolR
       `**Level:** ${details.atc_level_type}`,
     ];
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: atcProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -183,15 +181,11 @@ async function handleATCMembers(args: Record<string, unknown>): Promise<CallTool
     };
 
     if (members.length === 0) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `# ATC ${params.atc_code} has no member drugs.\n\nThe code may be unknown, or the class may have no RxNorm-mapped substances.`,
-          },
-        ],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `# ATC ${params.atc_code} has no member drugs.\n\nThe code may be unknown, or the class may have no RxNorm-mapped substances.`,
+        structured,
+        provenance: atcProvenance(),
+      });
     }
 
     const lines: string[] = [];
@@ -207,10 +201,11 @@ async function handleATCMembers(args: Record<string, unknown>): Promise<CallTool
       );
     }
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: atcProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }

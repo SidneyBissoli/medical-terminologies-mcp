@@ -31,7 +31,11 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
+import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
 import { z } from 'zod';
+
+/** Every cid10_* response is served from the bundled DataSUS V2008 dataset. */
+const cid10Provenance = () => medicalProvenance('DATASUS_CID10');
 
 // ============================================================================
 // Tool Definitions
@@ -49,7 +53,7 @@ Use this tool to:
 
 Returns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing "infeccoes" matches "infecções". This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.`,
   inputSchema: buildInputSchema(CID10SearchParamsSchema),
-  outputSchema: buildOutputSchema(CID10SearchOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(CID10SearchOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -65,7 +69,7 @@ Use this tool to:
 
 Accepts both dotted ("A00.1") and undotted ("A001") forms; returns the canonical display.`,
   inputSchema: buildInputSchema(CID10LookupParamsSchema),
-  outputSchema: buildOutputSchema(CID10LookupOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(CID10LookupOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -81,7 +85,7 @@ Use this tool to:
 
 Returns 22 entries — CID-10 V2008 has not been updated since 2008.`,
   inputSchema: buildInputSchema(z.object({})),
-  outputSchema: buildOutputSchema(CID10ChaptersOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(CID10ChaptersOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -97,7 +101,7 @@ Use this tool to:
 
 Provide a chapter number (1-22).`,
   inputSchema: buildInputSchema(CID10ChapterParamsSchema),
-  outputSchema: buildOutputSchema(CID10ChapterDetailOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(CID10ChapterDetailOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -142,15 +146,11 @@ async function handleCID10Search(args: Record<string, unknown>): Promise<CallToo
     };
 
     if (hits.length === 0) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Nenhum código CID-10 encontrado para "${params.query}".`,
-          },
-        ],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `Nenhum código CID-10 encontrado para "${params.query}".`,
+        structured,
+        provenance: cid10Provenance(),
+      });
     }
 
     const header =
@@ -158,10 +158,11 @@ async function handleCID10Search(args: Record<string, unknown>): Promise<CallToo
       `Total: ${totalCount} (mostrando ${hits.length}, escopo: ${params.level}).\n\n`;
     const body = hits.map((h, i) => `${i + 1}. ${formatHit(h)}`).join('\n\n');
 
-    return {
-      content: [{ type: 'text', text: header + body }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: header + body,
+      structured,
+      provenance: cid10Provenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -180,15 +181,11 @@ async function handleCID10Lookup(args: Record<string, unknown>): Promise<CallToo
     };
 
     if (!hit) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `# CID-10 ${params.code}\n\nCódigo não encontrado em CID-10 V2008.`,
-          },
-        ],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `# CID-10 ${params.code}\n\nCódigo não encontrado em CID-10 V2008.`,
+        structured,
+        provenance: cid10Provenance(),
+      });
     }
 
     const lines: string[] = [];
@@ -209,10 +206,11 @@ async function handleCID10Lookup(args: Record<string, unknown>): Promise<CallToo
       lines.push(`**Exclusões:** ${hit.excluidos}`);
     }
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: cid10Provenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -236,10 +234,11 @@ async function handleCID10Chapters(_args: Record<string, unknown>): Promise<Call
       );
     }
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: cid10Provenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -259,15 +258,11 @@ async function handleCID10Chapter(args: Record<string, unknown>): Promise<CallTo
     };
 
     if (!chapter) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Capítulo ${params.num} não encontrado.`,
-          },
-        ],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `Capítulo ${params.num} não encontrado.`,
+        structured,
+        provenance: cid10Provenance(),
+      });
     }
 
     const lines: string[] = [];
@@ -287,10 +282,11 @@ async function handleCID10Chapter(args: Record<string, unknown>): Promise<CallTo
       }
     }
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: cid10Provenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }

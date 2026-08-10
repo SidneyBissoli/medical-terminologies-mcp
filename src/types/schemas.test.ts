@@ -352,6 +352,7 @@ describe('LOINC output schemas — fixtures parse cleanly', () => {
     method_type: '',
     class: 'CHEM',
     status: 'ACTIVE',
+    external_copyright_notice: null,
   };
 
   it('search output: typical hit', () => {
@@ -812,19 +813,35 @@ describe('find_equivalent output schema — ranked aggregator with mixed results
           icd11: {
             found: true,
             error: null,
-            items: [{ code: '5A11', title: 'Type 2 diabetes mellitus', match_score: 0.45, rank: 2 }],
+            items: [
+              {
+                code: '5A11',
+                title: 'Type 2 diabetes mellitus',
+                uri: 'http://id.who.int/icd/entity/119724091',
+                match_score: 0.45,
+                rank: 2,
+              },
+            ],
           },
           snomed: { found: false, error: 'SNOMED tools are disabled', items: [] },
           loinc: {
             found: true,
             error: null,
-            items: [{ code: '2339-0', title: 'Glucose', match_score: 0, rank: 3 }],
+            items: [{ code: '2339-0', title: 'Glucose', uri: null, match_score: 0, rank: 3 }],
           },
           rxnorm: { found: false, error: null, items: [] },
           mesh: {
             found: true,
             error: null,
-            items: [{ code: 'D003920', title: 'Diabetes Mellitus', match_score: 0.833, rank: 1 }],
+            items: [
+              {
+                code: 'D003920',
+                title: 'Diabetes Mellitus',
+                uri: 'http://id.nlm.nih.gov/mesh/D003920',
+                match_score: 0.833,
+                rank: 1,
+              },
+            ],
           },
         },
         groups: [],
@@ -843,12 +860,12 @@ describe('find_equivalent output schema — ranked aggregator with mixed results
           icd11: {
             found: true,
             error: null,
-            items: [{ code: '5A10', title: 'Diabetes mellitus', match_score: 1, rank: 1 }],
+            items: [{ code: '5A10', title: 'Diabetes mellitus', uri: null, match_score: 1, rank: 1 }],
           },
           mesh: {
             found: true,
             error: null,
-            items: [{ code: 'D003920', title: 'Diabetes Mellitus', match_score: 1, rank: 2 }],
+            items: [{ code: 'D003920', title: 'Diabetes Mellitus', uri: null, match_score: 1, rank: 2 }],
           },
         },
         groups: [

@@ -122,15 +122,19 @@ export class NLMClient {
       cacheKey,
       async () => {
         const url = `${NLM_CONFIG.clinicalTablesUrl}/loinc_items/v3/search`;
-        const response = await this.request<[number, string[], null, Array<string[]>]>(url, {
+        const response = await this.request<ClinicalTablesResponse>(url, {
           terms: query,
           maxList: maxResults,
           df: DEFAULT_LOINC_FIELDS.join(','),
+          // LOINC License §10: terms with third-party copyright must carry
+          // their notice — request it and pass it through verbatim.
+          ef: 'EXTERNAL_COPYRIGHT_NOTICE',
         });
 
         // Parse the Clinical Tables API response format
-        // [totalCount, codes, null, [fields arrays]]
-        const [totalCount, codes, , fieldsArrays] = response;
+        // [totalCount, codes, extraFieldsObjOrNull, [fields arrays]]
+        const [totalCount, codes, extraFields, fieldsArrays] = response;
+        const notices = extraFields?.EXTERNAL_COPYRIGHT_NOTICE ?? [];
 
         const items: LOINCItem[] = codes.map((code, index) => {
           const fields = fieldsArrays[index] || [];
@@ -146,6 +150,7 @@ export class NLMClient {
             CLASS: fields[8] || '',
             STATUS: fields[9] || '',
             SHORTNAME: fields[10] || '',
+            EXTERNAL_COPYRIGHT_NOTICE: notices[index] || '',
           };
         });
 
@@ -185,15 +190,15 @@ export class NLMClient {
         // a maxList of 1 silently returned null for valid LOINC numbers.
         // 10 is large enough to surface the exact match while keeping the
         // payload small.
-        const response = await this.request<[number, string[], null, Array<string[]>]>(url, {
+        const response = await this.request<ClinicalTablesResponse>(url, {
           terms: loincNum,
           sf: 'LOINC_NUM',
           maxList: 10,
           df: DEFAULT_LOINC_FIELDS.join(','),
-          ef: 'LOINC_NUM,LONG_COMMON_NAME,COMPONENT,PROPERTY,TIME_ASPCT,SYSTEM,SCALE_TYP,METHOD_TYP,CLASS,STATUS,SHORTNAME,EXAMPLE_UNITS,EXAMPLE_UCUM_UNITS,ORDER_OBS,HL7_FIELD_SUBFIELD_ID,RELATEDNAMES2,CONSUMER_NAME,CLASSTYPE',
+          ef: 'LOINC_NUM,LONG_COMMON_NAME,COMPONENT,PROPERTY,TIME_ASPCT,SYSTEM,SCALE_TYP,METHOD_TYP,CLASS,STATUS,SHORTNAME,EXAMPLE_UNITS,EXAMPLE_UCUM_UNITS,ORDER_OBS,HL7_FIELD_SUBFIELD_ID,RELATEDNAMES2,CONSUMER_NAME,CLASSTYPE,EXTERNAL_COPYRIGHT_NOTICE',
         });
 
-        const [totalCount, codes, , fieldsArrays] = response;
+        const [totalCount, codes, extraFields, fieldsArrays] = response;
 
         if (totalCount === 0 || codes.length === 0) {
           return null;
@@ -217,6 +222,8 @@ export class NLMClient {
           CLASS: fields[8] || '',
           STATUS: fields[9] || '',
           SHORTNAME: fields[10] || '',
+          EXTERNAL_COPYRIGHT_NOTICE:
+            extraFields?.EXTERNAL_COPYRIGHT_NOTICE?.[exactIndex] || '',
         };
       },
       DEFAULT_TTL.LOOKUP
@@ -324,6 +331,17 @@ export interface LOINCSearchResponse {
 }
 
 /**
+ * Clinical Tables tabular response:
+ * [totalCount, codes, extraFieldsObjOrNull (ef), displayFieldsArr (df)]
+ */
+type ClinicalTablesResponse = [
+  number,
+  string[],
+  Record<string, string[]> | null,
+  Array<string[]>,
+];
+
+/**
  * LOINC item
  */
 export interface LOINCItem {
@@ -338,6 +356,8 @@ export interface LOINCItem {
   CLASS: string;
   STATUS: string;
   SHORTNAME: string;
+  /** LOINC §10: third-party copyright notice of the term; '' when none. */
+  EXTERNAL_COPYRIGHT_NOTICE?: string;
 }
 
 /**

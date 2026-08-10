@@ -38,6 +38,10 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
+import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
+
+/** All mesh_* responses come from the NLM MeSH Linked Data API. */
+const meshProvenance = () => medicalProvenance('NLM_MESH');
 
 // ============================================================================
 // Tool Definitions
@@ -57,7 +61,7 @@ Set \`language\` to request NLM's official translations where they exist (e.g. \
 
 Returns matching descriptors with MeSH IDs and labels.`,
   inputSchema: buildInputSchema(MeSHSearchParamsSchema),
-  outputSchema: buildOutputSchema(MeSHSearchOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(MeSHSearchOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -73,7 +77,7 @@ Use this tool to:
 
 Provide a MeSH Descriptor ID like "D015242" (Ofloxacin). Set \`language\` to request NLM's official translations where they exist (e.g. \`language: "pt"\`).`,
   inputSchema: buildInputSchema(MeSHDescriptorParamsSchema),
-  outputSchema: buildOutputSchema(MeSHDescriptorOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(MeSHDescriptorOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -89,7 +93,7 @@ Use this tool to:
 
 MeSH tree numbers show the hierarchical path (e.g., C14.280.647 for Myocardial Infarction).`,
   inputSchema: buildInputSchema(MeSHByIdParamsSchema),
-  outputSchema: buildOutputSchema(MeSHTreeOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(MeSHTreeOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -105,7 +109,7 @@ Use this tool to:
 
 Qualifiers refine descriptors (e.g., "Diabetes Mellitus/drug therapy").`,
   inputSchema: buildInputSchema(MeSHByIdParamsSchema),
-  outputSchema: buildOutputSchema(MeSHQualifiersOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(MeSHQualifiersOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -296,10 +300,11 @@ async function handleMeSHSearch(args: Record<string, unknown>): Promise<CallTool
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatSearchResults(params.query, results) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatSearchResults(params.query, results),
+      structured,
+      provenance: meshProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -343,10 +348,11 @@ async function handleMeSHDescriptor(args: Record<string, unknown>): Promise<Call
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatDescriptor(descriptor) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatDescriptor(descriptor),
+      structured,
+      provenance: meshProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -366,10 +372,11 @@ async function handleMeSHTree(args: Record<string, unknown>): Promise<CallToolRe
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatTreeNumbers(params.mesh_id, treeNumbers) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatTreeNumbers(params.mesh_id, treeNumbers),
+      structured,
+      provenance: meshProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -390,10 +397,11 @@ async function handleMeSHQualifiers(args: Record<string, unknown>): Promise<Call
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatQualifiers(params.mesh_id, qualifiers) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatQualifiers(params.mesh_id, qualifiers),
+      structured,
+      provenance: meshProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }

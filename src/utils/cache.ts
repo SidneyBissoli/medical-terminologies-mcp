@@ -16,10 +16,26 @@
  * follow-up) replaces this with Workers KV for cross-isolate sharing.
  */
 
+import { recordCacheAccess } from './fetch-meta.js';
+
 interface CacheEntry<T> {
   value: T;
   /** Absolute epoch-ms when this entry expires, or null for never. */
   expiresAt: number | null;
+  /**
+   * Epoch-ms when the value was stored (= when it was fetched from the
+   * upstream). Powers the provenance block's `retrieved_at`: a cache hit
+   * must report the ORIGINAL fetch instant, not the serve instant.
+   */
+  storedAt: number;
+}
+
+/** Metadata returned by `getOrSetWithMeta` alongside the value. */
+export interface CacheValueMeta<T> {
+  value: T;
+  /** Real instant the value was fetched from the upstream. */
+  retrievedAt: Date;
+  servedFromCache: boolean;
 }
 
 /**
@@ -71,14 +87,21 @@ export class CacheManager {
 
   set<T>(prefix: string, key: string, value: T, ttl: number = DEFAULT_TTL.LOOKUP): boolean {
     const cacheKey = this.generateKey(prefix, key);
-    const expiresAt = ttl > 0 ? Date.now() + ttl * 1000 : null;
-    this.store.set(cacheKey, { value, expiresAt });
+    const now = Date.now();
+    const expiresAt = ttl > 0 ? now + ttl * 1000 : null;
+    this.store.set(cacheKey, { value, expiresAt, storedAt: now });
+    // A set right after a factory/HTTP call is by definition a fresh fetch.
+    recordCacheAccess({ prefix, storedAtMs: now, servedFromCache: false });
     return true;
   }
 
   get<T>(prefix: string, key: string): T | undefined {
     const cacheKey = this.generateKey(prefix, key);
-    return this.liveEntry<T>(cacheKey)?.value;
+    const entry = this.liveEntry<T>(cacheKey);
+    if (entry) {
+      recordCacheAccess({ prefix, storedAtMs: entry.storedAt, servedFromCache: true });
+    }
+    return entry?.value;
   }
 
   has(prefix: string, key: string): boolean {
@@ -122,14 +145,31 @@ export class CacheManager {
     factory: () => Promise<T>,
     ttl: number = DEFAULT_TTL.LOOKUP,
   ): Promise<T> {
-    const cached = this.get<T>(prefix, key);
-    if (cached !== undefined) {
-      return cached;
+    return (await this.getOrSetWithMeta(prefix, key, factory, ttl)).value;
+  }
+
+  /**
+   * `getOrSet` variant that also reports WHEN the value was fetched from
+   * the upstream and whether this access was served from cache — the
+   * extension the provenance block needs (`retrieved_at` must be the real
+   * extraction instant; hits keep the original fetch instant).
+   */
+  async getOrSetWithMeta<T>(
+    prefix: string,
+    key: string,
+    factory: () => Promise<T>,
+    ttl: number = DEFAULT_TTL.LOOKUP,
+  ): Promise<CacheValueMeta<T>> {
+    const cacheKey = this.generateKey(prefix, key);
+    const entry = this.liveEntry<T>(cacheKey);
+    if (entry && entry.value !== undefined) {
+      recordCacheAccess({ prefix, storedAtMs: entry.storedAt, servedFromCache: true });
+      return { value: entry.value, retrievedAt: new Date(entry.storedAt), servedFromCache: true };
     }
 
     const value = await factory();
-    this.set(prefix, key, value, ttl);
-    return value;
+    this.set(prefix, key, value, ttl); // records the fresh access
+    return { value, retrievedAt: new Date(), servedFromCache: false };
   }
 }
 

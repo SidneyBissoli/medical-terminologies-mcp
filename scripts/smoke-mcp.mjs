@@ -98,6 +98,31 @@ function fail(msg) {
   process.exit(1);
 }
 
+const PROV_META_KEY = "com.sidneybissoli.medical/provenance";
+
+/** Provenance gate (v1.8.0): every success carries the three channels. */
+function checkProvenance(label, result, { multi = false, sourceContains } = {}) {
+  const prov = result.structuredContent?.provenance;
+  if (!prov) fail(`${label}: structuredContent.provenance missing`);
+  const blocks = Array.isArray(prov) ? prov : [prov];
+  if (multi && !Array.isArray(prov)) fail(`${label}: expected an ARRAY of provenance blocks`);
+  for (const b of blocks) {
+    if (!b.source || !b.source_url || !b.retrieved_at || !b.citation)
+      fail(`${label}: incomplete provenance block ${JSON.stringify(b).slice(0, 200)}`);
+    if (b.license === undefined) fail(`${label}: provenance block without license key`);
+  }
+  if (sourceContains && !blocks.some((b) => b.source.includes(sourceContains)))
+    fail(`${label}: no block with source containing "${sourceContains}"`);
+  const attribution = result.structuredContent?.attribution;
+  if (!Array.isArray(attribution) || attribution.length === 0)
+    fail(`${label}: attribution list missing/empty`);
+  if (!result._meta || result._meta[PROV_META_KEY] === undefined)
+    fail(`${label}: _meta mirror missing (${PROV_META_KEY})`);
+  const text = (result.content ?? []).map((c) => c.text).join("\n");
+  if (!text.includes("Source: ") || !text.includes("License: "))
+    fail(`${label}: text footer missing`);
+}
+
 // --- Script ------------------------------------------------------------------
 const init = await rpc("initialize", {
   protocolVersion: "2025-06-18",
@@ -136,7 +161,8 @@ const cid10 = await rpc("tools/call", {
 });
 if (cid10.isError) fail("cid10_search returned error");
 if (!cid10.structuredContent?.hits?.length) fail("cid10_search: no structured hits");
-console.log("\ncid10_search 'diabetes':", cid10.structuredContent.total_count, "matches");
+checkProvenance("cid10_search", cid10, { sourceContains: "DataSUS" });
+console.log("\ncid10_search 'diabetes':", cid10.structuredContent.total_count, "matches (provenance ok)");
 
 // 2) Bundled authoritative crosswalk — the 4th most used tool (docs/00)
 const map = await rpc("tools/call", {
@@ -145,9 +171,14 @@ const map = await rpc("tools/call", {
 });
 if (map.isError) fail("map_icd10_to_icd11 returned error");
 if (!map.structuredContent) fail("map_icd10_to_icd11: structuredContent missing");
+checkProvenance("map_icd10_to_icd11", map, { sourceContains: "transition tables" });
+if (!map.structuredContent.provenance.data_vintage)
+  fail("map_icd10_to_icd11: bundled dataset must expose data_vintage");
 console.log(
   "map_icd10_to_icd11 E10 →",
   map.structuredContent.primary?.code ?? "(null mapping)",
+  "(provenance ok, vintage",
+  map.structuredContent.provenance.data_vintage + ")",
 );
 
 // 3) Live upstream — RxNorm via NLM (top usage axis: drug)
@@ -157,7 +188,19 @@ const rx = await rpc("tools/call", {
 });
 if (rx.isError) fail("rxnorm_search returned error (NLM upstream reachable?)");
 if (!rx.structuredContent) fail("rxnorm_search: structuredContent missing");
-console.log("rxnorm_search 'metformin': ok");
+checkProvenance("rxnorm_search", rx, { sourceContains: "RxNav" });
+console.log("rxnorm_search 'metformin': ok (provenance ok)");
+
+// 3b) Multi-source provenance — one block PER source (license segregation)
+const eq = await rpc("tools/call", {
+  name: "find_equivalent",
+  arguments: { term: "aspirin", target_terminologies: ["rxnorm", "mesh"], limit: 3 },
+});
+if (eq.isError) fail("find_equivalent returned error");
+checkProvenance("find_equivalent", eq, { multi: true, sourceContains: "RxNav" });
+const eqBlocks = eq.structuredContent.provenance;
+if (eqBlocks.length !== 2) fail(`find_equivalent: expected 2 blocks, got ${eqBlocks.length}`);
+console.log("find_equivalent 'aspirin' (rxnorm+mesh): 2 provenance blocks ok");
 
 // 4) Pedagogical error — handler-level Zod validation, not a protocol error
 const bad = await rpc("tools/call", { name: "cid10_search", arguments: {} });

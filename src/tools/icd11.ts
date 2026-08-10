@@ -38,6 +38,10 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
+import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
+
+/** All icd11_* responses come from the WHO ICD-API (release in data_vintage). */
+const icd11Provenance = () => medicalProvenance('WHO_ICD_API');
 
 // ============================================================================
 // Tool Definitions
@@ -57,7 +61,7 @@ Set \`language\` for WHO's official translations — e.g. \`language: "pt"\` sea
 
 Returns matching entities with codes, titles, and relevance scores.`,
   inputSchema: buildInputSchema(ICD11SearchParamsSchema),
-  outputSchema: buildOutputSchema(ICD11SearchOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(ICD11SearchOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -73,7 +77,7 @@ Use this tool to:
 
 Provide either an ICD-11 code (e.g., "BA00") or a full foundation URI. Set \`language\` for WHO's official translations (e.g. \`language: "pt"\` for official Portuguese).`,
   inputSchema: buildInputSchema(ICD11LookupParamsSchema),
-  outputSchema: buildOutputSchema(ICD11LookupOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(ICD11LookupOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -89,7 +93,7 @@ Use this tool to:
 
 Direction 'parents' returns ancestor categories, 'children' returns subcategories.`,
   inputSchema: buildInputSchema(ICD11HierarchyParamsSchema),
-  outputSchema: buildOutputSchema(ICD11HierarchyOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(ICD11HierarchyOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -105,7 +109,7 @@ Use this tool to:
 
 ICD-11 has 28 chapters covering all areas of medicine.`,
   inputSchema: buildInputSchema(ICD11ChaptersParamsSchema),
-  outputSchema: buildOutputSchema(ICD11ChaptersOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(ICD11ChaptersOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -121,7 +125,7 @@ Use this tool to:
 
 Postcoordination allows adding severity, laterality, anatomy, etc.`,
   inputSchema: buildInputSchema(ICD11PostcoordinationParamsSchema),
-  outputSchema: buildOutputSchema(ICD11PostcoordinationOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(ICD11PostcoordinationOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -265,10 +269,11 @@ async function handleICD11Search(args: Record<string, unknown>): Promise<CallToo
     };
 
     if (top.length === 0) {
-      return {
-        content: [{ type: 'text', text: `No results found for "${params.query}" in ICD-11.` }],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `No results found for "${params.query}" in ICD-11.`,
+        structured,
+        provenance: icd11Provenance(),
+      });
     }
 
     const formatted = top
@@ -277,10 +282,11 @@ async function handleICD11Search(args: Record<string, unknown>): Promise<CallToo
 
     const header = `## ICD-11 Search Results for "${params.query}"\n\nFound ${destEntities.length} results (showing top ${top.length}):\n\n`;
 
-    return {
-      content: [{ type: 'text', text: header + formatted }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: header + formatted,
+      structured,
+      provenance: icd11Provenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -320,10 +326,11 @@ async function handleICD11Lookup(args: Record<string, unknown>): Promise<CallToo
       browser_url: entity.browserUrl ?? null,
     };
 
-    return {
-      content: [{ type: 'text', text: formatEntity(entity) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatEntity(entity),
+      structured,
+      provenance: icd11Provenance(),
+    });
   } catch (error) {
     if (error instanceof ApiError && error.code === 'NOT_FOUND') {
       return {
@@ -361,13 +368,11 @@ async function handleICD11Hierarchy(args: Record<string, unknown>): Promise<Call
 
     const formatted = formatHierarchyList(entities, params.direction);
 
-    return {
-      content: [{
-        type: 'text',
-        text: `## ICD-11 Hierarchy for ${params.code}\n\n${formatted}`,
-      }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: `## ICD-11 Hierarchy for ${params.code}\n\n${formatted}`,
+      structured,
+      provenance: icd11Provenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -382,10 +387,11 @@ async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallT
 
     if (childUris.length === 0) {
       const empty: ICD11ChaptersOutput = { chapters: [] };
-      return {
-        content: [{ type: 'text', text: 'No chapters found in ICD-11.' }],
-        structuredContent: empty,
-      };
+      return provenancedResult({
+        text: 'No chapters found in ICD-11.',
+        structured: empty,
+        provenance: icd11Provenance(),
+      });
     }
 
     const settled = await Promise.allSettled(
@@ -420,10 +426,11 @@ async function handleICD11Chapters(args: Record<string, unknown>): Promise<CallT
 
     const structured: ICD11ChaptersOutput = { chapters };
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: icd11Provenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -468,20 +475,22 @@ async function handleICD11Postcoordination(args: Record<string, unknown>): Promi
       }
     }
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: icd11Provenance(),
+    });
   } catch (error) {
     if (error instanceof ApiError && error.code === 'NOT_FOUND') {
       // Non-error informational result. structuredContent is mandatory here:
       // the tool declares an outputSchema, and the SDK v2 rejects any
       // non-error result without structuredContent before validation runs.
       const empty: ICD11PostcoordinationOutput = { code: String(args.code ?? ''), axes: [] };
-      return {
-        content: [{ type: 'text', text: `No postcoordination info found for code: ${args.code}` }],
-        structuredContent: empty,
-      };
+      return provenancedResult({
+        text: `No postcoordination info found for code: ${args.code}`,
+        structured: empty,
+        provenance: icd11Provenance(),
+      });
     }
     return handleToolError(error);
   }

@@ -50,6 +50,45 @@ import {
 } from '../utils/zod-schema.js';
 import { SNOMED_TOOLS_ENABLED, SNOMED_DISABLED_NOTE } from '../utils/feature-flags.js';
 import { lexicalScore, normalizeForMatch, RANKING_METHOD_NOTE } from '../utils/lexical-score.js';
+import {
+  medicalProvenance,
+  provenancedResult,
+  withProvenance,
+  withProvenanceMulti,
+  type MedicalSourceKey,
+  type Provenance,
+} from '../provenance.js';
+
+/**
+ * Source preset per terminology, for the multi-source tools. One block PER
+ * SOURCE is a contract rule (license segregation) — blocks are never merged.
+ */
+const SOURCE_BY_TERMINOLOGY: Record<ValidateCodesTerminology, MedicalSourceKey> = {
+  icd11: 'WHO_ICD_API',
+  icd10: 'WHO_TRANSITION_TABLES',
+  cid10: 'DATASUS_CID10',
+  loinc: 'CLINICALTABLES_LOINC',
+  rxnorm: 'NLM_RXNAV',
+  mesh: 'NLM_MESH',
+  atc: 'NLM_RXCLASS_ATC',
+  snomed: 'SNOMED_SNOWSTORM',
+};
+
+/** Transition-tables block with the live bundled-dataset version attached. */
+function transitionTablesProvenance(derivedNote?: string): Provenance {
+  const version = getICD10ToICD11MapClient().getVersion();
+  return medicalProvenance('WHO_TRANSITION_TABLES', {
+    dataset: { id: 'icd10-to-icd11', version },
+    dataVintage: version,
+    citationDetail: version,
+    ...(derivedNote !== undefined ? { derived: { note: derivedNote } } : {}),
+  });
+}
+
+function terminologyProvenance(t: ValidateCodesTerminology): Provenance {
+  if (t === 'icd10') return transitionTablesProvenance();
+  return medicalProvenance(SOURCE_BY_TERMINOLOGY[t]);
+}
 
 // ============================================================================
 // Tool Definitions
@@ -68,7 +107,7 @@ Provide a code like "E11" (Type 2 diabetes), "I21" (Acute MI), or "A07.8" (4 alt
 
 Returns "no mapping" when the code isn't in the WHO category-level table — that's the honest answer rather than a fuzzy search fallback.`,
   inputSchema: buildInputSchema(MapICD10ToICD11ParamsSchema),
-  outputSchema: buildOutputSchema(MapICD10ToICD11OutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(MapICD10ToICD11OutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -86,7 +125,7 @@ Provide a SNOMED CT ID like "73211009" (Diabetes mellitus).
 
 ⚠️ SNOMED CT content requires IHTSDO license for production use.`,
   inputSchema: buildInputSchema(MapSNOMEDToICD10ParamsSchema),
-  outputSchema: buildOutputSchema(MapSNOMEDToICD10OutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(MapSNOMEDToICD10OutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -101,7 +140,7 @@ For programmatic LOINC → SNOMED mapping, use UMLS or the LOINC Expression Asso
 
 Provide a LOINC code like "2339-0" (Glucose) or "718-7" (Hemoglobin).`,
   inputSchema: buildInputSchema(MapLOINCToSNOMEDParamsSchema),
-  outputSchema: buildOutputSchema(MapLOINCToSNOMEDOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(MapLOINCToSNOMEDOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -122,7 +161,7 @@ Terminology is **required per code** — auto-detection isn't supported because 
 
 Hard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).`,
   inputSchema: buildInputSchema(ValidateCodesParamsSchema),
-  outputSchema: buildOutputSchema(ValidateCodesOutputSchema),
+  outputSchema: buildOutputSchema(withProvenanceMulti(ValidateCodesOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -142,7 +181,7 @@ Every candidate carries \`match_score\` (lexical similarity to the search term, 
 
 Searches upstreams in English. For official pt-BR content, use the dedicated tools: \`icd11_search\`/\`mesh_search\` accept \`language: "pt"\`, and \`cid10_search\` is natively Portuguese.`,
   inputSchema: buildInputSchema(FindEquivalentParamsSchema),
-  outputSchema: buildOutputSchema(FindEquivalentOutputSchema),
+  outputSchema: buildOutputSchema(withProvenanceMulti(FindEquivalentOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -188,10 +227,11 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
       lines.push('- The code was removed in the WHO restructuring; try a parent category.');
       lines.push('');
       lines.push('**Alternative:** Use `icd11_search` with the condition name to explore ICD-11 directly.');
-      return {
-        content: [{ type: 'text', text: lines.join('\n') }],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: lines.join('\n'),
+        structured,
+        provenance: transitionTablesProvenance(),
+      });
     }
 
     lines.push(
@@ -229,10 +269,11 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
       `Source: WHO ICD-10 → ICD-11 transition tables, release ${client.getVersion()} (${client.getReleaseDate()}). Authoritative mapping, not a text-search heuristic.`,
     );
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: transitionTablesProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -313,10 +354,11 @@ async function handleMapSNOMEDToICD10(args: Record<string, unknown>): Promise<Ca
     lines.push('---');
     lines.push(SNOMED_DISCLAIMER);
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: medicalProvenance('SNOMED_SNOWSTORM'),
+    });
   } catch (error) {
     if (error instanceof ApiError && (error.message.includes('ETIMEDOUT') || error.message.includes('timeout'))) {
       const sctid = String((args as { sctid?: unknown }).sctid ?? '');
@@ -328,13 +370,12 @@ async function handleMapSNOMEDToICD10(args: Record<string, unknown>): Promise<Ca
           'SNOMED upstream did not respond. The pointers below are the authoritative SNOMED → ICD-10 sources you can use offline or via your own SNOMED-licensed infrastructure.',
         authoritative_sources: SNOMED_TO_ICD10_SOURCES,
       };
-      return {
-        content: [{
-          type: 'text',
-          text: `# SNOMED CT to ICD-10 Mapping\n\n**SNOMED CT ID:** ${sctid}\n\n⚠️ Unable to connect to SNOMED CT server.\n\nSNOMED CT to ICD-10 mappings are available through:\n\n1. **SNOMED International** - Reference Set 447562003\n2. **NLM UMLS** - Requires license\n3. **National Health Services** - Country-specific maps\n\n---\n${SNOMED_DISCLAIMER}`,
-        }],
-        structuredContent: fallback,
-      };
+      // Upstream did not answer — the guidance text is server content.
+      return provenancedResult({
+        text: `# SNOMED CT to ICD-10 Mapping\n\n**SNOMED CT ID:** ${sctid}\n\n⚠️ Unable to connect to SNOMED CT server.\n\nSNOMED CT to ICD-10 mappings are available through:\n\n1. **SNOMED International** - Reference Set 447562003\n2. **NLM UMLS** - Requires license\n3. **National Health Services** - Country-specific maps\n\n---\n${SNOMED_DISCLAIMER}`,
+        structured: fallback,
+        provenance: medicalProvenance('SERVER_METADATA'),
+      });
     }
     return handleToolError(error);
   }
@@ -435,10 +476,11 @@ async function handleMapLOINCToSNOMED(args: Record<string, unknown>): Promise<Ca
     lines.push('---');
     lines.push('This tool calls NLM Clinical Tables for LOINC details. It does not call SNOMED.');
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: medicalProvenance('CLINICALTABLES_LOINC'),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -713,10 +755,23 @@ async function handleValidateCodes(args: Record<string, unknown>): Promise<CallT
       results,
     };
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    // One block per terminology that actually answered (error === null);
+    // terminologies that failed contributed no data — no block, no
+    // attribution. All-failed batches fall back to the server block so the
+    // response still carries the provenance channel.
+    const answered = [
+      ...new Set(results.filter((r) => r.error === null).map((r) => r.terminology)),
+    ];
+    const blocks =
+      answered.length > 0
+        ? answered.map((t) => terminologyProvenance(t))
+        : [medicalProvenance('SERVER_METADATA')];
+
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: blocks,
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -739,7 +794,10 @@ type FindEquivalentEntry = NonNullable<FindEquivalentOutput['results']['icd11']>
 /** Raw per-terminology fan-out result, before server-side scoring. */
 interface RawFanoutEntry {
   error: string | null;
-  items: { code: string; title: string }[];
+  // `uri` when the terminology exposes one (ICD-11 foundation URI, MeSH
+  // descriptor URI) — the ICD-11 license requires codes and titles to be
+  // served with their URIs (§1.2.2–1.2.3).
+  items: { code: string; title: string; uri: string | null }[];
 }
 
 async function handleFindEquivalent(args: Record<string, unknown>): Promise<CallToolResult> {
@@ -766,13 +824,12 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         groups: [],
         ranking: rankingMeta,
       };
-      return {
-        content: [{
-          type: 'text',
-          text: `# Cross-Terminology Search: "${term}"\n\nNo terminologies left to search after excluding source_terminology="${params.source_terminology}" from ${requested}. Widen target_terminologies or drop source_terminology.`,
-        }],
-        structuredContent: empty,
-      };
+      // Nothing was searched — the message is server content.
+      return provenancedResult({
+        text: `# Cross-Terminology Search: "${term}"\n\nNo terminologies left to search after excluding source_terminology="${params.source_terminology}" from ${requested}. Widen target_terminologies or drop source_terminology.`,
+        structured: empty,
+        provenance: [medicalProvenance('SERVER_METADATA')],
+      });
     }
 
     // Fan out to each upstream, collecting raw { code, title } candidates.
@@ -795,6 +852,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
               icdResults.slice(0, limit).map((r) => ({
                 code: r.theCode ?? 'N/A',
                 title: r.title ?? 'N/A',
+                uri: r.id ?? null,
               })),
             );
           } catch (e) {
@@ -814,7 +872,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
               const client = getSNOMEDClient();
               const snomedResults = await client.searchConcepts(term, true, limit);
               raw.snomed = ok(
-                snomedResults.map((r) => ({ code: r.conceptId, title: r.pt })),
+                snomedResults.map((r) => ({ code: r.conceptId, title: r.pt, uri: null })),
               );
             } catch (e) {
               const errMsg = e instanceof Error ? e.message : 'Error';
@@ -833,7 +891,9 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
             const loincResponse = await client.searchLOINC(term, limit);
             const loincResults = loincResponse.items ?? [];
             raw.loinc = ok(
-              loincResults.slice(0, limit).map((r) => ({ code: r.LOINC_NUM, title: r.LONG_COMMON_NAME })),
+              loincResults
+                .slice(0, limit)
+                .map((r) => ({ code: r.LOINC_NUM, title: r.LONG_COMMON_NAME, uri: null })),
             );
           } catch (e) {
             raw.loinc = fail(e instanceof Error ? e.message : 'Error');
@@ -849,7 +909,9 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
             const client = getRxNormClient();
             const rxResults = await client.searchDrugs(term);
             raw.rxnorm = ok(
-              rxResults.drugs.slice(0, limit).map((r) => ({ code: r.rxcui, title: r.name })),
+              rxResults.drugs
+                .slice(0, limit)
+                .map((r) => ({ code: r.rxcui, title: r.name, uri: null })),
             );
           } catch (e) {
             raw.rxnorm = fail(e instanceof Error ? e.message : 'Error');
@@ -865,7 +927,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
             const client = getMeSHClient();
             const meshResults = await client.searchDescriptors(term, 'contains', limit);
             raw.mesh = ok(
-              meshResults.slice(0, limit).map((r) => ({ code: r.id, title: r.label })),
+              meshResults.slice(0, limit).map((r) => ({ code: r.id, title: r.label, uri: r.uri ?? null })),
             );
           } catch (e) {
             raw.mesh = fail(e instanceof Error ? e.message : 'Error');
@@ -884,6 +946,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       upstreamIndex: number;
       code: string;
       title: string;
+      uri: string | null;
       match_score: number;
       rank: number;
     }
@@ -897,6 +960,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
           upstreamIndex,
           code: item.code,
           title: item.title,
+          uri: item.uri,
           match_score: lexicalScore(term, item.title),
           rank: 0,
         });
@@ -921,7 +985,13 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       const items = candidates
         .filter((c) => c.key === key)
         .sort((a, b) => a.rank - b.rank)
-        .map((c) => ({ code: c.code, title: c.title, match_score: c.match_score, rank: c.rank }));
+        .map((c) => ({
+          code: c.code,
+          title: c.title,
+          uri: c.uri,
+          match_score: c.match_score,
+          rank: c.rank,
+        }));
       entries[key] = { found: items.length > 0, error: entry.error, items };
     }
 
@@ -1022,10 +1092,25 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       ranking: rankingMeta,
     };
 
-    return {
-      content: [{ type: 'text', text: lines.join('\n') }],
-      structuredContent: structured,
-    };
+    // One block per terminology that answered (even with zero hits — "no
+    // matches" IS an answer from that source). match_score/rank/groups are
+    // computed by THIS server, so every block carries derived: true with
+    // the ranking-method note (contract v1.0 §derived).
+    const answered = targets.filter((key) => raw[key]?.error === null);
+    const blocks =
+      answered.length > 0
+        ? answered.map((key) =>
+            medicalProvenance(SOURCE_BY_TERMINOLOGY[key], {
+              derived: { note: RANKING_METHOD_NOTE },
+            }),
+          )
+        : [medicalProvenance('SERVER_METADATA')];
+
+    return provenancedResult({
+      text: lines.join('\n'),
+      structured,
+      provenance: blocks,
+    });
   } catch (error) {
     return handleToolError(error);
   }

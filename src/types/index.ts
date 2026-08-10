@@ -195,6 +195,11 @@ const LOINCItemOutputSchema = z.object({
   method_type: z.string(),
   class: z.string(),
   status: z.string(),
+  // LOINC License §10 pass-through: some LOINC terms carry third-party
+  // copyright (e.g. survey instruments like PHQ-9). When Clinical Tables
+  // exposes EXTERNAL_COPYRIGHT_NOTICE for a term, it is served verbatim
+  // alongside the term; null when the term carries none.
+  external_copyright_notice: z.string().nullable(),
 });
 
 export const LOINCSearchOutputSchema = z.object({
@@ -619,6 +624,10 @@ export const FindEquivalentParamsSchema = z.object({
 const FindEquivalentItemSchema = z.object({
   code: z.string(),
   title: z.string(),
+  // Native entity URI when the terminology exposes one (ICD-11 foundation
+  // URI, MeSH descriptor URI); null otherwise. ICD-11 license invariant:
+  // codes and titles are always served with their URIs (§1.2.2–1.2.3).
+  uri: z.string().nullable(),
   // D2 ranking (v1.7.0, additive): lexical similarity to the search term,
   // computed by THIS server (upstreams don't expose comparable scores).
   // 0-1, 3 decimals; see src/utils/lexical-score.ts for the formula. The

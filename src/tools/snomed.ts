@@ -47,6 +47,10 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
+import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
+
+/** All snomed_* responses come from the operator-configured Snowstorm. */
+const snomedProvenance = () => medicalProvenance('SNOMED_SNOWSTORM');
 
 /** Normalize hierarchy fsn/pt — the API returns them as either string or { term } */
 function unwrapTerm(v: string | { term: string } | undefined): string {
@@ -75,7 +79,7 @@ Returns matching concepts with SCTID, Fully Specified Name (FSN), and Preferred 
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDSearchParamsSchema),
-  outputSchema: buildOutputSchema(SNOMEDSearchOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(SNOMEDSearchOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -93,7 +97,7 @@ Provide a SCTID like "73211009" (Diabetes mellitus). Set \`language\` to request
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDConceptParamsSchema),
-  outputSchema: buildOutputSchema(SNOMEDConceptOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(SNOMEDConceptOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -111,7 +115,7 @@ Returns parent and/or child concepts based on IS-A relationships.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDHierarchyParamsSchema),
-  outputSchema: buildOutputSchema(SNOMEDHierarchyOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(SNOMEDHierarchyOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -129,7 +133,7 @@ Returns all active descriptions with their type and acceptability.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDBySctidParamsSchema),
-  outputSchema: buildOutputSchema(SNOMEDDescriptionsOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(SNOMEDDescriptionsOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -148,7 +152,7 @@ ECL is a powerful query language for navigating SNOMED CT.
 
 ⚠️ SNOMED CT content is for reference only. Production use requires IHTSDO license.`,
   inputSchema: buildInputSchema(SNOMEDECLParamsSchema),
-  outputSchema: buildOutputSchema(SNOMEDECLOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(SNOMEDECLOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -344,10 +348,11 @@ async function handleSNOMEDSearch(args: Record<string, unknown>): Promise<CallTo
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatSearchResults(params.query, results) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatSearchResults(params.query, results),
+      structured,
+      provenance: snomedProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -379,10 +384,11 @@ async function handleSNOMEDConcept(args: Record<string, unknown>): Promise<CallT
       module_id: concept.moduleId,
     };
 
-    return {
-      content: [{ type: 'text', text: formatConcept(concept) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatConcept(concept),
+      structured,
+      provenance: snomedProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -423,13 +429,11 @@ async function handleSNOMEDHierarchy(args: Record<string, unknown>): Promise<Cal
       })),
     };
 
-    return {
-      content: [{
-        type: 'text',
-        text: formatHierarchy(params.sctid, parents, children, params.direction),
-      }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatHierarchy(params.sctid, parents, children, params.direction),
+      structured,
+      provenance: snomedProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -455,10 +459,11 @@ async function handleSNOMEDDescriptions(args: Record<string, unknown>): Promise<
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatDescriptions(params.sctid, descriptions) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatDescriptions(params.sctid, descriptions),
+      structured,
+      provenance: snomedProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -483,10 +488,11 @@ async function handleSNOMEDECL(args: Record<string, unknown>): Promise<CallToolR
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatECLResults(params.ecl, results) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatECLResults(params.ecl, results),
+      structured,
+      provenance: snomedProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }

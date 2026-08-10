@@ -44,6 +44,10 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
+import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
+
+/** All rxnorm_* responses come from public-domain RxNorm via NLM RxNav. */
+const rxnormProvenance = () => medicalProvenance('NLM_RXNAV');
 
 // ============================================================================
 // Tool Definitions
@@ -61,7 +65,7 @@ Use this tool to:
 
 Returns matching drugs with RxCUI identifiers, names, and term types.`,
   inputSchema: buildInputSchema(RxNormSearchParamsSchema),
-  outputSchema: buildOutputSchema(RxNormSearchOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(RxNormSearchOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -77,7 +81,7 @@ Use this tool to:
 
 Provide an RxCUI (RxNorm Concept Unique Identifier) like "161".`,
   inputSchema: buildInputSchema(RxNormConceptParamsSchema),
-  outputSchema: buildOutputSchema(RxNormConceptOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(RxNormConceptOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -93,7 +97,7 @@ Use this tool to:
 
 Returns ingredient RxCUIs and names.`,
   inputSchema: buildInputSchema(RxNormByRxcuiParamsSchema),
-  outputSchema: buildOutputSchema(RxNormIngredientsOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(RxNormIngredientsOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -109,7 +113,7 @@ Use this tool to:
 
 Returns class IDs, names, and classification sources.`,
   inputSchema: buildInputSchema(RxNormByRxcuiParamsSchema),
-  outputSchema: buildOutputSchema(RxNormClassesOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(RxNormClassesOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -125,7 +129,7 @@ Use this tool to:
 
 Provide either an RxCUI to get NDCs, or an NDC to get the RxCUI.`,
   inputSchema: buildInputSchema(RxNormNDCParamsSchema),
-  outputSchema: buildOutputSchema(RxNormNDCOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(RxNormNDCOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -327,10 +331,11 @@ async function handleRxNormSearch(args: Record<string, unknown>): Promise<CallTo
     };
 
     if (result.drugs.length === 0) {
-      return {
-        content: [{ type: 'text', text: `No drugs found for "${params.query}".` }],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `No drugs found for "${params.query}".`,
+        structured,
+        provenance: rxnormProvenance(),
+      });
     }
 
     const formatted = drugsCapped
@@ -339,10 +344,11 @@ async function handleRxNormSearch(args: Record<string, unknown>): Promise<CallTo
 
     const header = `## RxNorm Search Results for "${params.query}"\n\nFound ${result.drugs.length} result(s):\n\n`;
 
-    return {
-      content: [{ type: 'text', text: header + formatted }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: header + formatted,
+      structured,
+      provenance: rxnormProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -393,10 +399,11 @@ async function handleRxNormConcept(args: Record<string, unknown>): Promise<CallT
         : null,
     };
 
-    return {
-      content: [{ type: 'text', text: formatConcept(concept, related) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatConcept(concept, related),
+      structured,
+      provenance: rxnormProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -418,10 +425,11 @@ async function handleRxNormIngredients(args: Record<string, unknown>): Promise<C
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatIngredients(params.rxcui, ingredients) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatIngredients(params.rxcui, ingredients),
+      structured,
+      provenance: rxnormProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -443,10 +451,11 @@ async function handleRxNormClasses(args: Record<string, unknown>): Promise<CallT
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatClasses(params.rxcui, classes) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatClasses(params.rxcui, classes),
+      structured,
+      provenance: rxnormProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -466,18 +475,17 @@ async function handleRxNormNDC(args: Record<string, unknown>): Promise<CallToolR
         ndcs: [],
       };
       if (!rxcui) {
-        return {
-          content: [{ type: 'text', text: `No RxCUI found for NDC "${params.ndc}".` }],
-          structuredContent: structured,
-        };
+        return provenancedResult({
+          text: `No RxCUI found for NDC "${params.ndc}".`,
+          structured,
+          provenance: rxnormProvenance(),
+        });
       }
-      return {
-        content: [{
-          type: 'text',
-          text: `# NDC Lookup\n\nNDC: ${params.ndc}\nRxCUI: **${rxcui}**`,
-        }],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `# NDC Lookup\n\nNDC: ${params.ndc}\nRxCUI: **${rxcui}**`,
+        structured,
+        provenance: rxnormProvenance(),
+      });
     }
 
     // Schema's refine guarantees at least one of rxcui/ndc; ndc was empty so
@@ -492,10 +500,11 @@ async function handleRxNormNDC(args: Record<string, unknown>): Promise<CallToolR
       ndcs: ndcs.map((n) => ({ ndc: n.ndc })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatNDCs(rxcui, ndcs) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatNDCs(rxcui, ndcs),
+      structured,
+      provenance: rxnormProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }

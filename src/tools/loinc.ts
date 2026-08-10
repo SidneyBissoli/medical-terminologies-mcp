@@ -31,6 +31,10 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
+import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
+
+/** All loinc_* responses come from LOINC content via NLM Clinical Tables. */
+const loincProvenance = () => medicalProvenance('CLINICALTABLES_LOINC');
 
 function loincItemToOutput(item: LOINCItem): LOINCDetailsOutput {
   return {
@@ -45,6 +49,7 @@ function loincItemToOutput(item: LOINCItem): LOINCDetailsOutput {
     method_type: item.METHOD_TYP ?? '',
     class: item.CLASS ?? '',
     status: item.STATUS ?? '',
+    external_copyright_notice: item.EXTERNAL_COPYRIGHT_NOTICE || null,
   };
 }
 
@@ -64,7 +69,7 @@ Use this tool to:
 
 Returns matching LOINC codes with names, components, and properties.`,
   inputSchema: buildInputSchema(LOINCSearchParamsSchema),
-  outputSchema: buildOutputSchema(LOINCSearchOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(LOINCSearchOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -80,7 +85,7 @@ Use this tool to:
 
 Provide a LOINC number in format "XXXXX-X" (e.g., "2339-0" for Glucose).`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
-  outputSchema: buildOutputSchema(LOINCDetailsOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(LOINCDetailsOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -96,7 +101,7 @@ Use this tool to:
 
 Only applicable to LOINC codes that represent questions with defined answer sets.`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
-  outputSchema: buildOutputSchema(LOINCAnswersOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(LOINCAnswersOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -112,7 +117,7 @@ Use this tool to:
 
 Returns the list of LOINC codes that make up the panel.`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
-  outputSchema: buildOutputSchema(LOINCPanelsOutputSchema),
+  outputSchema: buildOutputSchema(withProvenance(LOINCPanelsOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
@@ -142,6 +147,10 @@ function formatLOINCItem(item: LOINCItem, index?: number): string {
     lines.push(`   Class: ${item.CLASS} | Status: ${item.STATUS || 'Active'}`);
   }
 
+  if (item.EXTERNAL_COPYRIGHT_NOTICE) {
+    lines.push(`   Copyright: ${item.EXTERNAL_COPYRIGHT_NOTICE}`);
+  }
+
   return lines.join('\n');
 }
 
@@ -168,6 +177,13 @@ function formatLOINCDetails(item: LOINCItem): string {
   lines.push(`| Method | ${item.METHOD_TYP || 'N/A'} |`);
   lines.push(`| Class | ${item.CLASS || 'N/A'} |`);
   lines.push(`| Status | ${item.STATUS || 'Active'} |`);
+
+  // LOINC License §10: terms with third-party copyright carry their
+  // notice verbatim wherever the term content is displayed.
+  if (item.EXTERNAL_COPYRIGHT_NOTICE) {
+    lines.push('');
+    lines.push(`> **Third-party copyright:** ${item.EXTERNAL_COPYRIGHT_NOTICE}`);
+  }
 
   return lines.join('\n');
 }
@@ -251,10 +267,11 @@ async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToo
     };
 
     if (results.items.length === 0) {
-      return {
-        content: [{ type: 'text', text: `No LOINC codes found for "${params.query}".` }],
-        structuredContent: structured,
-      };
+      return provenancedResult({
+        text: `No LOINC codes found for "${params.query}".`,
+        structured,
+        provenance: loincProvenance(),
+      });
     }
 
     const formatted = results.items
@@ -263,10 +280,11 @@ async function handleLOINCSearch(args: Record<string, unknown>): Promise<CallToo
 
     const header = `## LOINC Search Results for "${params.query}"\n\nFound ${results.totalCount} total results (showing ${results.items.length}):\n\n`;
 
-    return {
-      content: [{ type: 'text', text: header + formatted }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: header + formatted,
+      structured,
+      provenance: loincProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -290,10 +308,11 @@ async function handleLOINCDetails(args: Record<string, unknown>): Promise<CallTo
 
     const structured: LOINCDetailsOutput = loincItemToOutput(item);
 
-    return {
-      content: [{ type: 'text', text: formatLOINCDetails(item) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatLOINCDetails(item),
+      structured,
+      provenance: loincProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -314,10 +333,11 @@ async function handleLOINCAnswers(args: Record<string, unknown>): Promise<CallTo
       })),
     };
 
-    return {
-      content: [{ type: 'text', text: formatLOINCAnswers(params.loinc_num, answers) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatLOINCAnswers(params.loinc_num, answers),
+      structured,
+      provenance: loincProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
@@ -345,10 +365,11 @@ async function handleLOINCPanels(args: Record<string, unknown>): Promise<CallToo
         : null,
     };
 
-    return {
-      content: [{ type: 'text', text: formatLOINCPanel(panel, params.loinc_num) }],
-      structuredContent: structured,
-    };
+    return provenancedResult({
+      text: formatLOINCPanel(panel, params.loinc_num),
+      structured,
+      provenance: loincProvenance(),
+    });
   } catch (error) {
     return handleToolError(error);
   }
