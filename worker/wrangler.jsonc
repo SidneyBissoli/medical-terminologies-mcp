@@ -40,6 +40,13 @@
     { "tag": "v2", "new_sqlite_classes": ["UsageTracker"] }
   ],
 
+  // Telemetria de tool calls — tool/desfecho/país/AS/marcador self por chamada,
+  // consultável via SQL API do Analytics Engine. O dataset é criado no primeiro
+  // writeDataPoint. Esquema (privacy-scoped) em src/analytics.ts.
+  "analytics_engine_datasets": [
+    { "binding": "ANALYTICS", "dataset": "medical_mcp_tool_calls" }
+  ],
+
   // Metadados do último deploy (id/tag/timestamp) — expostos em GET /status para que
   // a liveness e o build corrente sejam verificáveis sem o handshake MCP.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },

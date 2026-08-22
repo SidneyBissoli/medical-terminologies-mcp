@@ -23,6 +23,17 @@ export interface Env {
    * omite o bloco deploy quando ausente (dev local / testes).
    */
   CF_VERSION_METADATA?: { id: string; tag: string; timestamp: string };
+  /**
+   * Telemetria de tool calls no Analytics Engine (src/analytics.ts). Opcional:
+   * sem o binding (dev local / testes), nada é gravado.
+   */
+  ANALYTICS?: AnalyticsEngineDataset;
+  /**
+   * Segredo do marcador de uso próprio (`wrangler secret put SELF_MARKER`):
+   * requisições com o header x-mcp-self igual a ele ganham blob4="self" na
+   * telemetria. Ausente = nenhuma requisição é marcada.
+   */
+  SELF_MARKER?: string;
 
   // Segredos/vars de runtime dos clients upstream (bridged via globalThis.__MCP_ENV).
   WHO_CLIENT_ID?: string;

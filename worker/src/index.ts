@@ -13,6 +13,7 @@
 import { createMcpHandler } from "agents/mcp/server";
 
 import { StatsCounter, toolRegistry } from "../../dist/worker-lib.js";
+import { tagRequest, withAnalytics } from "./analytics.js";
 import { checkAuth } from "./auth.js";
 import { getServerCard } from "./card.js";
 import { SERVER_CONFIG } from "./config.js";
@@ -138,7 +139,11 @@ export default {
 
     record("request", url.pathname);
 
-    const handler = createMcpHandler(() => buildServer(record), {
+    // Contexto da requisição (país/AS/marcador self) + escrita no Analytics
+    // Engine pegando carona no hook de uso — ver src/analytics.ts.
+    const recordWithAnalytics = withAnalytics(record, env.ANALYTICS, tagRequest(request, env.SELF_MARKER));
+
+    const handler = createMcpHandler(() => buildServer(recordWithAnalytics), {
       route: SERVER_CONFIG.mcpRoute,
       // Sem a opção, o handler aceita localhost e *.workers.dev. Ao definir
       // extraAllowedHostnames (domínio próprio), a lista SUBSTITUI os defaults —
