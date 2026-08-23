@@ -140,7 +140,7 @@ export const MEDICAL_SOURCES = {
       'ICD-11 content is served verbatim with code, title, and URI preserved (license §1.2.2–1.2.3).',
     ],
     cachePrefixes: ['icd11'],
-    defaultVintage: () => getEnv('WHO_ICD11_RELEASE_ID') ?? '2024-01',
+    defaultVintage: () => getEnv('WHO_ICD11_RELEASE_ID') ?? '2026-01',
   },
   WHO_TRANSITION_TABLES: {
     name: 'WHO ICD-10 → ICD-11 transition tables (bundled)',

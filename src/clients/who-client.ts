@@ -25,7 +25,7 @@ const WHO_CONFIG = {
   tokenUrl: 'https://icdaccessmanagement.who.int/connect/token',
   /** OAuth2 scope */
   scope: 'icdapi_access',
-  releaseId: process.env.WHO_ICD11_RELEASE_ID ?? '2024-01',
+  releaseId: process.env.WHO_ICD11_RELEASE_ID ?? '2026-01',
   /** Linearization for MMS (Mortality and Morbidity Statistics) */
   linearization: 'mms',
 } as const;
