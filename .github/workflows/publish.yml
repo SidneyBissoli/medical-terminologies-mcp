@@ -96,6 +96,18 @@ jobs:
       - name: Publish to npm
         run: |
           VERSION=$(node -p "require('./package.json').version")
+          # Sem NPM_TOKEN, o .npmrc que o setup-node escreveu fica com
+          # `_authToken=` VAZIO — e o npm entende isso como tentativa de
+          # autenticar por token, devolvendo 401 em vez de usar o OIDC. Remover
+          # a linha e o trusted publishing assume. Com token, nada muda.
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "sem NPM_TOKEN — publicando por OIDC (trusted publishing)"
+            for f in "${NPM_CONFIG_USERCONFIG:-}" "$HOME/.npmrc" ".npmrc"; do
+              if [ -n "$f" ] && [ -f "$f" ]; then
+                sed -i '/_authToken/d' "$f" && echo "  linha de auth vazia removida de $f"
+              fi
+            done
+          fi
           if [ "$(npm view medical-terminologies-mcp@$VERSION version 2>/dev/null || true)" = "$VERSION" ]; then
             echo "npm already has $VERSION — skipping publish"
           else
