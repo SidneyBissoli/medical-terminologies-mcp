@@ -34,7 +34,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
@@ -53,7 +53,7 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    # id-token: write is required for npm --provenance: GitHub Actions
+    # id-token: write is required for trusted publishing (OIDC): GitHub Actions
     # mints an OIDC token that npm uses to sign the SLSA attestation
     # asserting the package was built from this repo at this commit.
     permissions:
@@ -65,7 +65,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
@@ -86,13 +86,20 @@ jobs:
       # with EPUBLISHCONFLICT. A re-dispatch after a downstream failure
       # (publish-registry, create-release) must not die here — skip when npm
       # already has this exact version.
+      # Trusted publishing exige npm >= 11.5.1, e qual npm vem embutido muda a
+      # cada release do Node. Instalar explicitamente tira a dependencia dessa
+      # coincidencia — e o log registra a versao que de fato publicou.
+      - name: npm recente o bastante para trusted publishing
+        run: |
+          npm install -g npm@latest
+          echo "npm $(npm --version) / node $(node --version)"
       - name: Publish to npm
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if [ "$(npm view medical-terminologies-mcp@$VERSION version 2>/dev/null || true)" = "$VERSION" ]; then
             echo "npm already has $VERSION — skipping publish"
           else
-            npm publish --access public --provenance
+            npm publish --access public
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
