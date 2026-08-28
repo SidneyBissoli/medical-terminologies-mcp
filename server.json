@@ -3,7 +3,7 @@
   "name": "io.github.SidneyBissoli/medical-terminologies-mcp",
   "title": "Medical Terminologies MCP",
   "description": "Diagnoses, drugs & lab codes: ICD-11, SNOMED, LOINC, RxNorm, MeSH, ATC, CID-10. 37 tools, MIT.",
-  "websiteUrl": "https://medium.com/@sbissoli76/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-a6c46de9c83b",
+  "websiteUrl": "https://medical.sidneybissoli.com",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-dark.png",
