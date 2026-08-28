@@ -46,6 +46,7 @@
   "homepage": "https://github.com/SidneyBissoli/medical-terminologies-mcp#readme",
   "sideEffects": true,
   "scripts": {
+    "version": "node scripts/sync-version.mjs && git add -u",
     "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --outfile=dist/index.js --packages=external --tree-shaking=false",
     "build:all": "npm run build && npm run build:worker-lib",
     "start": "node dist/index.js",

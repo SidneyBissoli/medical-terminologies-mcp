@@ -132,24 +132,10 @@ jobs:
       # published to npm. Without this, workflow_dispatch with a custom
       # version input would publish package.json@X to npm but try to
       # register server.json@(stale) in the registry.
-      - name: Sync server.json version
-        run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION=$(node -p "require('./package.json').version")
-          fi
-          # Tolerate a "v1.2.3"-style dispatch input: npm version strings have
-          # no v prefix, so an unstripped v breaks the npm-visibility compare
-          # below and tags the release as vvX.Y.Z.
-          VERSION="${VERSION#v}"
-          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp
-          mv server.tmp server.json
-          echo "server.json now declares version $VERSION"
-
-      # The registry validates that the npm package exists at the
-      # declared version. npm's index can lag a few seconds behind a
-      # successful publish; poll for up to ~100s before giving up.
+      # O server.json commitado JA declara a versao correta: quem a mantem e
+      # scripts/sync-version.mjs, no hook `version` do npm, com guarda em teste.
+      # Reescrever aqui fazia o arquivo do repositorio mentir (chegou a ficar
+      # 3 minor atrasado) enquanto so o registro via a versao certa.
       - name: Wait for npm to expose the new version
         run: |
           VERSION=$(node -p "require('./server.json').version")
