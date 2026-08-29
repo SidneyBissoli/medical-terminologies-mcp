@@ -234,7 +234,7 @@ Job order: `build` (bundle + tool-count smoke check) → `publish` (npm with `--
 
 ### Local-only fallback
 
-If CI is broken and a release is time-sensitive, the manual path is: `npm version X.Y.Z` → `git push --follow-tags` → `npm publish --access public` (uses your local `~/.npmrc` token; no provenance attestation, since that requires the OIDC environment of GitHub Actions). Skip `mcp-publisher` until CI is restored — manifest republish is idempotent.
+If CI is broken and a release is time-sensitive, the manual path is: `npm version X.Y.Z` → `git push --follow-tags` → `npm publish --access public` (uses your local `~/.npmrc` token; no provenance attestation, since that requires the OIDC environment of GitHub Actions). Skip `mcp-publisher` until CI is restored, then re-run the registry job — **do not** expect to fix it later by republishing the same version. A published version is IMMUTABLE in the MCP Registry: `mcp-publisher publish` on a version already there fails with `400 invalid version: cannot publish duplicate version` (measured 2026-08-29 against `bcb-br-mcp@1.9.3` while adding an `icons` field). Corrected metadata — icon, title, description, websiteUrl — only ever reaches the registry through a NEW version, so a manifest fix costs a release.
 
 ## Forward-looking work
 
