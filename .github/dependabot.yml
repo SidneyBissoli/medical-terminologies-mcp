@@ -1,10 +1,36 @@
 # Dependabot keeps npm + github-actions deps current. Weekly cadence,
-# minor/patch updates grouped so transitive bumps don't fan out into many
-# small PRs; major updates stay individual since they can break.
+# minor/patch npm updates grouped so transitive bumps don't fan out into many
+# small PRs; npm majors stay individual since they can break production.
+#
+# GITHUB ACTIONS SÃO AGRUPADAS INCLUINDO MAJOR, de propósito, e a razão é que o
+# risco é de outra natureza: action de CI é infraestrutura de teste, e o próprio
+# CI é o teste dela — se um major quebrar, o workflow reprova no PR e ninguém
+# chega em produção. Já um major de npm passa no CI e quebra depois.
+#
+# Sem grupo, cada action vira um PR individual; major nunca cai em grupo nenhum,
+# e eles ENVELHECEM. O diff de um PR de Actions é do estado do repositório
+# quando ele foi ABERTO: em 30/08/2026 o bcb#8 cobriu publish.yml e calou sobre
+# seis ocorrências que surgiram depois, deixando o CI com v4 e v7 misturados.
+# Um PR agrupado por semana cobre sempre o repositório inteiro e é sempre fresco.
 version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+      - "npm"
+
+  - package-ecosystem: "npm"
+    directory: "/worker"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -24,6 +50,14 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
       - "github-actions"
