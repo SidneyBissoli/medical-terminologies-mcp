@@ -13,12 +13,12 @@
   },
   "//": "@modelcontextprotocol/server and zod are intentionally NOT listed here — they resolve from the parent package's node_modules so there is a single SDK copy (dist/worker-lib.js and `agents` both import them as externals/peers). `agents` declares them as hard peers, so .npmrc pins legacy-peer-deps=true to stop npm from installing a second copy here. If you extract this Worker to its own repo, add them as dependencies and depend on the published medical-terminologies-mcp package.",
   "dependencies": {
-    "agents": "^0.20.1"
+    "agents": "^0.22.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260804.1",
+    "@cloudflare/workers-types": "^5.20260827.1",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.9",
-    "wrangler": "^4.119.0"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.127.0"
   }
 }
