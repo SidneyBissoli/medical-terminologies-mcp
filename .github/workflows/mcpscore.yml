@@ -23,7 +23,7 @@ name: mcpscore (contrato de qualidade)
 #    Antes das correções: 163/173 = 94,2% em produção, com 9 achados (os quatro
 #    cursores de paginação, `title` e `icons` no serverInfo, `server/discover`,
 #    e títulos ausentes em 4 resources e 3 prompts). Depois: stdio 146/148 =
-#    98,6% -> piso 98; produção -> piso 100.
+#    98,6% -> piso 98; produção medida em 173/173 depois do deploy -> piso 100.
 #    ATENÇÃO ao que custou dois deploys no ibge: `title`/`icons`/`discover`
 #    moram em DOIS lugares — `src/register.ts` (stdio) e `worker/src/server.ts`
 #    (HTTP). Corrigir só a raiz deixa produção para trás com CI verde. O guarda
@@ -78,4 +78,4 @@ jobs:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v5
       - name: Auditar o endpoint em produção
-        run: uvx mcpscore --fail-under 94 https://medical.sidneybissoli.com/mcp
+        run: uvx mcpscore --fail-under 100 https://medical.sidneybissoli.com/mcp
