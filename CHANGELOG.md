@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-08-31
+
+Release de metadado e superfície: nenhuma mudança de comportamento nas
+ferramentas. Existe porque metadado corrigido só chega ao MCP Registry e aos
+diretórios através de uma versão nova.
+
+### Fixed
+
+- **O `server.json` anunciava "37 tools".** A superfície padrão é de **31**; 37
+  é só com `ENABLE_SNOMED_TOOLS=true`, e o `README.md` e o `package.json` já
+  diziam as duas coisas, e certo. O `server.json` ficou para trás — e é o
+  arquivo de maior alcance do repositório, porque é o que o registro publica e o
+  que os diretórios copiam. Nada quebrava e nenhum teste reprovava: contagem
+  escrita em prosa não tinha quem a conferisse.
+
+### Added
+
+- **`README.pt-BR.md`**, que não existia, em paridade com o inglês: as mesmas
+  31 ferramentas citadas e o mesmo esqueleto de seções. O inglês ganhou o link
+  recíproco.
+- **`docs/artigo-cid10-e-cid11-no-sus.pt-BR.md`**: a estrutura da CID-10 V2008
+  em números extraídos do conjunto embutido (22 capítulos, 275 grupos, 2.045
+  categorias, 12.451 subcategorias), o que as tabelas de transição da OMS são
+  — 11.243 entradas, 1.461 com alternativas — e o que elas não são, e as
+  licenças que diferem entre as fontes.
+- **`src/contagem-nos-textos.test.ts`**: as três contagens legítimas deste
+  servidor (padrão, com SNOMED e por terminologia) conferidas cada uma contra a
+  sua própria fonte, as duas primeiras derivadas do registro real montado com a
+  flag nos dois estados.
+
+### Changed
+
+- **Landing page** com `meta description`, canonical, og:, JSON-LD
+  `SoftwareApplication`, perguntas reais, destaques e links. O idioma principal
+  segue em inglês, e o português ganhou seção própria puxando o que o produto
+  tem de brasileiro: a CID-10 do DataSUS embutida e os rótulos oficiais em
+  português da ICD-11 e do MeSH.
+
+
 ## [1.9.0] - 2026-08-30
 
 Fecha os NOVE achados de conformidade do `mcpscore` e ganha o gate que este
