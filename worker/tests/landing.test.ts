@@ -49,9 +49,11 @@ describe("landing page — superfície de descoberta", () => {
   });
 
   it("publica dados estruturados válidos, coerentes com a configuração", () => {
-    const m = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s);
-    expect(m, "landing sem bloco JSON-LD").not.toBeNull();
-    const dados = JSON.parse(m![1]) as Record<string, unknown>;
+    // `m?.[1]` e nao `m![1]`: com noUncheckedIndexedAccess o grupo capturado e
+    // `string | undefined`, e o `tsc` do CI reprova o nao-nulo direto.
+    const bruto = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)?.[1];
+    expect(bruto, "landing sem bloco JSON-LD").toBeTruthy();
+    const dados = JSON.parse(bruto as string) as Record<string, unknown>;
     expect(dados["@type"]).toBe("SoftwareApplication");
     expect(dados.name).toBe(SERVER_CONFIG.title);
     expect(dados.description).toBe(LANDING.resumo);
