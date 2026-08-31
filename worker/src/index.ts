@@ -20,6 +20,7 @@ import { getServerCard } from "./card.js";
 import { SERVER_CONFIG } from "./config.js";
 import { bridgeEnv } from "./env-bridge.js";
 import { landingResponse } from "./landing.js";
+import { discoveryResponseForPath } from "./discovery.js";
 import { logger } from "./logger.js";
 import { checkRateLimit } from "./rate-limit.js";
 import { buildServer } from "./server.js";
@@ -64,6 +65,11 @@ export default {
 
     // --- Rotas públicas, servidas antes de qualquer auth ---
     if (url.pathname === "/") return landingResponse();
+    // robots.txt, sitemap.xml e a chave do IndexNow vêm ANTES da auth: um
+    // rastreador não tem credencial, e robots.txt atrás de Bearer é o mesmo que
+    // não ter robots.txt.
+    const descoberta = discoveryResponseForPath(url.pathname);
+    if (descoberta) return descoberta;
     if (url.pathname === "/health") {
       // Shape JSON preservado do worker pré-template (tool_count + uptime).
       const uptimeMs = Date.now() - isolateStartMs;

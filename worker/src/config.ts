@@ -56,6 +56,11 @@ export const SERVER_CONFIG = {
       theme: "light",
     },
   ] as { src: string; mimeType: string; sizes: string[]; theme: "dark" | "light" }[],
+  /**
+   * Chave do IndexNow. É PÚBLICA por desenho: ela prova posse do domínio por
+   * estar servida em `/<chave>.txt`, então versionar aqui não é vazamento.
+   */
+  indexNowKey: "e8728a5aa0972880ce65c76b3a0b7eee",
   /** Rota do endpoint MCP (Streamable HTTP). */
   mcpRoute: "/mcp",
   /**
