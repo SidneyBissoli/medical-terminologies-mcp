@@ -21,9 +21,19 @@ export { registerAll, createServer, type ToolUsageRecorder } from './register.js
 export {
   SERVER_INFO,
   SERVER_INSTRUCTIONS,
+  SERVER_TITLE,
+  SERVER_WEBSITE_URL,
+  SERVER_ICONS,
   toolRegistry,
   promptRegistry,
   resourceRegistry,
 } from './server-core.js';
+// The Worker needs both conformance modules: the discover patch is applied on
+// its own `buildServer` (a SEPARATE construction from the stdio one), and the
+// cursor guard runs on its POST. Reaching them through this surface keeps the
+// single-copy rule — importing `../../src/*.ts` from the Worker would compile a
+// second copy against a different tsconfig.
+export { announceServedVersions } from './discover.js';
+export { unknownCursorError, INVALID_PARAMS, PAGINATED_LIST_METHODS } from './pagination.js';
 export { setStatsRecorder, type StatsRecorder, type StatsPayload } from './utils/stats.js';
 export { StatsCounter } from './durable-objects/stats-counter.js';

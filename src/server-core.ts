@@ -28,6 +28,33 @@ export const SERVER_INFO = {
 } as const;
 
 /**
+ * Display identity carried on the MCP handshake (`serverInfo`).
+ *
+ * These three fields already lived in `server.json` — what the MCP Registry
+ * publishes and every directory mirrors — but NOT in what a client receives on
+ * connect, and they are different places: `mcpscore` measures the handshake and
+ * was failing `server_title_present` and `server_icons_present`.
+ *
+ * Both transports read from here, and `worker/tests/serverinfo-sync.test.ts`
+ * pins these against `server.json` so the handshake and the directory listings
+ * can never advertise a different name or image for the same product.
+ */
+export const SERVER_TITLE = 'Medical Terminologies MCP';
+export const SERVER_WEBSITE_URL = 'https://medical.sidneybissoli.com';
+const ICON_BASE =
+  'https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets';
+export interface ServerIcon {
+  src: string;
+  mimeType?: string;
+  sizes?: string[];
+  theme?: 'dark' | 'light';
+}
+export const SERVER_ICONS: ServerIcon[] = [
+  { src: `${ICON_BASE}/icon-dark.png`, mimeType: 'image/png', sizes: ['512x512'], theme: 'dark' },
+  { src: `${ICON_BASE}/icon-light.png`, mimeType: 'image/png', sizes: ['512x512'], theme: 'light' },
+];
+
+/**
  * Server instructions sent on the MCP handshake (initialize result). They
  * carry what individual tool descriptions cannot: the routing map across
  * seven terminologies, when to prefer `find_equivalent` over a dedicated

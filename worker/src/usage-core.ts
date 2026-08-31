@@ -12,7 +12,8 @@ export type UsageKind =
   | "auth_failure"
   | "rate_limited"
   | "tool_call" // toda chamada de tool (nome = tool)
-  | "tool_error"; // subconjunto de tool_call que falhou
+  | "tool_error" // subconjunto de tool_call que falhou
+  | "invalid_cursor"; // lista pedida com cursor de paginação que este servidor nunca emitiu
 
 export interface UsageEvent {
   kind: UsageKind;

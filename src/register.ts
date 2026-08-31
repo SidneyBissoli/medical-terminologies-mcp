@@ -45,6 +45,9 @@ import {
 import {
   SERVER_INFO,
   SERVER_INSTRUCTIONS,
+  SERVER_TITLE,
+  SERVER_WEBSITE_URL,
+  SERVER_ICONS,
   toolRegistry,
   promptRegistry,
   resourceRegistry,
@@ -76,6 +79,7 @@ import './prompts/index.js';
 import './resources/index.js';
 // Stats counter resource — DO-backed on Workers, placeholder on stdio
 import './resources/stats.js';
+import { announceServedVersions } from './discover.js';
 
 /**
  * Validator provider that accepts every value. See the module docstring:
@@ -195,6 +199,11 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
     server.registerPrompt(
       prompt.name,
       {
+        // Display title. The registry name is a kebab-case identifier
+        // (`find-medical-code`); `mcpscore` flags prompts without a human title
+        // (`prompts_titles_present`), and a client picker shows the title.
+        // Derived from the name, so a prompt added later cannot forget it.
+        title: displayTitle(prompt.name),
         description: prompt.description,
         ...(argsSchema !== undefined ? { argsSchema } : {}),
       },
@@ -209,6 +218,10 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
       resource.name,
       resource.uri,
       {
+        // Resource names here are already human-readable ("CID-10 chapters"),
+        // so the title IS the name — but it has to be declared, or the client
+        // shows the URI and `mcpscore` fails `resources_titles_present`.
+        title: resource.name,
         ...(resource.description !== undefined ? { description: resource.description } : {}),
         ...(resource.mimeType !== undefined ? { mimeType: resource.mimeType } : {}),
       },
@@ -222,14 +235,34 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
  * object allocation — no transport is connected, so it is safe to call
  * from tests and once per request on stateless HTTP transports.
  */
+/**
+ * Turns a kebab-case prompt identifier into a display title
+ * (`cid10-portuguese-lookup` -> `Cid10 Portuguese Lookup`). Derived rather than
+ * hand-written so a prompt added later cannot ship without one.
+ */
+function displayTitle(nome: string): string {
+  return nome
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+}
+
 export function createServer(): McpServer {
   const server = new McpServer(
     {
       name: SERVER_INFO.name,
       version: SERVER_INFO.version,
+      title: SERVER_TITLE,
+      websiteUrl: SERVER_WEBSITE_URL,
+      icons: SERVER_ICONS,
     },
     { instructions: SERVER_INSTRUCTIONS },
   );
   registerAll(server);
+  // Announce every protocol revision this server actually serves on
+  // `server/discover`, not only the modern ones the SDK filters — see
+  // src/discover.ts.
+  announceServedVersions(server);
   return server;
 }

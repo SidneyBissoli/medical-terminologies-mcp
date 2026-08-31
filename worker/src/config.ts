@@ -15,7 +15,10 @@ export const SERVER_CONFIG = {
   /** Versão do servidor — única fonte: package.json do pacote pai. */
   version: SERVER_INFO.version,
   /** Título de exibição (landing page). */
-  title: "medical-terminologies-mcp — medical terminologies via MCP",
+  // Mesmo texto do `server.json` — o que o MCP Registry publica e os
+  // diretórios copiam. Divergir faria handshake e ficha mostrarem nomes
+  // diferentes do mesmo produto.
+  title: "Medical Terminologies MCP",
   /** Uma frase: o que o servidor serve e de qual fonte (produto English-facing). */
   description:
     "Unified MCP server for seven medical terminologies — ICD-11, SNOMED CT, LOINC, " +
@@ -26,8 +29,33 @@ export const SERVER_CONFIG = {
    * upstream veem — precisa resolver para identificação humana + contato.
    */
   contactEmail: "sbissoli76@gmail.com",
-  /** Repositório público (serverInfo.websiteUrl + landing). */
-  websiteUrl: "https://github.com/SidneyBissoli/medical-terminologies-mcp",
+  /**
+   * Site do servidor no handshake (`serverInfo.websiteUrl`). É o DOMÍNIO
+   * PRÓPRIO, não o repositório: é o que o `server.json` declara.
+   */
+  websiteUrl: "https://medical.sidneybissoli.com",
+
+  /**
+   * Ícones do handshake. Declarados AQUI, e não importados de
+   * `dist/worker-lib.js`, porque o bundle é JavaScript e o `allowJs` do
+   * tsconfig infere `theme: string` — a união `"dark" | "light"` que o SDK
+   * exige não sobrevive ao esbuild. A duplicação é deliberada e vigiada:
+   * `tests/serverinfo-sync.test.ts` compara estes valores com o `server.json`.
+   */
+  icons: [
+    {
+      src: "https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-dark.png",
+      mimeType: "image/png",
+      sizes: ["512x512"],
+      theme: "dark",
+    },
+    {
+      src: "https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-light.png",
+      mimeType: "image/png",
+      sizes: ["512x512"],
+      theme: "light",
+    },
+  ] as { src: string; mimeType: string; sizes: string[]; theme: "dark" | "light" }[],
   /** Rota do endpoint MCP (Streamable HTTP). */
   mcpRoute: "/mcp",
   /**

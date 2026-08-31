@@ -18,17 +18,38 @@
  * @author Sidney Bissoli
  * @license MIT
  */
-import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { unknownCursorError } from './pagination.js';
 import { createServer } from './register.js';
 import { SERVER_INFO } from './server-core.js';
 import { logger } from './utils/logger.js';
 
+// The transport is built here rather than left to `serveStdio` so the cursor
+// guard below can hook onto it.
+const transport = new StdioServerTransport();
+
 serveStdio(() => createServer(), {
+  transport,
   onerror: (error) => {
     const msg = error instanceof Error ? error.message : String(error);
     logger.error({ err: msg }, 'Transport error');
   },
 });
+
+// Invalid pagination cursor -> -32602, the SAME guard the Worker applies on its
+// POST (see src/pagination.ts). It REPLACES `onmessage` rather than adding a
+// listener: only whatever sits in `onmessage` can stop delivery to the SDK, and
+// stopping delivery is what produces the refusal. Runs after `serveStdio`,
+// which is what installs the transport's `onmessage`.
+const deliverToServer = transport.onmessage;
+transport.onmessage = (message) => {
+  const refusal = unknownCursorError(message);
+  if (refusal) {
+    void transport.send(refusal);
+    return;
+  }
+  deliverToServer?.(message);
+};
 
 // Flush pino's async buffer on shutdown signals — stdio teardown itself is
 // owned by serveStdio; we only make sure buffered log lines reach stderr.

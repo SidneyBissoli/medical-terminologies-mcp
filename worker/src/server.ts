@@ -15,7 +15,7 @@
 
 import { McpServer } from "@modelcontextprotocol/server";
 
-import { registerAll, SERVER_INSTRUCTIONS } from "../../dist/worker-lib.js";
+import { registerAll, SERVER_INSTRUCTIONS, announceServedVersions } from "../../dist/worker-lib.js";
 import { SERVER_CONFIG } from "./config.js";
 import type { RecordUsage } from "./usage-core.js";
 
@@ -25,10 +25,18 @@ export function buildServer(record: RecordUsage = () => {}): McpServer {
     {
       name: SERVER_CONFIG.name,
       version: SERVER_CONFIG.version,
+      // `title` e `icons` no serverInfo do HANDSHAKE. Esta construção é
+      // SEPARADA da do stdio (`src/register.ts`): corrigir lá não corrige aqui.
+      // No ibge isso custou um deploy — o stdio foi a 146/148 e produção ficou
+      // em 169/173, com CI verde.
+      title: SERVER_CONFIG.title,
       websiteUrl: SERVER_CONFIG.websiteUrl,
+      icons: SERVER_CONFIG.icons,
     },
     { instructions: SERVER_INSTRUCTIONS },
   );
   registerAll(server, (kind: "tool_call" | "tool_error", name: string) => record(kind, name));
+  // `server/discover` anuncia todas as revisões atendidas — ver src/discover.ts.
+  announceServedVersions(server);
   return server;
 }
