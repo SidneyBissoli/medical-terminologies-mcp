@@ -24,6 +24,8 @@ A Model Context Protocol (MCP) server providing unified access to major global m
 - **ATC** - Anatomical Therapeutic Chemical classification (WHO Collaborating Centre, served via NLM RxClass)
 - **CID-10** - Brazilian Portuguese translation of ICD-10 (DataSUS V2008, bundled)
 
+🇧🇷 [Leia em Português](README.pt-BR.md)
+
 ## See it in action
 
 Ask your assistant:
@@ -47,6 +49,8 @@ The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real co
 - Rate limiting to respect API limits
 - Detailed responses with rich formatting
 - Two transports: **stdio** (default; for Claude Desktop, IDE clients) and **Streamable HTTP** (the hosted Cloudflare Worker at `https://medical.sidneybissoli.com/mcp`, or your own instance of `worker/`)
+
+📖 **Article (in Portuguese):** [CID-10, CID-11 e o que muda para quem trabalha com dados do SUS](docs/artigo-cid10-e-cid11-no-sus.pt-BR.md) — the V2008 structure in numbers, what the WHO transition tables are and are not, and the licences that differ between sources.
 
 ## Who is this for?
 
