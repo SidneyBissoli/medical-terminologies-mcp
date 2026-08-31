@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-08-30
+
+Fecha os NOVE achados de conformidade do `mcpscore` e ganha o gate que este
+servidor nunca teve. Produção de **163/173 (94,2%) para 173/173 = 100%**; stdio
+em 146/148, com zero falhas.
+
+### Added
+
+- `serverInfo` do handshake declara `title`, `icons` e `websiteUrl`. Existiam no
+  `server.json` — o que os diretórios copiam — e não no que o cliente recebe.
+- Títulos de exibição em resources e prompts. Os resources já tinham nome legível
+  ("CID-10 chapters"), então o título É o nome; os prompts têm identificador
+  kebab-case e o título é DERIVADO dele, para que um prompt novo não possa
+  esquecer.
+- Cursor de paginação inválido recusado com JSON-RPC `-32602` nos quatro
+  endpoints de lista.
+- `server/discover` anuncia todas as revisões atendidas.
+- `.github/workflows/mcpscore.yml`: este era o ÚNICO servidor publicado do
+  portfólio sem catraca de conformidade — uma regressão aqui não reprovava nada.
+  Pisos em 98 (stdio) e 100 (produção).
+
+### Changed
+
+- TypeScript 7.0.2, `zod` 4.5.4, `agents` 0.22 no `worker/`, e o ferramental na
+  última estável.
+
+### CI
+
+- `worker/tests/serverinfo-sync.test.ts`: compara a identidade do Worker, da raiz
+  e do `server.json` entre si, sem pinar literal. Duas armadilhas por trás dele —
+  o `serverInfo` do Worker é OUTRO objeto (no ibge, corrigir só a raiz deixou
+  produção em 169/173 com CI verde), e os ícones não podem vir de
+  `dist/worker-lib.js`, porque o `allowJs` infere `theme: string` do bundle e
+  perde a união que o SDK exige.
+- `dependabot.yml` passa a vigiar o `worker/`; Actions agrupadas.
+
 ## [1.8.0] - 2026-08-09
 
 Provenance release: every successful response now carries a
