@@ -16,7 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: ['20', '22']
+        # Piso é node >= 22 (engines do package). O 20 saiu em 31/08/2026: fim
+        # de vida em 30/04/2026, sem correção de segurança desde então.
+        node-version: ['22', '24']
     steps:
       - uses: actions/checkout@v7
 
@@ -52,7 +54,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies (root)

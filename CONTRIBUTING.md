@@ -46,7 +46,7 @@ cd medical-terminologies-mcp
 npm install
 ```
 
-Node 20+ required (`engines.node` in `package.json`).
+Node 22+ required (`engines.node` in `package.json`). Node 20 reached end of life on 2026-04-30.
 
 ## Running
 
