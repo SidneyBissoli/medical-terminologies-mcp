@@ -201,6 +201,18 @@ When Phase 11.9 Stage 2 lands (Workers KV cache + DO rate limiter), the same DO 
 - CJS that does `require('events')` or similar dynamic requires → won't work on Workers at all. Replace with an ESM equivalent, or fork the read-side logic. (We hit this with `node-cache` and replaced its 100-line surface with a Map+TTL implementation in `cache.ts`.)
 - Stateful, per-process (`node-cache`, in-memory rate limiter) → works on Node, becomes per-isolate on Workers. Acceptable for moderate traffic; PROGRESS.md Phase 11.9 Stage 2 swaps these for Workers KV + Durable Objects when traffic justifies.
 
+## Baselines de superfície
+
+`baselines/` guarda dumps normalizados de `tools/list` + resources + prompts
+(`node scripts/dump-surface.mjs --stdio | --url <endpoint>`), prática
+transplantada do bcb-br-mcp. Na captura inicial (01/09/2026, v1.9.1) stdio e
+produção saíram byte-idênticos — o worker reutiliza o `registerAll` de
+`dist/worker-lib.js`, então a única deriva possível é de deploy. O baseline é
+capturado com SNOMED OFF (31 tools, o default de produção). Depois de mudança
+que possa mexer na superfície: `npm run build && node scripts/dump-surface.mjs
+--stdio` e diff contra o baseline vigente; toda diferença precisa ser
+deliberada e listada no CHANGELOG. Ver `baselines/README.md`.
+
 ## CI gates
 
 `.github/workflows/ci.yml` runs on every PR and gates merge on two jobs:

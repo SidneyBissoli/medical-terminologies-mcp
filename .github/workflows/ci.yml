@@ -40,6 +40,11 @@ jobs:
       - name: Build bundle
         run: npm run build
 
+      # A superfície publicada é o produto: se o build não consegue nem levantar
+      # o servidor e listar as tools, o pacote não deve passar no gate.
+      - name: Dump da superfície (fumaça do build)
+        run: node scripts/dump-surface.mjs --stdio > /dev/null
+
       - name: Verify bundle registers expected tool count
         run: |
           count=$(grep -o "toolRegistry.register" dist/index.js | wc -l)
