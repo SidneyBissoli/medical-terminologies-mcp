@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "description": "Cloudflare Worker that serves medical-terminologies-mcp over Streamable HTTP (Fase 0 hosting template: createMcpHandler + UsageTracker, with the legacy StatsCounter DO kept alongside for /stats history)",
   "scripts": {
     "prebuild:lib": "cd .. && npm run build:worker-lib",
