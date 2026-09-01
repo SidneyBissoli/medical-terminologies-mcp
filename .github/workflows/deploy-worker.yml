@@ -66,3 +66,27 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
+
+      # The guard the smoke does not give: the smoke exercises the surface but
+      # would pass just the same while serving the PREVIOUS version — exactly
+      # the drift this workflow exists to prevent (bcb served 1.3.1 for months
+      # while npm was at 1.3.5; senado served 3.5.0 for five days while npm was
+      # at 3.5.1, measured 2026-08-29). Comparing what /status reports against
+      # package.json turns that drift red instead of silent. The sleep gives
+      # Cloudflare propagation time — right after a deploy the edge serves
+      # mixed isolates for a few seconds.
+      - name: Hosted version matches package.json
+        run: |
+          sleep 20
+          EXPECTED=$(node -p "require('./package.json').version")
+          LIVE=$(curl -sS --max-time 30 https://medical.sidneybissoli.com/status | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          echo "package.json=$EXPECTED  hosted=$LIVE"
+          if [ "$EXPECTED" != "$LIVE" ]; then
+            echo "::error::drift: the endpoint serves $LIVE while the repo is at $EXPECTED"
+            exit 1
+          fi
+
+      # Closes the loop: if the deploy ships a broken worker, the job fails
+      # here — not silently the next time someone opens the endpoint.
+      - name: Production smoke
+        run: node scripts/smoke-mcp.mjs
