@@ -50,7 +50,7 @@ As respostas vêm de fontes oficiais (OMS, NLM, NIH, DataSUS) — códigos e map
 - Respostas detalhadas, com formatação rica
 - Dois transportes: **stdio** (padrão; para Claude Desktop e clientes de IDE) e **Streamable HTTP** (o Worker hospedado na Cloudflare em `https://medical.sidneybissoli.com/mcp`, ou a sua própria instância de `worker/`)
 
-📖 **Artigo:** [CID-10, CID-11 e o que muda para quem trabalha com dados do SUS](docs/artigo-cid10-e-cid11-no-sus.pt-BR.md) — a estrutura da V2008 em números, o que as tabelas de transição da OMS são e o que elas não são, e as licenças que diferem entre as fontes.
+📖 **Artigo:** [CID-10, CID-11 e o que muda para quem trabalha com dados do SUS](docs/artigo-cid10-e-cid11-no-sus.pt-BR.md) — a estrutura da V2008 em números, o que as tabelas de transição da OMS são e o que elas não são, e as licenças que diferem entre as fontes. Também publicado no site: [sidneybissoli.com](https://sidneybissoli.com/blog/posts/cid10-cid11-sus/).
 
 ## Para quem é isto?
 

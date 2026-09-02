@@ -50,7 +50,7 @@ The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real co
 - Detailed responses with rich formatting
 - Two transports: **stdio** (default; for Claude Desktop, IDE clients) and **Streamable HTTP** (the hosted Cloudflare Worker at `https://medical.sidneybissoli.com/mcp`, or your own instance of `worker/`)
 
-📖 **Article (in Portuguese):** [CID-10, CID-11 e o que muda para quem trabalha com dados do SUS](docs/artigo-cid10-e-cid11-no-sus.pt-BR.md) — the V2008 structure in numbers, what the WHO transition tables are and are not, and the licences that differ between sources.
+📖 **Article (in Portuguese):** [CID-10, CID-11 e o que muda para quem trabalha com dados do SUS](docs/artigo-cid10-e-cid11-no-sus.pt-BR.md) — the V2008 structure in numbers, what the WHO transition tables are and are not, and the licences that differ between sources. Also published on the site, in Portuguese and English: [sidneybissoli.com](https://sidneybissoli.com/en/blog/posts/cid10-cid11-sus/).
 
 ## Who is this for?
 
