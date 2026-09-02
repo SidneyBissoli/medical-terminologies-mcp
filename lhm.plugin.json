@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "1.8.0",
+  "version": "1.9.1",
   "description": "Unified MCP server for global medical terminologies - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -22,299 +22,5309 @@
   ],
   "tools": [
     {
-      "name": "icd11_search",
-      "description": "Search ICD-11 for diseases/conditions by name or keyword; returns codes, titles and relevance.",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Look up the WHO ATC (Anatomical Therapeutic Chemical) classification(s) for a drug by name.\n\nUse this tool to:\n- Find the ATC code for a medication (e.g., \"metformin\" → A10BA02)\n- Identify the therapeutic and pharmacological class hierarchy\n- Cross-reference drugs with their international ATC codes\n\nReturns one entry per ATC code the drug belongs to. A single-ingredient drug typically maps to one substance-level code; combination products map to multiple. ATC codes are international (WHO Collaborating Centre); this tool retrieves them via NLM RxClass.",
       "inputSchema": {
+        "properties": {
+          "drug_name": {
+            "description": "Drug name to classify (brand or generic, e.g., \"metformin\")",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "drug_name"
+        ],
         "type": "object"
-      }
-    },
-    {
-      "name": "icd11_lookup",
-      "description": "Get full ICD-11 entity details (definition, notes, exclusions, synonyms) by code or URI.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "icd11_hierarchy",
-      "description": "Navigate ICD-11 parents/children of an entity.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "icd11_chapters",
-      "description": "List all 28 ICD-11 chapters (top-level categories).",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "icd11_postcoordination",
-      "description": "Get ICD-11 postcoordination axes for building composite codes.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "snomed_search",
-      "description": "Search SNOMED CT concepts by term (SCTID, FSN, PT). Reference only; production needs IHTSDO license.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "snomed_concept",
-      "description": "Get SNOMED CT concept details by SCTID. Reference only; IHTSDO license for production.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "snomed_hierarchy",
-      "description": "Get SNOMED CT IS-A parents/children for a concept.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "snomed_descriptions",
-      "description": "Get all descriptions/synonyms for a SNOMED CT concept.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "snomed_ecl",
-      "description": "Run an ECL (Expression Constraint Language) query over SNOMED CT.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "loinc_search",
-      "description": "Search LOINC for lab tests, clinical observations and measurements.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "loinc_details",
-      "description": "Get full LOINC details (component, property, timing, system, scale) for a code.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "loinc_answers",
-      "description": "Get the valid answer list for a LOINC questionnaire item.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "loinc_panels",
-      "description": "Get the structure/members of a LOINC panel or form.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "rxnorm_search",
-      "description": "Search RxNorm drugs by brand or generic name (RxCUI, term types).",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "rxnorm_concept",
-      "description": "Get RxNorm concept details by RxCUI (names, status, related concepts).",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "rxnorm_ingredients",
-      "description": "Get the active ingredients for a drug by RxCUI.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "rxnorm_classes",
-      "description": "Get therapeutic/pharmacologic classes for a drug.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "rxnorm_ndc",
-      "description": "Map between RxNorm RxCUI and National Drug Codes (NDC).",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "mesh_search",
-      "description": "Search MeSH descriptors for indexing / PubMed terms.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "mesh_descriptor",
-      "description": "Get full MeSH descriptor details (scope note, tree numbers, synonyms) by ID.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "mesh_tree",
-      "description": "Get the MeSH tree hierarchy location(s) for a descriptor.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "mesh_qualifiers",
-      "description": "Get the allowed qualifiers (subheadings) for a MeSH descriptor.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
+      },
       "name": "atc_classify",
-      "description": "Look up the WHO ATC classification(s) for a drug by name.",
-      "inputSchema": {
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "drug_name": {
+            "type": "string"
+          },
+          "matches": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "atc_code": {
+                  "type": "string"
+                },
+                "atc_level_type": {
+                  "type": "string"
+                },
+                "atc_name": {
+                  "type": "string"
+                },
+                "drug_name": {
+                  "type": "string"
+                },
+                "rxcui": {
+                  "type": "string"
+                },
+                "tty": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rxcui",
+                "drug_name",
+                "tty",
+                "atc_code",
+                "atc_name",
+                "atc_level_type"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "drug_name",
+          "matches",
+          "provenance",
+          "attribution"
+        ],
         "type": "object"
-      }
+      },
+      "title": "ATC Classification for a Drug"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Look up an ATC code at level 1-4 to get its name and hierarchy level.\n\nUse this tool to:\n- Resolve an ATC code (e.g., \"A10BA\") to its class name (\"Biguanides\")\n- Confirm a code exists in the current ATC index\n- Identify the level (anatomical / therapeutic / pharmacological / chemical)\n\nAccepts codes 1-5 characters long: \"A\" (anatomical), \"A10\" (therapeutic), \"A10B\" (pharmacological), \"A10BA\" (chemical). Substance-level codes (7 chars, e.g., \"A10BA02\") are not exposed by this endpoint — use atc_classify with the drug name to retrieve the substance code.",
+      "inputSchema": {
+        "properties": {
+          "atc_code": {
+            "description": "ATC code at level 1-4 (1-5 chars). Substance-level codes (7 chars, e.g., A10BA02) are not exposed by this endpoint — use atc_classify with the drug name instead.",
+            "pattern": "^[A-V](\\d{2}([A-Z]([A-Z](\\d{2})?)?)?)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "atc_code"
+        ],
+        "type": "object"
+      },
       "name": "atc_lookup",
-      "description": "Resolve an ATC code (levels 1-4) to its class name and level.",
-      "inputSchema": {
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "atc_code": {
+            "type": "string"
+          },
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "atc_code": {
+                    "type": "string"
+                  },
+                  "atc_level_type": {
+                    "type": "string"
+                  },
+                  "atc_name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "atc_code",
+                  "atc_name",
+                  "atc_level_type"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "atc_code",
+          "found",
+          "details",
+          "provenance",
+          "attribution"
+        ],
         "type": "object"
-      }
+      },
+      "title": "ATC Code Details"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "List the drugs (substances) that belong to an ATC class.\n\nUse this tool to:\n- Enumerate all members of a therapeutic class (e.g., \"A10BA\" → metformin, phenformin)\n- Build a list of drugs sharing a pharmacological mechanism\n- Explore an ATC subtree at any level\n\nEach member includes its substance-level (7-char) ATC code via source_atc_code, useful for disambiguation when the queried class is at level 1-4. RxNorm's catalog is US-centric; the ATC class names and codes themselves are international.",
+      "inputSchema": {
+        "properties": {
+          "atc_code": {
+            "description": "ATC code at any level. Higher levels (1-4) return all member substances; level 5 returns the single substance.",
+            "pattern": "^[A-V](\\d{2}([A-Z]([A-Z](\\d{2})?)?)?)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "atc_code"
+        ],
+        "type": "object"
+      },
       "name": "atc_members",
-      "description": "List the drugs/substances belonging to an ATC class.",
-      "inputSchema": {
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "atc_code": {
+            "type": "string"
+          },
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "members": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "rxcui": {
+                  "type": "string"
+                },
+                "source_atc_code": {
+                  "type": "string"
+                },
+                "tty": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rxcui",
+                "name",
+                "tty",
+                "source_atc_code"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "atc_code",
+          "members",
+          "provenance",
+          "attribution"
+        ],
         "type": "object"
-      }
+      },
+      "title": "ATC Class Members"
     },
     {
-      "name": "cid10_search",
-      "description": "Search the Brazilian CID-10 (Portuguese, DataSUS V2008) by text; diacritic-insensitive.",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get one CID-10 chapter and its constituent groups (e.g., \"Chapter IX → I00-I02 Febre reumática aguda, I05-I09 Doenças reumáticas crônicas do coração, ...\").\n\nUse this tool to:\n- Drill from a chapter into its groups\n- Build hierarchical browsers\n- Find which group contains a code range\n\nProvide a chapter number (1-22).",
       "inputSchema": {
+        "properties": {
+          "num": {
+            "description": "Chapter number (1-22). CID-10 V2008 has 22 chapters.",
+            "maximum": 22,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "num"
+        ],
         "type": "object"
-      }
-    },
-    {
-      "name": "cid10_lookup",
-      "description": "Look up a CID-10 code and return its Portuguese name and restriction flags.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
-      "name": "cid10_chapters",
-      "description": "List the 22 CID-10 chapters with code ranges and Portuguese titles.",
-      "inputSchema": {
-        "type": "object"
-      }
-    },
-    {
+      },
       "name": "cid10_chapter",
-      "description": "Get one CID-10 chapter and its constituent groups.",
-      "inputSchema": {
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "chapter": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "code_end": {
+                    "type": "string"
+                  },
+                  "code_start": {
+                    "type": "string"
+                  },
+                  "num": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "title_short": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "num",
+                  "code_start",
+                  "code_end",
+                  "title",
+                  "title_short"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "groups": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code_end": {
+                  "type": "string"
+                },
+                "code_start": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "title_short": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code_start",
+                "code_end",
+                "title",
+                "title_short"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "num": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "num",
+          "found",
+          "chapter",
+          "groups",
+          "provenance",
+          "attribution"
+        ],
         "type": "object"
-      }
+      },
+      "title": "Capítulo da CID-10"
     },
     {
-      "name": "map_icd10_to_icd11",
-      "description": "Authoritative ICD-10 to ICD-11 mapping using WHO transition tables (release 2025-01).",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "List the 22 chapters of CID-10 with their code ranges and Portuguese titles.\n\nUse this tool to:\n- See the top-level structure of CID-10 (chapters I-XXII, e.g., \"I. Algumas doenças infecciosas e parasitárias\", \"IX. Doenças do aparelho circulatório\")\n- Map a code to its chapter by code range (e.g., I00-I99 → chapter IX)\n- Build a navigable table of contents for downstream tooling\n\nReturns 22 entries — CID-10 V2008 has not been updated since 2008.",
       "inputSchema": {
+        "properties": {},
         "type": "object"
-      }
+      },
+      "name": "cid10_chapters",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "chapters": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code_end": {
+                  "type": "string"
+                },
+                "code_start": {
+                  "type": "string"
+                },
+                "num": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "title_short": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "num",
+                "code_start",
+                "code_end",
+                "title",
+                "title_short"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "chapters",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Capítulos da CID-10"
     },
     {
-      "name": "map_snomed_to_icd10",
-      "description": "Map a SNOMED CT concept to ICD-10. Reference only; IHTSDO license for production.",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Look up a specific CID-10 code and return its Portuguese name.\n\nUse this tool to:\n- Resolve a code to its Brazilian description (\"I21\" → \"Infarto agudo do miocárdio\")\n- Confirm a 3-char category or 4-char subcategory exists in CID-10\n- Retrieve gender / cause-of-death restriction flags when applicable\n\nAccepts both dotted (\"A00.1\") and undotted (\"A001\") forms; returns the canonical display.",
       "inputSchema": {
+        "properties": {
+          "code": {
+            "description": "CID-10 code (e.g., \"A00\", \"A00.1\", \"A001\", \"I21\"). Dotted and undotted forms both accepted.",
+            "pattern": "^[A-Z]\\d{2}(\\.?\\d)?$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
         "type": "object"
-      }
+      },
+      "name": "cid10_lookup",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "code": {
+            "type": "string"
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "hit": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "causa_obito": {
+                    "type": "string"
+                  },
+                  "chapter_num": {
+                    "anyOf": [
+                      {
+                        "maximum": 9007199254740991,
+                        "minimum": -9007199254740991,
+                        "type": "integer"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "classif": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "display": {
+                    "type": "string"
+                  },
+                  "excluidos": {
+                    "type": "string"
+                  },
+                  "group_range": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "level": {
+                    "enum": [
+                      "category",
+                      "subcategory"
+                    ],
+                    "type": "string"
+                  },
+                  "refer": {
+                    "type": "string"
+                  },
+                  "restr_sexo": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "title_short": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level",
+                  "code",
+                  "display",
+                  "classif",
+                  "title",
+                  "title_short",
+                  "refer",
+                  "excluidos",
+                  "restr_sexo",
+                  "causa_obito",
+                  "chapter_num",
+                  "group_range"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "found",
+          "hit",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Consultar Código CID-10"
     },
     {
-      "name": "map_loinc_to_snomed",
-      "description": "Guidance on obtaining a LOINC to SNOMED CT mapping (not freely available via API).",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Search the Brazilian CID-10 (Classificação Estatística Internacional de Doenças, 10ª Revisão) by Portuguese text.\n\nUse this tool to:\n- Find CID-10 codes for Brazilian SUS / ANVISA contexts (\"infarto\", \"diabetes\", \"tuberculose\")\n- Look up the official Portuguese (CBCD/USP) translation of a clinical term\n- Locate codes for billing, epidemiology, and clinical documentation in Brazil\n\nReturns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing \"infeccoes\" matches \"infecções\". This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.",
       "inputSchema": {
+        "properties": {
+          "level": {
+            "default": "all",
+            "description": "Restrict search to 3-char categories, 4-char subcategories, or both. Default: all",
+            "enum": [
+              "categories",
+              "subcategories",
+              "all"
+            ],
+            "type": "string"
+          },
+          "max_results": {
+            "default": 25,
+            "description": "Maximum number of results (1-100). Default: 25",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Search term in Portuguese (e.g., \"diabetes\", \"infarto\", \"tuberculose\")",
+            "minLength": 2,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
         "type": "object"
-      }
+      },
+      "name": "cid10_search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "hits": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "causa_obito": {
+                  "type": "string"
+                },
+                "chapter_num": {
+                  "anyOf": [
+                    {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "classif": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "display": {
+                  "type": "string"
+                },
+                "excluidos": {
+                  "type": "string"
+                },
+                "group_range": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "level": {
+                  "enum": [
+                    "category",
+                    "subcategory"
+                  ],
+                  "type": "string"
+                },
+                "refer": {
+                  "type": "string"
+                },
+                "restr_sexo": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "title_short": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level",
+                "code",
+                "display",
+                "classif",
+                "title",
+                "title_short",
+                "refer",
+                "excluidos",
+                "restr_sexo",
+                "causa_obito",
+                "chapter_num",
+                "group_range"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "level": {
+            "enum": [
+              "categories",
+              "subcategories",
+              "all"
+            ],
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "query": {
+            "type": "string"
+          },
+          "shown_count": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "total_count": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "level",
+          "total_count",
+          "shown_count",
+          "hits",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Buscar na CID-10"
     },
     {
-      "name": "validate_codes",
-      "description": "Validate a mixed batch of medical codes against their source terminologies.",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Ranked unified search for equivalent terms across multiple medical terminologies.\n\nUse this tool to:\n- Find the same concept in different coding systems\n- Compare how terminologies represent a concept\n- Support terminology mapping and data integration\n\nSearches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH. Set `target_terminologies` to limit which are searched, or set `source_terminology` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. `limit` caps candidates per terminology (default 5, max 10).\n\nEvery candidate carries `match_score` (lexical similarity to the search term, 0-1) and `rank` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in `groups` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).\n\nSearches upstreams in English. For official pt-BR content, use the dedicated tools: `icd11_search`/`mesh_search` accept `language: \"pt\"`, and `cid10_search` is natively Portuguese.",
       "inputSchema": {
+        "properties": {
+          "limit": {
+            "description": "Maximum candidates returned PER terminology (1-10, default 5). This is a cap, not a page: the live fan-out has no stable cursor across five upstreams, so raise the limit instead of paging.",
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "source_terminology": {
+            "description": "If set, this terminology is excluded from the search. Use this when the term came from this terminology and you want equivalents in the others. Combines with target_terminologies by subtraction (source is removed from the target list).",
+            "enum": [
+              "icd11",
+              "snomed",
+              "loinc",
+              "rxnorm",
+              "mesh"
+            ],
+            "type": "string"
+          },
+          "target_terminologies": {
+            "description": "Limit the search to these terminologies. If omitted, all five are searched.",
+            "items": {
+              "enum": [
+                "icd11",
+                "snomed",
+                "loinc",
+                "rxnorm",
+                "mesh"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "term": {
+            "description": "Medical term to search (e.g., \"diabetes\", \"aspirin\")",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "term"
+        ],
         "type": "object"
-      }
-    },
-    {
+      },
       "name": "find_equivalent",
-      "description": "Search equivalent terms across ICD-11, SNOMED CT, LOINC, RxNorm and MeSH.",
-      "inputSchema": {
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "groups": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "members": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "code": {
+                        "type": "string"
+                      },
+                      "match_score": {
+                        "maximum": 1,
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "terminology": {
+                        "enum": [
+                          "icd11",
+                          "snomed",
+                          "loinc",
+                          "rxnorm",
+                          "mesh"
+                        ],
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "terminology",
+                      "code",
+                      "title",
+                      "match_score"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "normalized_title": {
+                  "type": "string"
+                },
+                "terminologies": {
+                  "items": {
+                    "enum": [
+                      "icd11",
+                      "snomed",
+                      "loinc",
+                      "rxnorm",
+                      "mesh"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "normalized_title",
+                "terminologies",
+                "members"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "description": "One provenance block per upstream source that contributed to this response (contract v1.0; licenses are never merged)",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "citation": {
+                  "description": "Ready-to-use citation/attribution string",
+                  "type": "string"
+                },
+                "data_vintage": {
+                  "description": "Version/release of the data as exposed by the source; null when not exposed",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "license": {
+                  "description": "License / legal regime of the data",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "retrieved_at": {
+                  "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                  "type": "string"
+                },
+                "source": {
+                  "description": "Official upstream source of this data",
+                  "type": "string"
+                },
+                "source_url": {
+                  "description": "Canonical URL of the source (API base or dataset release)",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "source_url",
+                "data_vintage",
+                "retrieved_at",
+                "citation",
+                "license"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "ranking": {
+            "additionalProperties": false,
+            "properties": {
+              "method": {
+                "const": "lexical",
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "method",
+              "note"
+            ],
+            "type": "object"
+          },
+          "results": {
+            "additionalProperties": false,
+            "properties": {
+              "icd11": {
+                "additionalProperties": false,
+                "properties": {
+                  "error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "found": {
+                    "type": "boolean"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "match_score": {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "rank": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "uri": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "title",
+                        "uri",
+                        "match_score",
+                        "rank"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "found",
+                  "error",
+                  "items"
+                ],
+                "type": "object"
+              },
+              "loinc": {
+                "additionalProperties": false,
+                "properties": {
+                  "error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "found": {
+                    "type": "boolean"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "match_score": {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "rank": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "uri": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "title",
+                        "uri",
+                        "match_score",
+                        "rank"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "found",
+                  "error",
+                  "items"
+                ],
+                "type": "object"
+              },
+              "mesh": {
+                "additionalProperties": false,
+                "properties": {
+                  "error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "found": {
+                    "type": "boolean"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "match_score": {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "rank": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "uri": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "title",
+                        "uri",
+                        "match_score",
+                        "rank"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "found",
+                  "error",
+                  "items"
+                ],
+                "type": "object"
+              },
+              "rxnorm": {
+                "additionalProperties": false,
+                "properties": {
+                  "error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "found": {
+                    "type": "boolean"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "match_score": {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "rank": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "uri": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "title",
+                        "uri",
+                        "match_score",
+                        "rank"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "found",
+                  "error",
+                  "items"
+                ],
+                "type": "object"
+              },
+              "snomed": {
+                "additionalProperties": false,
+                "properties": {
+                  "error": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "found": {
+                    "type": "boolean"
+                  },
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "match_score": {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "rank": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "uri": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "title",
+                        "uri",
+                        "match_score",
+                        "rank"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "found",
+                  "error",
+                  "items"
+                ],
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "searched_terminologies": {
+            "items": {
+              "enum": [
+                "icd11",
+                "snomed",
+                "loinc",
+                "rxnorm",
+                "mesh"
+              ],
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "source_terminology": {
+            "anyOf": [
+              {
+                "enum": [
+                  "icd11",
+                  "snomed",
+                  "loinc",
+                  "rxnorm",
+                  "mesh"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "term": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "term",
+          "source_terminology",
+          "searched_terminologies",
+          "results",
+          "groups",
+          "ranking",
+          "provenance",
+          "attribution"
+        ],
         "type": "object"
-      }
+      },
+      "title": "Find Equivalents Across Terminologies"
     },
     {
-      "name": "terminology_versions",
-      "description": "List the current version/release/publisher of every terminology the server queries.",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "List all ICD-11 chapters (top-level categories).\n\nUse this tool to:\n- Get an overview of ICD-11 structure\n- Find which chapter covers a body system or condition type\n- Navigate to specific disease categories\n\nICD-11 has 28 chapters covering all areas of medicine.",
       "inputSchema": {
+        "properties": {
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          }
+        },
         "type": "object"
-      }
+      },
+      "name": "icd11_chapters",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "chapters": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "code_range": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "error": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "number": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "number",
+                "uri",
+                "code",
+                "code_range",
+                "title",
+                "error"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "chapters",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "List ICD-11 Chapters"
     },
     {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Navigate the ICD-11 hierarchy to find parent or child entities.\n\nUse this tool to:\n- Find broader categories (parents) of a condition\n- Find specific subtypes (children) of a condition\n- Understand the classification structure\n\nDirection 'parents' returns ancestor categories, 'children' returns subcategories.",
+      "inputSchema": {
+        "properties": {
+          "code": {
+            "description": "ICD-11 code to get hierarchy for",
+            "minLength": 1,
+            "type": "string"
+          },
+          "direction": {
+            "description": "Direction: \"parents\" for ancestors, \"children\" for subtypes",
+            "enum": [
+              "parents",
+              "children"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "direction"
+        ],
+        "type": "object"
+      },
+      "name": "icd11_hierarchy",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "code": {
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "parents",
+              "children"
+            ],
+            "type": "string"
+          },
+          "entities": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "code_range": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "code_range",
+                "title",
+                "uri"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "direction",
+          "entities",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Browse ICD-11 Hierarchy"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get detailed information about a specific ICD-11 entity by code or URI.\n\nUse this tool to:\n- Get the full definition of a disease\n- Retrieve coding notes and exclusions\n- Get the official title and synonyms\n\nProvide either an ICD-11 code (e.g., \"BA00\") or a full foundation URI. Set `language` for WHO's official translations (e.g. `language: \"pt\"` for official Portuguese).",
+      "inputSchema": {
+        "properties": {
+          "code": {
+            "description": "ICD-11 code (e.g., \"BA00\", \"1A00\")",
+            "minLength": 1,
+            "type": "string"
+          },
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          },
+          "uri": {
+            "description": "Full ICD-11 foundation URI",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "icd11_lookup",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "block_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "browser_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "class_kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_range": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "coding_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "definition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "diagnostic_criteria": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exclusions": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "inclusions": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "index_terms": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "long_definition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "title": {
+            "type": "string"
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "code_range",
+          "uri",
+          "title",
+          "class_kind",
+          "block_id",
+          "definition",
+          "long_definition",
+          "diagnostic_criteria",
+          "coding_note",
+          "exclusions",
+          "inclusions",
+          "index_terms",
+          "browser_url",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "ICD-11 Entity Details"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get postcoordination information for an ICD-11 code.\n\nUse this tool to:\n- Find available axes for building composite codes\n- Check required vs optional postcoordination\n- Understand code extension possibilities\n\nPostcoordination allows adding severity, laterality, anatomy, etc.",
+      "inputSchema": {
+        "properties": {
+          "code": {
+            "description": "ICD-11 code to get postcoordination info for",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "name": "icd11_postcoordination",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "axes": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "allow_multiple": {
+                  "type": "boolean"
+                },
+                "axis_name": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "value_count": {
+                  "anyOf": [
+                    {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "axis_name",
+                "required",
+                "allow_multiple",
+                "value_count"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "code": {
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "code",
+          "axes",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "ICD-11 Postcoordination Options"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Search for medical conditions, diseases, and health problems in ICD-11 (International Classification of Diseases, 11th Revision).\n\nUse this tool to:\n- Find ICD-11 codes for diagnoses\n- Search for diseases by name or keyword\n- Look up conditions in multiple languages\n\nSet `language` for WHO's official translations — e.g. `language: \"pt\"` searches and returns the official Portuguese (pt-BR) ICD-11 labels. Never machine-translated.\n\nReturns matching entities with codes, titles, and relevance scores.",
+      "inputSchema": {
+        "properties": {
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          },
+          "max_results": {
+            "default": 25,
+            "description": "Maximum number of results (1-100). Default: 25",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Search text (disease name, symptom, or keyword)",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "icd11_search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "entities": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_leaf": {
+                  "type": "boolean"
+                },
+                "matching_pvs": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "important": {
+                        "type": "boolean"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "property_id": {
+                        "type": "string"
+                      },
+                      "score": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "property_id",
+                      "label",
+                      "score"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "title",
+                "score",
+                "uri",
+                "is_leaf",
+                "matching_pvs"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "query": {
+            "type": "string"
+          },
+          "total_count": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "total_count",
+          "entities",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Search ICD-11"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get the list of valid answers for a LOINC questionnaire item.\n\nUse this tool to:\n- Find valid response options for survey questions\n- Get answer codes for data entry validation\n- Look up standardized answer lists\n\nOnly applicable to LOINC codes that represent questions with defined answer sets.",
+      "inputSchema": {
+        "properties": {
+          "loinc_num": {
+            "description": "LOINC number (e.g., \"2339-0\")",
+            "pattern": "^\\d{1,5}-\\d$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loinc_num"
+        ],
+        "type": "object"
+      },
+      "name": "loinc_answers",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "answer_code": {
+                  "type": "string"
+                },
+                "answer_string": {
+                  "type": "string"
+                },
+                "sequence": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sequence",
+                "answer_code",
+                "answer_string"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "loinc_num": {
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "loinc_num",
+          "answers",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "LOINC Answer Lists"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get detailed information about a specific LOINC code.\n\nUse this tool to:\n- Get the full name and description of a LOINC code\n- Find the component, property, timing, and system\n- Check the scale type and method\n\nProvide a LOINC number in format \"XXXXX-X\" (e.g., \"2339-0\" for Glucose).",
+      "inputSchema": {
+        "properties": {
+          "loinc_num": {
+            "description": "LOINC number (e.g., \"2339-0\")",
+            "pattern": "^\\d{1,5}-\\d$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loinc_num"
+        ],
+        "type": "object"
+      },
+      "name": "loinc_details",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "class": {
+            "type": "string"
+          },
+          "component": {
+            "type": "string"
+          },
+          "external_copyright_notice": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "loinc_num": {
+            "type": "string"
+          },
+          "long_common_name": {
+            "type": "string"
+          },
+          "method_type": {
+            "type": "string"
+          },
+          "property": {
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "scale_type": {
+            "type": "string"
+          },
+          "short_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "system": {
+            "type": "string"
+          },
+          "time_aspect": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "loinc_num",
+          "long_common_name",
+          "short_name",
+          "component",
+          "property",
+          "time_aspect",
+          "system",
+          "scale_type",
+          "method_type",
+          "class",
+          "status",
+          "external_copyright_notice",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "LOINC Code Details"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get the structure of a LOINC panel or form.\n\nUse this tool to:\n- See all tests included in a panel (e.g., CBC, metabolic panel)\n- Get the structure of assessment forms\n- Find related observations grouped together\n\nReturns the list of LOINC codes that make up the panel.",
+      "inputSchema": {
+        "properties": {
+          "loinc_num": {
+            "description": "LOINC number (e.g., \"2339-0\")",
+            "pattern": "^\\d{1,5}-\\d$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loinc_num"
+        ],
+        "type": "object"
+      },
+      "name": "loinc_panels",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "loinc_num": {
+            "type": "string"
+          },
+          "panel": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "items": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "loinc_num": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "sequence": {
+                          "maximum": 9007199254740991,
+                          "minimum": -9007199254740991,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "sequence",
+                        "loinc_num",
+                        "name",
+                        "required"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "loinc_num": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "loinc_num",
+                  "name",
+                  "items"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "loinc_num",
+          "panel",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "LOINC Panel Structure"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Search for laboratory tests, clinical observations, and measurements in LOINC (Logical Observation Identifiers Names and Codes).\n\nUse this tool to:\n- Find LOINC codes for lab tests (e.g., \"glucose\", \"hemoglobin\")\n- Search for clinical measurements and vital signs\n- Look up diagnostic observations\n\nReturns matching LOINC codes with names, components, and properties.",
+      "inputSchema": {
+        "properties": {
+          "max_results": {
+            "default": 25,
+            "description": "Maximum number of results (1-100). Default: 25",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Search term (test name, keyword, or partial LOINC code)",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "loinc_search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "class": {
+                  "type": "string"
+                },
+                "component": {
+                  "type": "string"
+                },
+                "external_copyright_notice": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "loinc_num": {
+                  "type": "string"
+                },
+                "long_common_name": {
+                  "type": "string"
+                },
+                "method_type": {
+                  "type": "string"
+                },
+                "property": {
+                  "type": "string"
+                },
+                "scale_type": {
+                  "type": "string"
+                },
+                "short_name": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "system": {
+                  "type": "string"
+                },
+                "time_aspect": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "loinc_num",
+                "long_common_name",
+                "short_name",
+                "component",
+                "property",
+                "time_aspect",
+                "system",
+                "scale_type",
+                "method_type",
+                "class",
+                "status",
+                "external_copyright_notice"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "query": {
+            "type": "string"
+          },
+          "shown_count": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "total_count": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "total_count",
+          "shown_count",
+          "items",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Search LOINC"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Authoritative ICD-10 → ICD-11 mapping using WHO transition tables (release 2025-01, bundled with the server).\n\nReturns the primary 1:1 ICD-11 category for the ICD-10 code plus any alternative ICD-11 candidates that WHO documents (some ICD-10 concepts split into multiple ICD-11 entities). For each mapping, includes the ICD-11 code, title, chapter, and the Foundation URI / Linearization URI for navigating to the full entity definition.\n\nUse this for clinical coding, billing migration, retrospective analysis, and any workflow that needs authoritative mapping rather than text-search candidates. Coverage: 11,243 ICD-10 categories (excludes chapters and blocks like \"A00-A09\" which aren't used in clinical coding).\n\nProvide a code like \"E11\" (Type 2 diabetes), \"I21\" (Acute MI), or \"A07.8\" (4 alternatives in WHO's table). Both dotted (\"A07.8\") and undotted (\"A078\") forms are accepted.\n\nReturns \"no mapping\" when the code isn't in the WHO category-level table — that's the honest answer rather than a fuzzy search fallback.",
+      "inputSchema": {
+        "properties": {
+          "icd10_code": {
+            "description": "ICD-10 code to query in the ICD-11 search index (e.g., E11, I21.0, J18.9)",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "icd10_code"
+        ],
+        "type": "object"
+      },
+      "name": "map_icd10_to_icd11",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "alternatives": {
+            "description": "Additional ICD-11 candidates WHO documents for this ICD-10 code. Empty when the primary is the only documented mapping (or when found=false). 1,461 of the 11,243 indexed codes have non-empty alternatives.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "chapter": {
+                  "type": "string"
+                },
+                "classKind": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                },
+                "depth": {
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
+                },
+                "foundationUri": {
+                  "type": "string"
+                },
+                "linearizationUri": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "title",
+                "chapter",
+                "foundationUri",
+                "linearizationUri",
+                "classKind",
+                "depth"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "found": {
+            "description": "Whether the code is in the WHO ICD-10 → ICD-11 transition table.",
+            "type": "boolean"
+          },
+          "icd10": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chapter": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "depth": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "title",
+                  "chapter",
+                  "depth"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Source ICD-10 entry from the WHO table. Null when found=false."
+          },
+          "primary": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chapter": {
+                    "type": "string"
+                  },
+                  "classKind": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "depth": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  },
+                  "foundationUri": {
+                    "type": "string"
+                  },
+                  "linearizationUri": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "title",
+                  "chapter",
+                  "foundationUri",
+                  "linearizationUri",
+                  "classKind",
+                  "depth"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Primary 1:1 ICD-11 mapping. Null when found=false."
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "query": {
+            "description": "The ICD-10 code as submitted (raw, before normalization).",
+            "type": "string"
+          },
+          "source": {
+            "additionalProperties": false,
+            "properties": {
+              "publisher": {
+                "description": "Authoritative publisher (e.g. \"WHO\").",
+                "type": "string"
+              },
+              "release_date": {
+                "description": "ISO date string for the release.",
+                "type": "string"
+              },
+              "version": {
+                "description": "Transition table release identifier (e.g. \"2025-01\").",
+                "type": "string"
+              }
+            },
+            "required": [
+              "publisher",
+              "version",
+              "release_date"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "query",
+          "found",
+          "icd10",
+          "primary",
+          "alternatives",
+          "source",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Map ICD-10 to ICD-11"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "This tool looks up a LOINC code in NLM Clinical Tables and returns guidance on where to obtain a LOINC → SNOMED CT mapping. It does not perform the mapping.\n\nDirect LOINC → SNOMED CT mappings are not freely available via API. UMLS Metathesaurus contains the relationships but requires an individual UMLS Terminology Services license; the LOINC SNOMED CT Expression Association is published by Regenstrief Institute as part of the LOINC release and requires authenticated download from loinc.org under the LOINC license.\n\nFor programmatic LOINC → SNOMED mapping, use UMLS or the LOINC Expression Association files. For interactive lookup, use the SNOMED CT browser available to your organization or the Regenstrief RELMA desktop tool.\n\nProvide a LOINC code like \"2339-0\" (Glucose) or \"718-7\" (Hemoglobin).",
+      "inputSchema": {
+        "properties": {
+          "loinc_code": {
+            "description": "LOINC code (e.g., 2339-0 for Glucose)",
+            "pattern": "^\\d{1,5}-\\d$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loinc_code"
+        ],
+        "type": "object"
+      },
+      "name": "map_loinc_to_snomed",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "guidance": {
+            "description": "Short human-readable explanation of why this tool returns guidance instead of a mapping.",
+            "type": "string"
+          },
+          "loinc_code": {
+            "description": "The LOINC code as submitted.",
+            "type": "string"
+          },
+          "loinc_details": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "component": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "long_common_name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "property": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "system": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "code",
+                  "long_common_name",
+                  "component",
+                  "system",
+                  "property"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "NLM Clinical Tables details for the LOINC code (component, system, property, etc.). Null when the code was not found upstream."
+          },
+          "mapping_sources": {
+            "description": "Structured list of authoritative LOINC → SNOMED CT mapping sources (UMLS Metathesaurus, LOINC SNOMED CT Expression Association, Regenstrief RELMA).",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "name",
+                "description",
+                "url"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "status": {
+            "description": "Always \"guidance-only\" — direct LOINC → SNOMED CT mappings require licensed sources (UMLS Metathesaurus or LOINC SNOMED CT Expression Association). This tool returns pointers, not the mapping itself.",
+            "enum": [
+              "guidance-only"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "loinc_code",
+          "loinc_details",
+          "status",
+          "guidance",
+          "mapping_sources",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Map LOINC to SNOMED CT (Guidance)"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get detailed information about a MeSH descriptor by ID.\n\nUse this tool to:\n- Get the full definition (scope note) of a MeSH term\n- View tree numbers showing hierarchy location\n- See related concepts and synonyms\n\nProvide a MeSH Descriptor ID like \"D015242\" (Ofloxacin). Set `language` to request NLM's official translations where they exist (e.g. `language: \"pt\"`).",
+      "inputSchema": {
+        "properties": {
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          },
+          "mesh_id": {
+            "description": "MeSH Descriptor ID (e.g., D015242, D003920)",
+            "pattern": "^D\\d+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mesh_id"
+        ],
+        "type": "object"
+      },
+      "name": "mesh_descriptor",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "concepts": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "is_preferred": {
+                  "type": "boolean"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "terms": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uri",
+                "label",
+                "is_preferred",
+                "terms"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "qualifiers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "scope_note": {
+            "type": "string"
+          },
+          "tree_numbers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "tree_number": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "tree_number",
+                "uri"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "uri",
+          "label",
+          "scope_note",
+          "tree_numbers",
+          "concepts",
+          "qualifiers",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "MeSH Descriptor Details"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get allowed qualifiers (subheadings) for a MeSH descriptor.\n\nUse this tool to:\n- Find which qualifiers can be combined with a descriptor\n- Build precise MeSH search queries\n- Understand aspects that can be specified\n\nQualifiers refine descriptors (e.g., \"Diabetes Mellitus/drug therapy\").",
+      "inputSchema": {
+        "properties": {
+          "mesh_id": {
+            "description": "MeSH Descriptor ID (e.g., D015242, D003920)",
+            "pattern": "^D\\d+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mesh_id"
+        ],
+        "type": "object"
+      },
+      "name": "mesh_qualifiers",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "mesh_id": {
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "qualifiers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "mesh_id",
+          "qualifiers",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "MeSH Allowable Qualifiers"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Search for MeSH (Medical Subject Headings) descriptors.\n\nUse this tool to:\n- Find MeSH terms for indexing medical literature\n- Look up subject headings for PubMed searches\n- Find controlled vocabulary terms\n\nSet `language` to request NLM's official translations where they exist (e.g. `language: \"pt\"` for Portuguese labels); content is never machine-translated.\n\nReturns matching descriptors with MeSH IDs and labels.",
+      "inputSchema": {
+        "properties": {
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          },
+          "match": {
+            "default": "contains",
+            "description": "Match type: exact, contains, or startswith. Default: contains",
+            "enum": [
+              "exact",
+              "contains",
+              "startswith"
+            ],
+            "type": "string"
+          },
+          "max_results": {
+            "default": 25,
+            "description": "Maximum number of results (1-100). Default: 25",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Search term (e.g., \"diabetes\", \"heart failure\")",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "mesh_search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "descriptors": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "match": {
+            "enum": [
+              "exact",
+              "contains",
+              "startswith"
+            ],
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "query": {
+            "type": "string"
+          },
+          "total_count": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "match",
+          "total_count",
+          "descriptors",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Search MeSH"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get the tree hierarchy location(s) for a MeSH descriptor.\n\nUse this tool to:\n- See where a term fits in the MeSH hierarchy\n- Understand broader/narrower relationships\n- Find related terms in the same branch\n\nMeSH tree numbers show the hierarchical path (e.g., C14.280.647 for Myocardial Infarction).",
+      "inputSchema": {
+        "properties": {
+          "mesh_id": {
+            "description": "MeSH Descriptor ID (e.g., D015242, D003920)",
+            "pattern": "^D\\d+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mesh_id"
+        ],
+        "type": "object"
+      },
+      "name": "mesh_tree",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "mesh_id": {
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "tree_numbers": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "tree_number": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "tree_number",
+                "uri"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "mesh_id",
+          "tree_numbers",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "MeSH Tree Locations"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get therapeutic and pharmacologic classes for a drug.\n\nUse this tool to:\n- Find the drug class (e.g., \"Beta-blockers\", \"NSAIDs\")\n- Identify therapeutic categories\n- Look up mechanism of action classifications\n\nReturns class IDs, names, and classification sources.",
+      "inputSchema": {
+        "properties": {
+          "rxcui": {
+            "description": "RxCUI of the drug",
+            "pattern": "^\\d+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rxcui"
+        ],
+        "type": "object"
+      },
+      "name": "rxnorm_classes",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "classes": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "class_id": {
+                  "type": "string"
+                },
+                "class_name": {
+                  "type": "string"
+                },
+                "class_type": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "class_id",
+                "class_name",
+                "class_type",
+                "source"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "rxcui": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rxcui",
+          "classes",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "RxNorm Drug Classes"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get detailed information about a specific RxNorm concept by RxCUI.\n\nUse this tool to:\n- Get the full name and synonyms for a drug\n- Check the concept status (active, remapped, etc.)\n- View related concepts (ingredients, brands, forms)\n\nProvide an RxCUI (RxNorm Concept Unique Identifier) like \"161\".",
+      "inputSchema": {
+        "properties": {
+          "include_related": {
+            "default": false,
+            "description": "Include related concepts (ingredients, brands, dose forms)",
+            "type": "boolean"
+          },
+          "rxcui": {
+            "description": "RxNorm Concept Unique Identifier",
+            "pattern": "^\\d+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rxcui"
+        ],
+        "type": "object"
+      },
+      "name": "rxnorm_concept",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "language": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "related_groups": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "concepts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "language": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "rxcui": {
+                            "type": "string"
+                          },
+                          "synonym": {
+                            "type": "string"
+                          },
+                          "tty": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "rxcui",
+                          "name",
+                          "synonym",
+                          "tty",
+                          "language"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "tty": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "tty",
+                    "concepts"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "remapped_to": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "rxcui": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "suppress": {
+            "type": "string"
+          },
+          "synonym": {
+            "type": "string"
+          },
+          "tty": {
+            "type": "string"
+          },
+          "umlscui": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rxcui",
+          "name",
+          "synonym",
+          "tty",
+          "language",
+          "suppress",
+          "umlscui",
+          "status",
+          "remapped_to",
+          "related_groups",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "RxNorm Concept Details"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get active ingredients for a drug by RxCUI.\n\nUse this tool to:\n- Find the active ingredients in a medication\n- Check for single vs. multiple ingredient products\n- Identify the generic components of brand drugs\n\nReturns ingredient RxCUIs and names.",
+      "inputSchema": {
+        "properties": {
+          "rxcui": {
+            "description": "RxCUI of the drug",
+            "pattern": "^\\d+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rxcui"
+        ],
+        "type": "object"
+      },
+      "name": "rxnorm_ingredients",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ingredients": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "is_multiple": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "rxcui": {
+                  "type": "string"
+                },
+                "tty": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rxcui",
+                "name",
+                "tty",
+                "is_multiple"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "rxcui": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rxcui",
+          "ingredients",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "RxNorm Drug Ingredients"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Map between RxNorm concepts and National Drug Codes (NDC).\n\nUse this tool to:\n- Get all NDC codes for a drug (by RxCUI)\n- Find the RxCUI for an NDC code\n- Cross-reference between coding systems\n\nProvide either an RxCUI to get NDCs, or an NDC to get the RxCUI.",
+      "inputSchema": {
+        "properties": {
+          "ndc": {
+            "description": "NDC code to look up RxCUI (alternative to rxcui)",
+            "minLength": 1,
+            "type": "string"
+          },
+          "rxcui": {
+            "description": "RxCUI to get NDC codes for",
+            "pattern": "^\\d+$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "rxnorm_ndc",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ndc": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ndcs": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "ndc": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "ndc"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "query_mode": {
+            "enum": [
+              "ndcs_for_rxcui",
+              "rxcui_for_ndc"
+            ],
+            "type": "string"
+          },
+          "rxcui": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "query_mode",
+          "rxcui",
+          "ndc",
+          "ndcs",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "RxNorm / NDC Mapping"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Search for drugs in RxNorm (Normalized names for clinical drugs).\n\nUse this tool to:\n- Find drug concepts by brand or generic name\n- Look up medications for prescribing\n- Search for drug formulations\n\nReturns matching drugs with RxCUI identifiers, names, and term types.",
+      "inputSchema": {
+        "properties": {
+          "max_results": {
+            "default": 25,
+            "description": "Maximum number of results (1-100). Default: 25",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Drug name to search (brand or generic)",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "rxnorm_search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "drugs": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "language": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "rxcui": {
+                  "type": "string"
+                },
+                "synonym": {
+                  "type": "string"
+                },
+                "tty": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rxcui",
+                "name",
+                "synonym",
+                "tty",
+                "language"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "query": {
+            "type": "string"
+          },
+          "total_count": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "total_count",
+          "drugs",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Search RxNorm Drugs"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Report what diff data is available between two versions of a terminology.\n\nFor most terminologies this is **guidance only** — the server doesn't ship historical snapshots, so the tool points at the publisher's official changelog and explains the cadence. `bundled_versions` lists the version(s) this server actually has on hand.\n\nFor **ICD-10 vs ICD-11** specifically, the tool surfaces a real cross-revision summary from the bundled WHO transition tables (the ICD-10 → ICD-11 case is a structural diff between two WHO revisions). Use `terminology: \"icd10\"` with no `to_version` to get the cross-revision summary: total mapped ICD-10 categories, how many are 1:1 vs split into multiple ICD-11 codes, and the average number of alternatives when split.\n\nInputs:\n- `terminology` (required): which terminology to report on.\n- `from_version` (optional): the version you have data from. If omitted, the tool reports against the currently-bundled version.\n- `to_version` (optional): the version you want to compare to. If omitted, the tool reports against the publisher's latest known release.\n\nThis tool is intentionally a metadata + guidance layer, not a diff engine — for terminologies that change frequently (SNOMED, LOINC, RxNorm, MeSH), the publisher's official changelog is the authoritative source.",
+      "inputSchema": {
+        "properties": {
+          "from_version": {
+            "description": "Version you have data from. Optional; behavior depends on terminology.",
+            "type": "string"
+          },
+          "terminology": {
+            "description": "Which terminology to report on.",
+            "enum": [
+              "icd11",
+              "icd10",
+              "snomed",
+              "loinc",
+              "rxnorm",
+              "mesh",
+              "atc",
+              "cid10"
+            ],
+            "type": "string"
+          },
+          "to_version": {
+            "description": "Version you want to compare to. Optional.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "terminology"
+        ],
+        "type": "object"
+      },
       "name": "terminology_diff",
-      "description": "Report available diff data between two versions of a terminology (real ICD-10 to ICD-11 summary).",
-      "inputSchema": {
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "bundled_versions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "changelog_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cross_revision_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "avg_alternatives_when_split": {
+                    "type": "number"
+                  },
+                  "icd10_categories_total": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  },
+                  "one_to_many_splits": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  },
+                  "one_to_one_mappings": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "icd10_categories_total",
+                  "one_to_one_mappings",
+                  "one_to_many_splits",
+                  "avg_alternatives_when_split"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Populated only for terminology=\"icd10\" today — the bundled WHO ICD-10 → ICD-11 transition tables let us surface a real structural diff between the two WHO revisions."
+          },
+          "diff_available": {
+            "description": "True when this server has the data to compute a real diff for the requested terminology. False = guidance-only response.",
+            "type": "boolean"
+          },
+          "from_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "terminology": {
+            "enum": [
+              "icd11",
+              "icd10",
+              "snomed",
+              "loinc",
+              "rxnorm",
+              "mesh",
+              "atc",
+              "cid10"
+            ],
+            "type": "string"
+          },
+          "to_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "terminology",
+          "from_version",
+          "to_version",
+          "diff_available",
+          "message",
+          "changelog_url",
+          "bundled_versions",
+          "cross_revision_summary",
+          "provenance",
+          "attribution"
+        ],
         "type": "object"
-      }
+      },
+      "title": "Terminology Version Diff"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "List the current version, release date, publisher, source URL, and update cadence of every terminology this server queries against.\n\nUseful for pipeline maintainers who need to:\n- Confirm which release of ICD-11 / SNOMED / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.\n- Verify the bundled CID-10 (frozen at V2008) and ICD-10 → ICD-11 transition tables (currently 2025-01) match expectations.\n- Cite the data version in research artifacts.\n\nPass `terminology` to filter to a single entry; otherwise the full set of 8 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.",
+      "inputSchema": {
+        "properties": {
+          "terminology": {
+            "description": "Filter to a single terminology. Omit to return all 8.",
+            "enum": [
+              "icd11",
+              "icd10",
+              "snomed",
+              "loinc",
+              "rxnorm",
+              "mesh",
+              "atc",
+              "cid10"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "terminology_versions",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "generated": {
+            "description": "Date this snapshot was generated.",
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "terminologies": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "bundled_in_server": {
+                  "type": "boolean"
+                },
+                "changelog_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "code": {
+                  "enum": [
+                    "icd11",
+                    "icd10",
+                    "snomed",
+                    "loinc",
+                    "rxnorm",
+                    "mesh",
+                    "atc",
+                    "cid10"
+                  ],
+                  "type": "string"
+                },
+                "current_version": {
+                  "type": "string"
+                },
+                "full_name": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "notes": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "publisher": {
+                  "type": "string"
+                },
+                "release_date": {
+                  "type": "string"
+                },
+                "source_url": {
+                  "type": "string"
+                },
+                "update_cadence": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "name",
+                "full_name",
+                "publisher",
+                "current_version",
+                "release_date",
+                "source_url",
+                "changelog_url",
+                "update_cadence",
+                "bundled_in_server",
+                "notes"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "total": {
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "generated",
+          "total",
+          "terminologies",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Terminology Versions"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.\n\nFor each input `{ code, terminology }`, returns:\n- **valid**: whether the code exists in the source terminology.\n- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; SNOMED and LOINC return a real boolean).\n- **title**: the official label/name when available.\n- **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.\n- **source**: human-readable provenance of the validation (terminology + release/version).\n- **error**: non-null only when validation couldn't be performed (network error, SNOMED feature flag off, etc.). `valid: false` + `error: null` means \"code not found\"; `valid: false` + `error: set` means \"couldn't validate\".\n\nTerminology is **required per code** — auto-detection isn't supported because category codes like \"A00\" exist in both ICD-10 and CID-10. Accepted values: `icd11`, `icd10`, `snomed`, `loinc`, `rxnorm`, `mesh`, `atc`, `cid10`.\n\nHard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).",
+      "inputSchema": {
+        "properties": {
+          "codes": {
+            "description": "List of code+terminology pairs to validate. Hard cap of 50 per call to keep total latency under ~10 s given upstream rate limits.",
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "The code to validate (raw, as it appears in your data).",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "terminology": {
+                  "description": "Which terminology this code belongs to. Required — auto-detection isn't supported because category-level codes like \"A00\" exist in both ICD-10 and CID-10.",
+                  "enum": [
+                    "icd11",
+                    "icd10",
+                    "snomed",
+                    "loinc",
+                    "rxnorm",
+                    "mesh",
+                    "atc",
+                    "cid10"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "terminology"
+              ],
+              "type": "object"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "codes"
+        ],
+        "type": "object"
+      },
+      "name": "validate_codes",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "error_count": {
+            "description": "How many couldn't be validated due to upstream/network errors.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "invalid_count": {
+            "description": "How many were not found.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "provenance": {
+            "description": "One provenance block per upstream source that contributed to this response (contract v1.0; licenses are never merged)",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "citation": {
+                  "description": "Ready-to-use citation/attribution string",
+                  "type": "string"
+                },
+                "data_vintage": {
+                  "description": "Version/release of the data as exposed by the source; null when not exposed",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "license": {
+                  "description": "License / legal regime of the data",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "retrieved_at": {
+                  "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                  "type": "string"
+                },
+                "source": {
+                  "description": "Official upstream source of this data",
+                  "type": "string"
+                },
+                "source_url": {
+                  "description": "Canonical URL of the source (API base or dataset release)",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "source_url",
+                "data_vintage",
+                "retrieved_at",
+                "citation",
+                "license"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "results": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "active": {
+                  "description": "Whether the code is currently active. Null when the source terminology doesn't expose an explicit active/inactive distinction at the category level (e.g. CID-10, ATC).",
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "code": {
+                  "description": "The code as submitted.",
+                  "type": "string"
+                },
+                "error": {
+                  "description": "When the upstream call failed (timeout, server error, feature flag off), this holds the failure message. Distinct from valid=false: valid=false + error=null means \"code not found\"; valid=false + error set means \"couldn't validate\".",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "replaced_by": {
+                  "description": "When the code has been superseded by another code, this holds the replacement. Populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables; null otherwise.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source": {
+                  "description": "Human-readable identifier of the data source used for validation (terminology + release/version where applicable).",
+                  "type": "string"
+                },
+                "terminology": {
+                  "enum": [
+                    "icd11",
+                    "icd10",
+                    "snomed",
+                    "loinc",
+                    "rxnorm",
+                    "mesh",
+                    "atc",
+                    "cid10"
+                  ],
+                  "type": "string"
+                },
+                "title": {
+                  "description": "Official label/title for the code, when available.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "valid": {
+                  "description": "True when the upstream API or bundled dataset confirms the code exists.",
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "code",
+                "terminology",
+                "valid",
+                "active",
+                "title",
+                "replaced_by",
+                "source",
+                "error"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "total": {
+            "description": "Number of codes submitted.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "valid_count": {
+            "description": "How many were confirmed valid.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "valid_count",
+          "invalid_count",
+          "error_count",
+          "results",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Validate Medical Codes"
     }
   ],
   "resources": [
     {
-      "name": "Server info",
-      "uri": "info://server",
-      "description": "Version, tool count, supported terminologies and feature-flag state."
-    },
-    {
+      "description": "List of the 22 CID-10 chapters (Brazilian Portuguese ICD-10, DataSUS V2008) with code ranges and Portuguese descriptions. Source: bundled CID-10 dataset.",
+      "mimeType": "application/json",
       "name": "CID-10 chapters",
-      "uri": "info://cid10/chapters",
-      "description": "The 22 CID-10 chapters (Brazilian Portuguese ICD-10, DataSUS V2008) with code ranges and descriptions."
+      "title": "CID-10 chapters",
+      "uri": "info://cid10/chapters"
     },
     {
+      "description": "Per-terminology license disclaimers and access requirements. Important for downstream redistribution decisions and for surfacing license constraints in LLM answers.",
+      "mimeType": "text/markdown",
       "name": "Terminology licenses",
-      "uri": "info://licenses",
-      "description": "Per-terminology license disclaimers and access requirements."
+      "title": "Terminology licenses",
+      "uri": "info://licenses"
     },
     {
+      "description": "Version, tool count, supported terminologies, and feature-flag state. Useful for LLMs to ground answers about server capabilities.",
+      "mimeType": "application/json",
+      "name": "Server info",
+      "title": "Server info",
+      "uri": "info://server"
+    },
+    {
+      "description": "Per-tool invocation counts and total successful dispatches recorded by the hosted Cloudflare Workers endpoint. Excludes local stdio installs (those have no shared counter by design). Useful for adoption signal — see top_tool to know which terminology is pulling the most demand.",
+      "mimeType": "application/json",
       "name": "Usage stats (hosted endpoint)",
-      "uri": "info://stats",
-      "description": "Per-tool invocation counts recorded by the hosted Cloudflare Workers endpoint."
+      "title": "Usage stats (hosted endpoint)",
+      "uri": "info://stats"
     }
   ],
   "prompts": [
     {
-      "name": "find-medical-code",
-      "description": "Search a clinical condition across all terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10) in parallel and synthesize the matches with their codes."
-    },
-    {
-      "name": "drug-info",
-      "description": "Compile comprehensive drug information - normalized name, RxCUI, ingredients, therapeutic classes and WHO ATC - by composing RxNorm and ATC calls."
-    },
-    {
+      "arguments": [
+        {
+          "description": "Termo médico em português a ser pesquisado (ex.: \"infecções respiratórias\", \"diabetes\"). Busca é insensível a acentos.",
+          "name": "term",
+          "required": true
+        }
+      ],
+      "description": "Procura um termo médico em português no CID-10 brasileiro (DataSUS V2008), com contexto de capítulo e descrição clínica. Searches a Portuguese medical term in the Brazilian CID-10 with chapter context.",
       "name": "cid10-portuguese-lookup",
-      "description": "Look up a Portuguese medical term in the Brazilian CID-10 (DataSUS V2008) with chapter context and clinical description."
+      "title": "Cid10 Portuguese Lookup"
+    },
+    {
+      "arguments": [
+        {
+          "description": "The drug name (brand or generic) to look up. Approximate matches are accepted.",
+          "name": "drug_name",
+          "required": true
+        }
+      ],
+      "description": "Compile comprehensive information about a drug — normalized name, RxCUI, active ingredients, therapeutic classes, and WHO ATC classification — by composing RxNorm and ATC tool calls.",
+      "name": "drug-info",
+      "title": "Drug Info"
+    },
+    {
+      "arguments": [
+        {
+          "description": "The condition, symptom, or medical term to search for.",
+          "name": "condition",
+          "required": true
+        },
+        {
+          "description": "Preferred language hint — \"en\" or \"pt-BR\". When \"pt-BR\", CID-10 results are prioritized. Defaults to \"en\".",
+          "name": "language",
+          "required": false
+        }
+      ],
+      "description": "Search a clinical condition, symptom, or medical term across all available terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10) in parallel and synthesize the matches with their codes and source terminology.",
+      "name": "find-medical-code",
+      "title": "Find Medical Code"
     }
   ]
 }
