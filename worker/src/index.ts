@@ -120,6 +120,22 @@ export default {
       });
     }
 
+    // Desafio de posse do claim no mcpindex.ai: serve o token temporário do
+    // secret MCPINDEX_CHALLENGE (janela de 15 min do claim) como text/plain.
+    // Sem o secret — o estado permanente — a rota responde 404.
+    if (url.pathname === "/.well-known/mcpindex-challenge") {
+      if (!env.MCPINDEX_CHALLENGE) {
+        return new Response("Not Found", {
+          status: 404,
+          headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" },
+        });
+      }
+      return new Response(env.MCPINDEX_CHALLENGE, {
+        status: 200,
+        headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" },
+      });
+    }
+
     // Preflight CORS nunca carrega Authorization — o handler MCP responde o OPTIONS.
     if (request.method !== "OPTIONS") {
       const authResponse = await checkAuth(request, env.API_KEY);
