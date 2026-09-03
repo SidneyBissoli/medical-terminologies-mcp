@@ -10,8 +10,9 @@ descrições 12× menores em produção). Nenhum teste unitário pega essa class
 
 | Arquivo | Como foi capturado | O que representa |
 |:--|:--|:--|
-| `surface-stdio-1.9.1.json` | `--stdio` sobre `dist/index.js` do fonte atual | o que o canal npm publica (SNOMED off = 31 tools, o default) |
-| `surface-http-prod-1.9.1.json` | `--url https://medical.sidneybissoli.com/mcp` | o que o endpoint hospedado serve DE FATO |
+| `surface-stdio-1.10.0.json` | `--stdio` sobre `dist/index.js` do fonte atual | o que o canal npm publica (SNOMED off = 33 tools, o default: 31 de terminologia + `search`/`fetch`) |
+| `surface-http-prod-1.10.0.json` | `--url https://medical.sidneybissoli.com/mcp` | o que o endpoint hospedado serve DE FATO |
+| `surface-{stdio,http-prod}-1.9.1.json` | idem, 2026-09-01 | a captura inicial (31 tools); o diff para a 1.10.0 são só as duas tools do contrato Deep Research |
 
 ## Medição da captura inicial (2026-09-01)
 
@@ -34,7 +35,7 @@ Depois de qualquer mudança que possa mexer na superfície:
 ```bash
 npm run build
 node scripts/dump-surface.mjs --stdio > depois.json
-# diff contra o baseline vigente (surface-stdio-1.9.1.json)
+# diff contra o baseline vigente (surface-stdio-1.10.0.json)
 ```
 
 Toda diferença precisa ser deliberada e listada no CHANGELOG. Depois de um

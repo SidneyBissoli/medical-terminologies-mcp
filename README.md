@@ -39,7 +39,7 @@ The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real co
 
 ## Features
 
-- 31 default tools (37 with SNOMED enabled) for medical terminology lookup
+- 33 default tools (39 with SNOMED enabled): 31 terminology tools plus `search`/`fetch` for ChatGPT Deep Research
 - 3 MCP **Prompts** that orchestrate tool calls into named workflows (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — clients render these as one-click user actions
 - 4 MCP **Resources** for in-process reference content (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — sub-millisecond reads (except `info://stats` which round-trips to the StatsCounter Durable Object on the hosted endpoint)
 - Multi-terminology support in a single server
@@ -85,7 +85,7 @@ Or install via Smithery, which proxies the same endpoint through their gateway:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-The hosted instance has WHO credentials configured, so all 31 default tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
+The hosted instance has WHO credentials configured, so all 33 default tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
 
 ## Installation
 
@@ -161,6 +161,16 @@ Hosted endpoints (production and local alike):
 - `GET /.well-known/mcp/server-card.json` — static server card for registry scanners.
 - CORS is permissive (`*`) so browser clients (e.g. the MCP Inspector web UI) can connect directly.
 
+### ChatGPT (Deep Research)
+
+ChatGPT deep research (and company knowledge, and research workflows over the Responses API) only uses an MCP server that exposes exactly `search` and `fetch` — this server does, on top of the terminology tools. Point the connector at the hosted endpoint, no key required:
+
+```
+https://medical.sidneybissoli.com/mcp
+```
+
+`search` ranks the query across the bundled CID-10 (categories, subcategories, chapters), the terminology version records and a live fan-out to ICD-11, LOINC, RxNorm and MeSH (the same fan-out `find_equivalent` does; a source that fails is skipped) and returns `{ id, title, url }`; `fetch` renders the document through the terminology's own lookup tool (`cid10_lookup`, `icd11_lookup`, `loinc_details`, `rxnorm_concept`, `mesh_descriptor`, `terminology_versions`) as readable Markdown with the canonical public page (WHO ICD browsers, loinc.org, RxNav, MeSH Browser), which is what ChatGPT cites. Both carry the same provenance block as every other tool — `search` one block per source that answered, like `find_equivalent`. SNOMED is not part of the corpus (its public browser retired, so there is no page to cite). In ChatGPT's developer mode (Settings → Security and login → Developer mode) any tool is callable — the terminology tools remain the ones to use for data.
+
 ### Hosted on Cloudflare Workers (primary)
 
 The production deployment is the Cloudflare Worker in `worker/`, config in `worker/wrangler.jsonc`, CI deploy in `.github/workflows/deploy-worker.yml` (auto-runs on every push to `main`).
@@ -189,7 +199,7 @@ After your Worker is live, register the URL on Smithery:
 2. Pick the **URL** submission path (Smithery deprecated container hosting in 2024 — URL is the supported flow now).
 3. Paste `https://<your-worker>.workers.dev/mcp`. Smithery's gateway scans for compliance and proxies traffic.
 
-## Available Tools (31 by default, 37 with SNOMED enabled)
+## Available Tools (33 by default, 39 with SNOMED enabled)
 
 ### Official Portuguese (pt-BR) content
 
@@ -292,6 +302,15 @@ Surface what version of each terminology this server queries against today — u
 | `terminology_versions` | List all 8 supported terminologies with current version, release date, publisher, source URL, and update cadence | - |
 | `terminology_diff` | Report what diff data is available between two versions of a terminology (real cross-revision stats for ICD-10 → ICD-11; guidance otherwise) | `terminology: "icd10-icd11"` |
 
+### ChatGPT Deep Research (2)
+
+The OpenAI Deep Research contract — the only two tools without a terminology prefix (names fixed by OpenAI). See [ChatGPT (Deep Research)](#chatgpt-deep-research) above.
+
+| Tool | Description | Example |
+|------|-------------|---------|
+| `search` | Searches the catalog (CID-10, ICD-11, LOINC, RxNorm, MeSH, terminology versions) and returns `{ id, title, url }` ranked by relevance | `query: "myocardial infarction"` |
+| `fetch` | Returns the full document of an id from `search` (`{ id, title, text, url, metadata }`), rendered by the terminology's lookup tool | `id: "cid10:I21.0"` |
+
 ## Example Outputs
 
 The samples below are the actual formatted output the tools produce — the text body of the `CallToolResult`. Tools also return a `structuredContent` object matching each tool's `outputSchema` for programmatic consumers.
@@ -371,7 +390,7 @@ The scope note comes from the descriptor's *preferred concept*, not its annotati
 
 ## SNOMED CT setup (advanced)
 
-The 5 SNOMED tools (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) plus the SNOMED-dependent crosswalk tool (`map_snomed_to_icd10`) are **disabled by default**. With them disabled, the server registers 31 tools instead of 37; `find_equivalent` still works and skips the SNOMED branch with an explanatory note.
+The 5 SNOMED tools (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) plus the SNOMED-dependent crosswalk tool (`map_snomed_to_icd10`) are **disabled by default**. With them disabled, the server registers 33 tools instead of 39; `find_equivalent` still works and skips the SNOMED branch with an explanatory note.
 
 The reason: as of 2026-05-08, the public IHTSDO Snowstorm endpoint that this project historically called (`https://browser.ihtsdotools.org/snowstorm/snomed-ct/...`) returns HTTP 410 Gone for every path. Without a working backend, registering these tools surfaces 6 guaranteed-broken tools to every client.
 

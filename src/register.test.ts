@@ -51,8 +51,9 @@ describe('MCP server protocol surface (SDK v2)', () => {
     const registered = toolRegistry.getTools();
 
     expect(tools.length).toBe(registered.length);
-    // 31 default; 37 only when ENABLE_SNOMED_TOOLS=true (not set in tests).
-    expect(tools.length).toBe(31);
+    // 33 default (31 terminology tools + `search`/`fetch`); 39 only when
+    // ENABLE_SNOMED_TOOLS=true (not set in tests).
+    expect(tools.length).toBe(33);
 
     const byName = new Map(tools.map((t) => [t.name, t]));
     for (const reg of registered) {
@@ -79,9 +80,9 @@ describe('MCP server protocol surface (SDK v2)', () => {
   });
 
   it('every tool carries a non-empty human display title (v1.7.0 usability gate)', async () => {
-    // Gates every REGISTERED tool (31 here — the 6 SNOMED-gated tools only
+    // Gates every REGISTERED tool (33 here — the 6 SNOMED-gated tools only
     // register under ENABLE_SNOMED_TOOLS=true; the production smoke's
-    // surface dump covers the 37-tool variant)...
+    // surface dump covers the 39-tool variant)...
     for (const tool of toolRegistry.getTools()) {
       expect(tool.title, `tool ${tool.name} lacks a title`).toBeTruthy();
       expect(tool.title!.trim().length, `tool ${tool.name} title is blank`).toBeGreaterThan(0);

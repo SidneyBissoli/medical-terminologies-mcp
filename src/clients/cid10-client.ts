@@ -291,6 +291,16 @@ export class CID10Client {
     return chapters();
   }
 
+  /** Every category (3-char) as a search hit, dataset order — feeds the Deep Research index. */
+  listCategories(): CID10SearchHit[] {
+    return categories().map(categoryToHit);
+  }
+
+  /** Every subcategory (4-char) as a search hit, dataset order — feeds the Deep Research index. */
+  listSubcategories(): CID10SearchHit[] {
+    return subcategories().map(subcategoryToHit);
+  }
+
   /**
    * Returns the chapter and its constituent groups. The dataset doesn't
    * store an explicit chapter→group link, so we filter groups whose

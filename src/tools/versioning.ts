@@ -60,7 +60,7 @@ const DIFF_SUMMARY_DERIVATION_NOTE =
 // live from the client at request time, so that one self-syncs.
 // ============================================================================
 
-interface TerminologyMeta {
+export interface TerminologyMeta {
   code: ValidateCodesTerminology;
   name: string;
   full_name: string;
@@ -74,7 +74,12 @@ interface TerminologyMeta {
   notes: string | null;
 }
 
-function buildMetadata(): TerminologyMeta[] {
+/**
+ * The eight terminology records, built at request time (the ICD-11 release
+ * id and the bundled-table versions are read live). Exported for the Deep
+ * Research index (`deep-research.ts`), which lists one document per record.
+ */
+export function buildMetadata(): TerminologyMeta[] {
   const icd10MapClient = getICD10ToICD11MapClient();
   const whoIcd11Release = getEnv('WHO_ICD11_RELEASE_ID') ?? '2024-01';
 

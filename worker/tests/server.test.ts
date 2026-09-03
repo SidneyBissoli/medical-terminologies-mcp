@@ -24,13 +24,13 @@ async function connect(server: McpServer) {
 }
 
 describe("buildServer (worker)", () => {
-  it("expõe a superfície completa do pacote pai (31 tools, 4 resources, 3 prompts)", async () => {
+  it("expõe a superfície completa do pacote pai (33 tools, 4 resources, 3 prompts)", async () => {
     const client = await connect(buildServer());
     const { tools } = await client.listTools();
     const { resources } = await client.listResources();
     const { prompts } = await client.listPrompts();
-    // 31 = superfície default (SNOMED gated off — sem ENABLE_SNOMED_TOOLS aqui).
-    expect(tools).toHaveLength(31);
+    // 33 = superfície default (SNOMED gated off — sem ENABLE_SNOMED_TOOLS aqui).
+    expect(tools).toHaveLength(33);
     expect(resources).toHaveLength(4);
     expect(prompts).toHaveLength(3);
     await client.close();

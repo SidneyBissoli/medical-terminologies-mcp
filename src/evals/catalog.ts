@@ -16,7 +16,7 @@
  *    time and the REAL advertised JSON Schemas are re-attached from
  *    `toolRegistry` below (they are the canonical wire schemas anyway).
  *
- * The catalog reflects the DEFAULT surface (31 tools — SNOMED flag off),
+ * The catalog reflects the DEFAULT surface (33 tools — SNOMED flag off),
  * mirroring production; the 6 gated tools have no public endpoint and
  * stay out of the fixtures.
  */
@@ -53,7 +53,7 @@ const GROUPS: CatalogGroup[] = [
 ];
 
 /**
- * Primary area per tool — a PARTITION of the 31 default tools by
+ * Primary area per tool — a PARTITION of the 33 default tools by
  * terminology cluster (map of the `src/tools/` files). The per-cluster
  * top-1 of the paid run is the empirical criterion for the mcp-builder
  * premise "prefix by terminology" (renaming is breaking — only with
@@ -91,6 +91,9 @@ export const AREA_BY_TOOL: Record<string, string> = {
   find_equivalent: 'crosswalk',
   terminology_versions: 'versioning',
   terminology_diff: 'versioning',
+  // ChatGPT Deep Research contract — the only unprefixed names (fixed by OpenAI).
+  search: 'deep-research',
+  fetch: 'deep-research',
 };
 
 const base = buildCatalog(GROUPS);

@@ -14,6 +14,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
 
 const STDIO = process.argv[2] === "--stdio";
 const BASE = STDIO ? null : (process.argv[2] ?? "https://medical.sidneybissoli.com");
@@ -101,7 +102,7 @@ function fail(msg) {
 const PROV_META_KEY = "com.sidneybissoli.medical/provenance";
 
 /** Provenance gate (v1.8.0): every success carries the three channels. */
-function checkProvenance(label, result, { multi = false, sourceContains } = {}) {
+function checkProvenance(label, result, { multi = false, sourceContains, contractText = false } = {}) {
   const prov = result.structuredContent?.provenance;
   if (!prov) fail(`${label}: structuredContent.provenance missing`);
   const blocks = Array.isArray(prov) ? prov : [prov];
@@ -119,8 +120,14 @@ function checkProvenance(label, result, { multi = false, sourceContains } = {}) 
   if (!result._meta || result._meta[PROV_META_KEY] === undefined)
     fail(`${label}: _meta mirror missing (${PROV_META_KEY})`);
   const text = (result.content ?? []).map((c) => c.text).join("\n");
-  if (!text.includes("Source: ") || !text.includes("License: "))
+  if (contractText) {
+    // Deep Research pair: content[0].text is the JSON of the object, nothing
+    // else (ChatGPT parses it) — provenance travels in the other two channels.
+    if ((result.content ?? []).length !== 1) fail(`${label}: contract text must be ONE block`);
+    if ("provenance" in JSON.parse(text)) fail(`${label}: contract text carries provenance keys`);
+  } else if (!text.includes("Source: ") || !text.includes("License: ")) {
     fail(`${label}: text footer missing`);
+  }
 }
 
 // --- Script ------------------------------------------------------------------
@@ -134,12 +141,27 @@ if (init.serverInfo.name !== "medical-terminologies-mcp") fail("unexpected serve
 
 await rpc("notifications/initialized", {}, true).catch(() => {});
 
+// The expected count is NOT a literal: it comes from the most recent surface
+// baseline (baselines/surface-stdio-<version>.json, captured with SNOMED off —
+// see baselines/README.md). A surface change without a recaptured baseline
+// turns the smoke red, which is the deal. Local runs with
+// ENABLE_SNOMED_TOOLS=true legitimately see the 6 gated tools on top.
+const versionOf = (name) => name.match(/(\d+)\.(\d+)\.(\d+)/).slice(1).map(Number);
+const latestBaseline = readdirSync("baselines")
+  .filter((f) => /^surface-stdio-\d+\.\d+\.\d+\.json$/.test(f))
+  .sort((a, b) => {
+    const [va, vb] = [versionOf(a), versionOf(b)];
+    return va[0] - vb[0] || va[1] - vb[1] || va[2] - vb[2];
+  })
+  .at(-1);
+if (!latestBaseline) fail("no baselines/surface-stdio-*.json to derive the tool count from");
+const expected = JSON.parse(readFileSync(`baselines/${latestBaseline}`, "utf8")).toolCount;
+const SNOMED_GATED = 6;
+
 const { tools } = await rpc("tools/list", {});
-console.log(`tools/list: ${tools.length} tools`);
-// 31 = default surface (SNOMED gated off). Local runs with
-// ENABLE_SNOMED_TOOLS=true legitimately see 37.
-if (tools.length !== 31 && tools.length !== 37)
-  fail(`expected 31 (default) or 37 (SNOMED on) tools, got ${tools.length}`);
+console.log(`tools/list: ${tools.length} tools (baseline ${latestBaseline}: ${expected})`);
+if (tools.length !== expected && tools.length !== expected + SNOMED_GATED)
+  fail(`expected ${expected} (default) or ${expected + SNOMED_GATED} (SNOMED on) tools, got ${tools.length}`);
 const noOutputSchema = tools.filter((t) => !t.outputSchema);
 if (noOutputSchema.length > 0)
   fail(`tools without outputSchema: ${noOutputSchema.map((t) => t.name).join(", ")}`);
@@ -201,6 +223,28 @@ checkProvenance("find_equivalent", eq, { multi: true, sourceContains: "RxNav" })
 const eqBlocks = eq.structuredContent.provenance;
 if (eqBlocks.length !== 2) fail(`find_equivalent: expected 2 blocks, got ${eqBlocks.length}`);
 console.log("find_equivalent 'aspirin' (rxnorm+mesh): 2 provenance blocks ok");
+
+// 3c) ChatGPT Deep Research contract — search → fetch with the returned id.
+// `search` fans out to the live upstreams and ranks with the local CID-10
+// index; `fetch` renders through the terminology's lookup tool. The text of
+// both is the JSON of the object (the contract), provenance in the other two
+// channels.
+const search = await rpc("tools/call", { name: "search", arguments: { query: "diabetes" } });
+if (search.isError) fail("search returned error");
+const found = search.structuredContent?.results ?? [];
+if (found.length === 0) fail("search 'diabetes': no results");
+if (found.some((r) => !r.id || !r.title || !r.url)) fail("search: result without id/title/url");
+if (JSON.parse(search.content?.[0]?.text ?? "{}").results?.length !== found.length)
+  fail("search: content[0].text is not the JSON of the object");
+checkProvenance("search", search, { multi: true, sourceContains: "DataSUS", contractText: true });
+const doc = await rpc("tools/call", { name: "fetch", arguments: { id: found[0].id } });
+if (doc.isError) fail(`fetch ${found[0].id} returned error: ${doc.content?.[0]?.text?.slice(0, 120)}`);
+if (doc.structuredContent?.id !== found[0].id || !doc.structuredContent?.text || !doc.structuredContent?.url)
+  fail("fetch: document without id/text/url");
+checkProvenance("fetch", doc, { contractText: true });
+const missing = await rpc("tools/call", { name: "fetch", arguments: { id: "nope:1" } });
+if (!missing.isError) fail("fetch of an unknown id should return isError");
+console.log(`search 'diabetes': ${found.length} results (${found[0].id}) → fetch ok; unknown id → error ok`);
 
 // 4) Pedagogical error — handler-level Zod validation, not a protocol error
 const bad = await rpc("tools/call", { name: "cid10_search", arguments: {} });

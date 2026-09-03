@@ -12,8 +12,8 @@ import { AREA_BY_TOOL, CATALOG } from './catalog.js';
 import { FIXTURES } from './fixtures/queries.js';
 
 describe('eval catalog (live, via registerAll)', () => {
-  it('captures exactly the 31 default tools', () => {
-    expect(CATALOG.tools).toHaveLength(31);
+  it('captures exactly the 33 default tools', () => {
+    expect(CATALOG.tools).toHaveLength(33);
   });
 
   it('the cluster partition covers every tool, with no stale entries', () => {
@@ -47,13 +47,13 @@ describe('eval fixtures (terminology-cluster selection check)', () => {
 
   it('fixture ids carry the cluster tag', () => {
     for (const f of FIXTURES) {
-      expect(f.id).toMatch(/^(icd|cid|lnc|rx|atc|msh|xw|ver)-\d{2}$/);
+      expect(f.id).toMatch(/^(icd|cid|lnc|rx|atc|msh|xw|ver|dr)-\d{2}$/);
     }
   });
 
-  it('all eight clusters are exercised', () => {
+  it('all nine clusters are exercised', () => {
     const prefixes = new Set(FIXTURES.map((f) => f.id.split('-')[0]));
-    expect([...prefixes].sort()).toEqual(['atc', 'cid', 'icd', 'lnc', 'msh', 'rx', 'ver', 'xw']);
+    expect([...prefixes].sort()).toEqual(['atc', 'cid', 'dr', 'icd', 'lnc', 'msh', 'rx', 'ver', 'xw']);
   });
 
   it('the find_equivalent vs dedicated-search boundary is exercised in both directions', () => {

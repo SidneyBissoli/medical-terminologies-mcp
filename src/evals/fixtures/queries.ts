@@ -283,4 +283,11 @@ export const FIXTURES: EvalFixture[] = [
     expectedTools: ['terminology_versions'],
     note: 'Pipeline-maintainer version check → terminology_versions (optionally filtered).',
   },
+  // ── deep-research — the ChatGPT `search`/`fetch` contract ────────────────
+  {
+    id: 'dr-01',
+    query: 'Find documents about myocardial infarction across the terminology catalog so I can read one in full.',
+    expectedTools: ['search'],
+    note: 'Catalog-wide document discovery (the Deep Research shape) → `search`; the terminology tools answer data questions.',
+  },
 ];

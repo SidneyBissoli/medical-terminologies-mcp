@@ -1,7 +1,7 @@
 /**
  * Output contract, SNOMED-gated half: the 6 tools registered only under
  * ENABLE_SNOMED_TOOLS=true must obey their advertised `outputSchema` too
- * (37 = 31 default + these 6). Same reasoning as `output-contract.test.ts`;
+ * (39 = 33 default + these 6). Same reasoning as `output-contract.test.ts`;
  * the flag is read at module load, so this file sets the env FIRST and
  * pulls the registry via dynamic import — vitest isolates modules per file,
  * so the default-surface contract test is unaffected.
@@ -106,8 +106,8 @@ afterEach(() => {
 });
 
 describe('structuredContent obeys the advertised outputSchema (SNOMED-gated surface)', () => {
-  it('the gated surface registers all 37 tools', () => {
-    expect(toolCount).toBe(37);
+  it('the gated surface registers all 39 tools', () => {
+    expect(toolCount).toBe(39);
   });
 
   it.each(CASES)('%s — %s', async (name, _path, args) => {

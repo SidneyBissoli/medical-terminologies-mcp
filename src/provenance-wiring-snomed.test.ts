@@ -1,7 +1,7 @@
 /**
  * Provenance release gate, SNOMED-gated half: the 6 tools registered only
  * under ENABLE_SNOMED_TOOLS=true must attach the provenance channel too
- * (37 = 31 default + these 6). The flag is read at module load, so this
+ * (39 = 33 default + these 6). The flag is read at module load, so this
  * file sets the env FIRST and pulls the registry via dynamic import —
  * vitest isolates modules per test file, so the default-surface tests are
  * unaffected.
@@ -65,8 +65,8 @@ beforeAll(async () => {
 });
 
 describe('provenance — wiring across the 6 SNOMED-gated tools (release gate)', () => {
-  it('the gated surface registers all 37 tools', () => {
-    expect(toolCount).toBe(37);
+  it('the gated surface registers all 39 tools', () => {
+    expect(toolCount).toBe(39);
   });
 
   for (const caso of GATED) {

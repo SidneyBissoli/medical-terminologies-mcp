@@ -39,7 +39,7 @@ As respostas vêm de fontes oficiais (OMS, NLM, NIH, DataSUS) — códigos e map
 
 ## Funcionalidades
 
-- 31 ferramentas por padrão (37 com o SNOMED habilitado) para consulta de terminologia médica
+- 33 ferramentas por padrão (39 com o SNOMED habilitado): 31 ferramentas de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
 - 3 **Prompts** MCP que orquestram chamadas de ferramenta em fluxos nomeados (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — os clientes exibem isso como ação de um clique para o usuário
 - 4 **Recursos** MCP de conteúdo de referência em processo (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — leitura em menos de um milissegundo (exceto `info://stats`, que vai até o Durable Object StatsCounter no endpoint hospedado)
 - Várias terminologias num servidor só
@@ -85,7 +85,7 @@ Ou instale pelo Smithery, que faz proxy do mesmo endpoint pelo gateway deles:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-A instância hospedada já tem as credenciais da OMS configuradas, então todas as 31 ferramentas padrão funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
+A instância hospedada já tem as credenciais da OMS configuradas, então todas as 33 ferramentas padrão funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
 
 ## Instalação
 
@@ -161,6 +161,16 @@ Endpoints hospedados (produção e local, iguais):
 - `GET /.well-known/mcp/server-card.json` — server card estático para os scanners de registro.
 - O CORS é permissivo (`*`), para que clientes de navegador (a UI web do MCP Inspector, por exemplo) conectem direto.
 
+### ChatGPT (Deep Research)
+
+O deep research do ChatGPT (e o company knowledge, e os fluxos de pesquisa da API Responses) só usa um servidor MCP que exponha exatamente `search` e `fetch` — este servidor expõe, além das ferramentas de terminologia. Aponte o conector para o endpoint hospedado, sem chave:
+
+```
+https://medical.sidneybissoli.com/mcp
+```
+
+`search` ranqueia a consulta na CID-10 embutida (categorias, subcategorias, capítulos), nos registros de versão das terminologias e numa busca ao vivo em ICD-11, LOINC, RxNorm e MeSH (a mesma que o `find_equivalent` faz; fonte que falha é pulada) e devolve `{ id, title, url }`; `fetch` renderiza o documento pela ferramenta de consulta da própria terminologia (`cid10_lookup`, `icd11_lookup`, `loinc_details`, `rxnorm_concept`, `mesh_descriptor`, `terminology_versions`) como Markdown legível com a página pública canônica (navegadores ICD da OMS, loinc.org, RxNav, MeSH Browser), que é o que o ChatGPT cita. As duas carregam o mesmo bloco de proveniência das demais ferramentas — `search` com um bloco por fonte que respondeu, como o `find_equivalent`. O SNOMED fica fora do acervo (o navegador público foi desativado, então não há página a citar). No modo desenvolvedor do ChatGPT (Settings → Security and login → Developer mode) qualquer ferramenta pode ser chamada — as ferramentas de terminologia continuam sendo as certas para dados.
+
 ### Hospedado em Cloudflare Workers (primário)
 
 O deploy de produção é o Worker da Cloudflare em `worker/`, configuração em `worker/wrangler.jsonc`, deploy no CI em `.github/workflows/deploy-worker.yml` (roda sozinho a cada push na `main`).
@@ -189,7 +199,7 @@ Depois que o seu Worker estiver no ar, registre a URL no Smithery:
 2. Escolha o caminho de submissão por **URL** (o Smithery descontinuou a hospedagem em contêiner em 2024 — URL é o fluxo suportado hoje).
 3. Cole `https://<seu-worker>.workers.dev/mcp`. O gateway do Smithery varre a conformidade e faz proxy do tráfego.
 
-## Ferramentas disponíveis (31 por padrão, 37 com o SNOMED habilitado)
+## Ferramentas disponíveis (33 por padrão, 39 com o SNOMED habilitado)
 
 ### Conteúdo oficial em português (pt-BR)
 
@@ -292,6 +302,15 @@ Mostram contra qual versão de cada terminologia este servidor consulta hoje —
 | `terminology_versions` | Lista as 8 terminologias suportadas com versão atual, data de publicação, publicador, URL de origem e cadência de atualização | - |
 | `terminology_diff` | Informa que dados de diferença existem entre duas versões de uma terminologia (estatísticas reais entre revisões para ICD-10 → ICD-11; orientação nos demais casos) | `terminology: "icd10-icd11"` |
 
+### Deep Research do ChatGPT (2)
+
+O contrato Deep Research da OpenAI — as únicas duas ferramentas sem prefixo de terminologia (nomes fixados pela OpenAI). Veja [ChatGPT (Deep Research)](#chatgpt-deep-research) acima.
+
+| Ferramenta | Descrição | Exemplo |
+|------------|-----------|---------|
+| `search` | Busca no acervo (CID-10, ICD-11, LOINC, RxNorm, MeSH, versões das terminologias) e devolve `{ id, title, url }` em ordem de relevância | `query: "infarto agudo do miocárdio"` |
+| `fetch` | Devolve o documento inteiro de um id vindo do `search` (`{ id, title, text, url, metadata }`), renderizado pela ferramenta de consulta da terminologia | `id: "cid10:I21.0"` |
+
 ## Exemplos de saída
 
 As amostras abaixo são a saída formatada que as ferramentas de fato produzem — o corpo de texto do `CallToolResult`. As ferramentas também devolvem um objeto `structuredContent` compatível com o `outputSchema` de cada uma, para consumo programático.
@@ -371,7 +390,7 @@ A nota de escopo vem do *conceito preferido* do descritor, não do campo de anot
 
 ## Configuração do SNOMED CT (avançado)
 
-As 5 ferramentas SNOMED (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) mais a ferramenta de mapeamento que depende do SNOMED (`map_snomed_to_icd10`) vêm **desligadas por padrão**. Com elas desligadas o servidor registra 31 ferramentas em vez de 37; o `find_equivalent` continua funcionando e pula o ramo do SNOMED com uma nota explicativa.
+As 5 ferramentas SNOMED (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) mais a ferramenta de mapeamento que depende do SNOMED (`map_snomed_to_icd10`) vêm **desligadas por padrão**. Com elas desligadas o servidor registra 33 ferramentas em vez de 39; o `find_equivalent` continua funcionando e pula o ramo do SNOMED com uma nota explicativa.
 
 O motivo: desde 2026-05-08 o endpoint Snowstorm público do IHTSDO que este projeto historicamente chamava (`https://browser.ihtsdotools.org/snowstorm/snomed-ct/...`) devolve HTTP 410 Gone em todos os caminhos. Sem um backend que funcione, registrar essas ferramentas entregaria a todo cliente 6 ferramentas garantidamente quebradas.
 

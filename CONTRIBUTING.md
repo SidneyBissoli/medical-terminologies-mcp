@@ -70,7 +70,7 @@ npx @modelcontextprotocol/inspector node dist/index.js
 
 1. `npm run typecheck` clean (CI gates on this).
 2. `npm test` passes (CI gates on this).
-3. `npm run build` succeeds and the bundle still has 37
+3. `npm run build` succeeds and the bundle still has 39
    `toolRegistry.register` source-level call sites (CI gates on this
    count to catch accidental tool removal).
 4. If you added a tool with `outputSchema`, add a fixture to

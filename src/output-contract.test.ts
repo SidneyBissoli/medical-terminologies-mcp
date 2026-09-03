@@ -268,6 +268,19 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['terminology_versions', 'every terminology (filter null)', {}],
   ['terminology_versions', 'one terminology', { terminology: 'cid10' }],
   ['terminology_diff', 'diff without explicit versions', { terminology: 'icd10' }],
+
+  // Deep Research contract (`search`/`fetch`, via the registry like the rest).
+  // `search` fans out to the mocked upstreams above and ranks with the local
+  // CID-10 index; `fetch` renders through each terminology's lookup tool.
+  ['search', 'query with hits in every source', { query: 'diabetes' }],
+  ['search', 'query nothing matches (empty results, provenance still multi)', { query: 'zzzzqqqq' }],
+  ['fetch', 'CID-10 subcategory', { id: 'cid10:A00.0' }],
+  ['fetch', 'CID-10 chapter', { id: 'cid10-chapter:1' }],
+  ['fetch', 'ICD-11 entity', { id: 'icd11:5A11' }],
+  ['fetch', 'LOINC code', { id: 'loinc:2339-0' }],
+  ['fetch', 'RxNorm concept', { id: 'rxnorm:6809' }],
+  ['fetch', 'MeSH descriptor', { id: 'mesh:D003920' }],
+  ['fetch', 'terminology version record', { id: 'version:loinc' }],
 ];
 
 describe('structuredContent obeys the advertised outputSchema', () => {
@@ -320,7 +333,7 @@ describe('structuredContent obeys the advertised outputSchema', () => {
     for (const tool of toolRegistry.getTools()) {
       expect(tool.outputSchema, `${tool.name} has no outputSchema`).toBeDefined();
     }
-    expect(toolRegistry.getTools()).toHaveLength(31);
+    expect(toolRegistry.getTools()).toHaveLength(33);
   });
 
   it('every registered tool is covered by at least one case', () => {

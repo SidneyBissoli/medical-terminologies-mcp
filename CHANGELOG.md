@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-09-02
+
+### Added
+
+- **`search` e `fetch` — o contrato Deep Research do ChatGPT (OpenAI).** O
+  deep research do ChatGPT (e o company knowledge, e os fluxos de pesquisa da
+  API Responses) só usa um servidor MCP que exponha exatamente essas duas
+  tools, com esses nomes; as 31 ferramentas de terminologia, por mais ricas,
+  eram invisíveis para ele. São as únicas sem prefixo de terminologia (nomes
+  fixados pela OpenAI; a allowlist vem de `DEEP_RESEARCH_TOOLS` do pacote).
+  Contrato, envelope (JSON do objeto em `content[0].text` + `structuredContent`),
+  descrições e índice de ranking vêm de `@sbissoli/mcp-search` (0.2.0, com
+  `locale: "en"` — superfície inteira em inglês); `src/tools/deep-research.ts`
+  é só o adapter: o acervo e o texto do documento.
+  - Acervo: CID-10 embutida (2.045 categorias + 12.451 subcategorias como
+    `cid10:<código>`, 22 capítulos como `cid10-chapter:<n>`) e os 8 registros
+    de versão (`version:<terminologia>`) num índice em memória construído no
+    1º uso; mais uma busca ao vivo por `search` em ICD-11, LOINC, RxNorm e
+    MeSH (`icd11:<código>`, `loinc:<num>`, `rxnorm:<rxcui>`, `mesh:<D…>`), a
+    mesma que o `find_equivalent` faz — fonte que falha (credenciais da OMS
+    ausentes numa instalação local, upstream fora) não entra no resultado
+    nem na proveniência. SNOMED fica fora: o navegador público foi desativado
+    (HTTP 410 em 2026-09-02) e o contrato exige uma página pública para citar.
+  - Ranking entre fontes pelo `lexicalScore` do servidor (o método do
+    `find_equivalent`), desempate por ordem de fonte e depois de origem —
+    determinístico. `fetch` renderiza pelo handler real da terminologia
+    (`cid10_lookup`, `cid10_chapter`, `icd11_lookup`, `loinc_details`,
+    `rxnorm_concept`, `mesh_descriptor`, `terminology_versions`) e reaproveita
+    o Markdown como `text` e os canais de proveniência dele.
+  - `url` é sempre a página pública canônica (navegador ICD-10 e ICD-11 da OMS,
+    loinc.org, RxNav, MeSH Browser), nunca a API — padrões conferidos ao vivo
+    em 2026-09-02; é o que o ChatGPT cita.
+  - Proveniência: `search` é multi-fonte (um bloco por fonte que respondeu,
+    todos `derived` — a ordem entre fontes é computada aqui); `fetch` carrega o
+    bloco da tool que renderizou. O texto das duas é o JSON do contrato, sem o
+    rodapé — os portões (`provenance-wiring`, smoke) abrem a exceção por
+    allowlist, não por regex.
+  - Registro PELO `toolRegistry`, como as outras: a fábrica do pacote é
+    apontada para um coletor, e as duas entradas viram par definição/handler
+    com JSON Schema pelos mesmos `buildInputSchema`/`buildOutputSchema` e Zod
+    no handler via `handleToolError`. Assim o `handle` do `register.ts` cobre
+    as duas (coletor de `retrieved_at`, StatsCounter, hook de uso) e todo
+    portão derivado do registro as vê sem caso especial.
+- `CID10Client.listCategories()`/`listSubcategories()` e `buildMetadata()`
+  exportado de `versioning.ts` — os acessores de iteração que o índice pedia.
+
+### Changed
+
+- **Superfície: 31 → 33 tools por padrão (37 → 39 com SNOMED).** Contagens nos
+  textos vigiados (`README.md`, `README.pt-BR.md`, `server.json`,
+  `package.json`), na landing do Worker (`worker/src/config.ts`, agora também
+  vigiada pelo teste de contagens), no CI (39 call sites de
+  `toolRegistry.register`) e nas release notes. READMEs en/pt ganharam a seção
+  "ChatGPT (Deep Research)" e a subseção "ChatGPT Deep Research (2)" na tabela
+  de ferramentas, em paridade.
+- `scripts/smoke-mcp.mjs` deriva a contagem esperada do baseline
+  `surface-stdio-*.json` mais recente em vez de um literal, e exercita
+  `search` → `fetch` (inclusive id desconhecido → erro).
+- Baselines recapturados: `surface-{stdio,http-prod}-1.10.0.json`.
+- Evals: área `deep-research` no catálogo (`AREA_BY_TOOL`) e fixture `dr-01`.
+
 ## [1.9.1] - 2026-08-31
 
 Release de metadado e superfície: nenhuma mudança de comportamento nas

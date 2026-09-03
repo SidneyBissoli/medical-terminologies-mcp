@@ -106,7 +106,7 @@ export const LANDING = {
   lang: "en" as "pt-BR" | "en",
   resumo:
     "MCP server for ICD-11, LOINC, RxNorm, MeSH, ATC and the Brazilian CID-10, with " +
-    "the authoritative WHO ICD-10 to ICD-11 mapping. 31 tools, live from WHO and NLM.",
+    "the authoritative WHO ICD-10 to ICD-11 mapping. 33 tools, live from WHO and NLM.",
   exemplos: [
     "“What’s the ICD-11 code for type 2 diabetes?”",
     "“Map ICD-10 code E11 to ICD-11.”",

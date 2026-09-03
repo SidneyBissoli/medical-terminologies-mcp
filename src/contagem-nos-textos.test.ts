@@ -83,6 +83,15 @@ describe('contagem de ferramentas nos textos públicos', () => {
     expect(Number(m![2]), 'contagem com SNOMED no package.json').toBe(comSnomed);
   });
 
+  it('a landing do Worker anuncia a superfície PADRÃO', () => {
+    // `worker/src/config.ts` é o texto da página inicial do endpoint hospedado
+    // (o que um humano lê antes de conectar); ficou fora deste teste até a
+    // 1.10.0 e era o único ponto cego com contagem em prosa.
+    const m = leia('worker/src/config.ts').match(/(\d+)\s+tools/i);
+    expect(m, 'worker/src/config.ts não diz quantas tools o servidor tem').not.toBeNull();
+    expect(Number(m![1]), 'contagem na landing do Worker').toBe(padrao);
+  });
+
   it('o README explica a diferença entre as duas com os números certos', () => {
     const m = leia('README.md').match(/registers\s+(\d+)\s+tools\s+instead of\s+(\d+)/i);
     expect(m, 'README.md não explica a superfície gated').not.toBeNull();

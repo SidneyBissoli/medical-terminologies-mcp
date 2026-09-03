@@ -71,6 +71,9 @@ import './tools/crosswalk.js';
 import './tools/atc.js';
 import './tools/cid10.js';
 import './tools/versioning.js';
+// `search`/`fetch` (ChatGPT Deep Research contract) — registered last so the
+// wire order keeps the terminology tools first.
+import './tools/deep-research.js';
 
 // Prompts — orchestration templates exposed to MCP clients
 import './prompts/index.js';

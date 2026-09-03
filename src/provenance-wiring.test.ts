@@ -1,5 +1,5 @@
 /**
- * Provenance release gate (contract v1.0): every DEFAULT tool (31 — the
+ * Provenance release gate (contract v1.0): every DEFAULT tool (33 — the
  * 6 SNOMED-gated ones have their own env-gated twin in
  * provenance-wiring-snomed.test.ts) must attach the provenance channel on
  * its success path:
@@ -18,6 +18,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import type { CallToolResult } from '@modelcontextprotocol/server';
+import { DEEP_RESEARCH_TOOLS } from '@sbissoli/mcp-search';
 
 // ---------------------------------------------------------------------------
 // Client stubs (hoisted above the tool imports by vi.mock)
@@ -221,6 +222,11 @@ const casos: Caso[] = [
   // versioning — server-maintained metadata
   { nome: 'terminology_versions', args: {}, sourceContains: 'server-maintained' },
   { nome: 'terminology_diff', args: { terminology: 'icd10' }, sourceContains: 'transition tables' },
+  // deep-research — `search` is multi-source like find_equivalent (DataSUS,
+  // WHO, LOINC, RxNav, MeSH, server metadata — SNOMED off, ATC not a source);
+  // `fetch` carries the block of the lookup tool that rendered the document.
+  { nome: 'search', args: { query: 'diabetes' }, multi: 6, sourceContains: 'DataSUS' },
+  { nome: 'fetch', args: { id: 'cid10:E10' }, sourceContains: 'DataSUS' },
 ];
 
 interface ConciseBlockish {
@@ -238,10 +244,10 @@ async function executar(nome: string, args: Record<string, unknown>): Promise<Ca
   return handler!(args);
 }
 
-describe('provenance — wiring across the 31 default tools (release gate)', () => {
-  it('covers exactly the 31 default tools', () => {
-    expect(toolRegistry.getTools()).toHaveLength(31);
-    expect(new Set(casos.map((c) => c.nome)).size).toBe(31);
+describe('provenance — wiring across the 33 default tools (release gate)', () => {
+  it('covers exactly the 33 default tools', () => {
+    expect(toolRegistry.getTools()).toHaveLength(33);
+    expect(new Set(casos.map((c) => c.nome)).size).toBe(33);
     const registered = new Set(toolRegistry.getTools().map((t) => t.name));
     for (const caso of casos) expect(registered.has(caso.nome), caso.nome).toBe(true);
   });
@@ -280,12 +286,21 @@ describe('provenance — wiring across the 31 default tools (release gate)', () 
       expect(meta?.[PROVENANCE_META_KEY]).toEqual(prov);
       expect(meta?.[ATTRIBUTION_META_KEY]).toEqual(attribution);
 
-      // Channel 3: text footer appended to the Markdown
+      // Channel 3: text footer appended to the Markdown — except for the
+      // Deep Research pair, whose `content[0].text` is by contract the JSON
+      // of the object and nothing else (ChatGPT parses it); their provenance
+      // travels only in channels 1 and 2, checked above.
       const text = (result.content as Array<{ type: string; text: string }>)
         .map((c) => c.text)
         .join('\n');
-      expect(text).toContain('Source: ');
-      expect(text).toContain('License: ');
+      if ((DEEP_RESEARCH_TOOLS as readonly string[]).includes(caso.nome)) {
+        expect(result.content).toHaveLength(1);
+        const objeto = JSON.parse(text) as Record<string, unknown>;
+        expect(objeto.provenance, 'contract text carries no provenance keys').toBeUndefined();
+      } else {
+        expect(text).toContain('Source: ');
+        expect(text).toContain('License: ');
+      }
     });
   }
 });
