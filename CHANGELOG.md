@@ -68,6 +68,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Baselines recapturados: `surface-{stdio,http-prod}-1.10.0.json`.
 - Evals: área `deep-research` no catálogo (`AREA_BY_TOOL`) e fixture `dr-01`.
 
+### Fixed
+
+- **`icd11_lookup` por código devolvia "Unknown" em produção** (e
+  `icd11_hierarchy` por código, sem pais nem filhos; `validate_codes` com
+  icd11 sem título). O `/codeinfo/{code}` da API da OMS é um resolvedor, não
+  uma entidade: responde `{ @id, stemId, code }` e nada mais; a entidade mora
+  em `stemId`. O cliente agora segue o `stemId` quando a resposta não traz
+  título — código e URI passam a responder a mesma coisa. Achado ao conferir
+  `fetch` de `icd11:5A11` na ponta em 2026-09-03; os mocks de contrato e do
+  output-contract descreviam o `/codeinfo` como entidade completa e por isso
+  nunca reprovaram — agora reproduzem a forma real.
+- `search` pulava a dedupe do ICD-11: a busca da OMS devolve o mesmo
+  stem sob códigos pós-coordenados (`BD54/5A11`, `5A24/5A11`); medido em
+  produção, "type 2 diabetes" trazia o 5A11 quatro vezes. Combinações e
+  repetições do mesmo stem ficam fora.
+
 ## [1.9.1] - 2026-08-31
 
 Release de metadado e superfície: nenhuma mudança de comportamento nas

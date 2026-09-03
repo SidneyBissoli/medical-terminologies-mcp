@@ -329,12 +329,17 @@ async function searchIcd11(query: string): Promise<SourceOutcome> {
   try {
     const response = await getWHOClient().search(query, 'en', PER_SOURCE_LIMIT);
     const out: Candidate[] = [];
+    const seen = new Set<string>();
     for (const r of response.destinationEntities ?? []) {
       // Foundation-only hits have no linearization code — `icd11_lookup`
-      // needs one, and so does the reader.
-      if (!r.theCode || !r.id) continue;
+      // needs one, and so does the reader. Postcoordinated hits ("BD54/5A11",
+      // "5A24&XS0T") are combinations of the same stem entities, not
+      // documents: measured in production on 2026-09-03, "type 2 diabetes"
+      // returned 5A11 four times under different combined codes.
+      if (!r.theCode || !r.id || /[/&]/.test(r.theCode) || seen.has(r.id)) continue;
       const url = urlIcd11(r.id);
       if (!url) continue;
+      seen.add(r.id);
       const title = r.title ?? r.theCode;
       out.push(
         candidate(

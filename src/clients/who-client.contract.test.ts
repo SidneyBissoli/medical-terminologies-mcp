@@ -196,6 +196,33 @@ describe('WHOClient — contract tests', () => {
       expect(e.code).toBe('5A11');
     });
 
+    it('lookup by code follows the codeinfo stemId to the real entity (live shape, 2026-09-03)', async () => {
+      nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
+      // What the live API actually returns for /codeinfo: a resolver record
+      // with no title and no parents.
+      nock(API_HOST)
+        .get(/\/icd\/release\/11\/[\d-]+\/mms\/codeinfo\/5A11/)
+        .reply(200, {
+          '@context': 'http://id.who.int/icd/contexts/contextForCodeInfo.json',
+          '@id': 'http://id.who.int/icd/release/11/2026-01/mms/codeinfo/5A11',
+          stemId: 'http://id.who.int/icd/release/11/2026-01/mms/119724091',
+          code: '5A11',
+        });
+      nock(API_HOST)
+        .get('/icd/release/11/2026-01/mms/119724091')
+        .reply(200, {
+          '@id': 'http://id.who.int/icd/release/11/2026-01/mms/119724091',
+          code: '5A11',
+          title: { '@language': 'en', '@value': 'Type 2 diabetes mellitus' },
+          parent: ['http://id.who.int/icd/release/11/2026-01/mms/1630407678'],
+        });
+
+      const e = await client.lookup('5A11', 'en');
+      expect(e['@id']).toBe('http://id.who.int/icd/release/11/2026-01/mms/119724091');
+      expect(e.title?.['@value']).toBe('Type 2 diabetes mellitus');
+      expect(e.parent).toHaveLength(1);
+    });
+
     it('lookup by URI strips the absolute prefix and reuses the path', async () => {
       nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
       nock(API_HOST)

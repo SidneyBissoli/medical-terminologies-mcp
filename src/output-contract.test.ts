@@ -112,10 +112,17 @@ function mockUpstreams(): void {
         });
       }
       if (url.includes('/codeinfo/')) {
+        // The live shape (2026-09-03): a resolver record — no title, no
+        // parents — pointing at the entity through `stemId`.
         return jsonResponse({
-          ...icdEntity('1234', { code: '5A11', withChildren: true }),
+          '@context': 'http://id.who.int/icd/contexts/contextForCodeInfo.json',
+          '@id': `${ICD_BASE}/codeinfo/5A11`,
           stemId: `${ICD_BASE}/1234`,
+          code: '5A11',
         });
+      }
+      if (url.endsWith('/mms/1234')) {
+        return jsonResponse(icdEntity('1234', { code: '5A11', withChildren: true }));
       }
       // The linearization root — chapters.
       if (/\/mms\/?(\?|$)/.test(url)) {

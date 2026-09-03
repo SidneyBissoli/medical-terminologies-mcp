@@ -280,7 +280,19 @@ export class WHOClient {
     return cache.getOrSet(
       CACHE_PREFIX.ICD11,
       cacheKey,
-      () => this.request<ICD11EntityResponse>(path, {}, language),
+      async () => {
+        const entity = await this.request<ICD11EntityResponse>(path, {}, language);
+        // `/codeinfo/{code}` is a resolver, not an entity: the live API answers
+        // `{ @id, stemId, code }` and nothing else (measured in production on
+        // 2026-09-03 — every lookup by code rendered "Unknown" with no
+        // parents, and the mocked fixtures never showed it). The entity lives
+        // at `stemId`; follow it so a code and its URI answer the same thing.
+        if (entity.title === undefined && typeof entity.stemId === 'string' && entity.stemId.startsWith('http')) {
+          const stemPath = new URL(entity.stemId).pathname.replace(/^\/icd/, '');
+          return this.request<ICD11EntityResponse>(stemPath, {}, language);
+        }
+        return entity;
+      },
       DEFAULT_TTL.LOOKUP
     );
   }
@@ -495,6 +507,8 @@ export interface ICD11EntityResponse {
   browserUrl?: string;
   /** ICD-11 code */
   code?: string;
+  /** Linearization entity URI — what `/codeinfo/{code}` resolves a code to */
+  stemId?: string;
   /** Code range (for blocks) */
   codeRange?: string;
   /** Class kind */
