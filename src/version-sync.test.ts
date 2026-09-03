@@ -54,3 +54,20 @@ describe("versão sincronizada entre package.json e seus espelhos", () => {
     }
   });
 });
+
+/**
+ * Limites do MCP Registry sobre o server.json — o `mcp-publisher validate`
+ * roda só no publish, DEPOIS da tag e do npm. Em 2026-09-03 a tag v0.5.0 do
+ * ilo-mcp-server falhou no registro com "expected length <= 100" em
+ * `description` (139 chars): o npm já tinha publicado, e destravar exigiu
+ * `git tag -f`. O limite é do registro (schema oficial), não escolha nossa —
+ * vigiá-lo aqui move o erro para antes do bump.
+ */
+describe("server.json respeita os limites do MCP Registry", () => {
+  it("description tem no máximo 100 caracteres", () => {
+    if (!existsSync(join(root, "server.json"))) return;
+    const srv = JSON.parse(read("server.json")) as { description?: string };
+    expect(srv.description, "server.json sem description").toBeTruthy();
+    expect(srv.description!.length, `description com ${srv.description!.length} chars`).toBeLessThanOrEqual(100);
+  });
+});
