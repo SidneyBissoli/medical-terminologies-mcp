@@ -22,6 +22,7 @@ import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import { getICD10ToICD11MapClient } from '../clients/icd10-icd11-map-client.js';
 import { getEnv } from '../utils/env.js';
+import { WHO_ICD11_DEFAULT_RELEASE } from '../clients/who-client.js';
 import {
   TerminologyVersionsParamsSchema,
   TerminologyVersionsOutputSchema,
@@ -81,7 +82,7 @@ export interface TerminologyMeta {
  */
 export function buildMetadata(): TerminologyMeta[] {
   const icd10MapClient = getICD10ToICD11MapClient();
-  const whoIcd11Release = getEnv('WHO_ICD11_RELEASE_ID') ?? '2024-01';
+  const whoIcd11Release = getEnv('WHO_ICD11_RELEASE_ID') ?? WHO_ICD11_DEFAULT_RELEASE;
 
   return [
     {

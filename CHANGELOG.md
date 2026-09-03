@@ -83,6 +83,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stem sob códigos pós-coordenados (`BD54/5A11`, `5A24/5A11`); medido em
   produção, "type 2 diabetes" trazia o 5A11 quatro vezes. Combinações e
   repetições do mesmo stem ficam fora.
+- **`terminology_versions` dizia que a release padrão da ICD-11 era 2024-01**
+  enquanto o cliente consultava 2026-01: o padrão vivia em três cópias
+  (`who-client.ts`, `provenance.ts`, `tools/versioning.ts`) e uma ficou para
+  trás. Agora é `WHO_ICD11_DEFAULT_RELEASE`, exportado pelo cliente e lido
+  pelos outros dois; teste pina a tool ao cliente. READMEs e CLAUDE.md
+  corrigidos (padrão `2026-01`).
 
 ## [1.9.1] - 2026-08-31
 

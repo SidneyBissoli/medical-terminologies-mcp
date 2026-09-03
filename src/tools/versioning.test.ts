@@ -7,6 +7,7 @@ import { toolRegistry } from '../server-core.js';
 
 // Side-effect import — registers the versioning tools.
 import './versioning.js';
+import { WHO_ICD11_DEFAULT_RELEASE } from '../clients/who-client.js';
 
 describe('terminology_versions', () => {
   const handler = toolRegistry.getHandler('terminology_versions');
@@ -25,6 +26,16 @@ describe('terminology_versions', () => {
     expect(codes).toEqual(
       ['atc', 'cid10', 'icd10', 'icd11', 'loinc', 'mesh', 'rxnorm', 'snomed'],
     );
+  });
+
+  it('reports the ICD-11 release the client actually queries (one default, one place)', async () => {
+    // Until 2026-09-03 this tool said "2024-01" while who-client queried
+    // 2026-01 — three copies of the same default. The client's export is
+    // the source; this pins the tool to it.
+    const result = await handler!({ terminology: 'icd11' });
+    const parsed = TerminologyVersionsOutputSchema.parse(result.structuredContent);
+    expect(parsed.terminologies[0].current_version).toBe(WHO_ICD11_DEFAULT_RELEASE);
+    expect(parsed.terminologies[0].notes).toContain(WHO_ICD11_DEFAULT_RELEASE);
   });
 
   it('filters to a single terminology when terminology is set', async () => {

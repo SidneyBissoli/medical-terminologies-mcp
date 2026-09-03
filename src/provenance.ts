@@ -44,6 +44,7 @@ import {
 } from '@sbissoli/mcp-provenance';
 import { cacheMetaFor, type FetchMeta } from './utils/fetch-meta.js';
 import { getEnv } from './utils/env.js';
+import { WHO_ICD11_DEFAULT_RELEASE } from './clients/who-client.js';
 
 /** Single provenance context for the server: `_meta` namespace, locale, timezone, mode. */
 export const provenanceContext = createProvenanceContext({
@@ -140,7 +141,7 @@ export const MEDICAL_SOURCES = {
       'ICD-11 content is served verbatim with code, title, and URI preserved (license §1.2.2–1.2.3).',
     ],
     cachePrefixes: ['icd11'],
-    defaultVintage: () => getEnv('WHO_ICD11_RELEASE_ID') ?? '2026-01',
+    defaultVintage: () => getEnv('WHO_ICD11_RELEASE_ID') ?? WHO_ICD11_DEFAULT_RELEASE,
   },
   WHO_TRANSITION_TABLES: {
     name: 'WHO ICD-10 → ICD-11 transition tables (bundled)',

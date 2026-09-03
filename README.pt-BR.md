@@ -131,7 +131,7 @@ Acrescente ao arquivo de configuração do Claude Desktop:
 |----------|-------------|-----------|
 | `WHO_CLIENT_ID` | Sim¹ | Client ID da API ICD da OMS |
 | `WHO_CLIENT_SECRET` | Sim¹ | Client Secret da API ICD da OMS |
-| `WHO_ICD11_RELEASE_ID` | Não | Release da ICD-11 a consultar (ex.: `2024-01`, `2025-01`). Padrão `2024-01`. |
+| `WHO_ICD11_RELEASE_ID` | Não | Release da ICD-11 a consultar (ex.: `2025-01`, `2026-01`). Padrão `2026-01`. |
 | `ENABLE_SNOMED_TOOLS` | Não² | Defina como `true` para registrar as 6 ferramentas que dependem do SNOMED. Desligado por padrão. |
 | `SNOMED_BASE_URL` | Não² | URL base de uma instância Snowstorm, ex.: `https://meu-snowstorm.exemplo.com/snowstorm/snomed-ct`. |
 | `SNOMED_LANGUAGE` | Não² | Tag(s) `Accept-Language` para as respostas do SNOMED, ex.: `pt`, `pt-BR`, `es`. Padrão `en`. Valores de tag única passam adiante de forma confiável; valores compostos com pesos q (ex.: `pt-BR,en;q=0.8`) dependem de como a sua instância Snowstorm trata o `Accept-Language` — a semântica de fallback pode variar. Teste contra o seu deploy específico se for depender de fallback ponderado. |

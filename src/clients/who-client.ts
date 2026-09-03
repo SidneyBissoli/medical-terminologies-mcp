@@ -18,6 +18,15 @@ const log = createClientLogger('who');
  * yearly; the default tracks the release this version of the package was
  * tested against.
  */
+/**
+ * The ICD-11 release the server queries when WHO_ICD11_RELEASE_ID is unset —
+ * the ONE place this default lives. `provenance.ts` (data_vintage) and
+ * `tools/versioning.ts` (terminology_versions) read it from here: until
+ * 2026-09-03 each carried its own copy and `terminology_versions` told users
+ * "2024-01" while every query went to 2026-01.
+ */
+export const WHO_ICD11_DEFAULT_RELEASE = '2026-01';
+
 const WHO_CONFIG = {
   /** Base URL for ICD-11 API */
   apiBaseUrl: 'https://id.who.int/icd',
@@ -25,7 +34,7 @@ const WHO_CONFIG = {
   tokenUrl: 'https://icdaccessmanagement.who.int/connect/token',
   /** OAuth2 scope */
   scope: 'icdapi_access',
-  releaseId: process.env.WHO_ICD11_RELEASE_ID ?? '2026-01',
+  releaseId: process.env.WHO_ICD11_RELEASE_ID ?? WHO_ICD11_DEFAULT_RELEASE,
   /** Linearization for MMS (Mortality and Morbidity Statistics) */
   linearization: 'mms',
 } as const;

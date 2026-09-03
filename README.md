@@ -131,7 +131,7 @@ Add to your Claude Desktop configuration file:
 |----------|----------|-------------|
 | `WHO_CLIENT_ID` | Yes¹ | WHO ICD API Client ID |
 | `WHO_CLIENT_SECRET` | Yes¹ | WHO ICD API Client Secret |
-| `WHO_ICD11_RELEASE_ID` | No | ICD-11 release to query (e.g. `2024-01`, `2025-01`). Default `2024-01`. |
+| `WHO_ICD11_RELEASE_ID` | No | ICD-11 release to query (e.g. `2025-01`, `2026-01`). Default `2026-01`. |
 | `ENABLE_SNOMED_TOOLS` | No² | Set to `true` to register the 6 SNOMED-dependent tools. Default off. |
 | `SNOMED_BASE_URL` | No² | Base URL for a Snowstorm instance, e.g. `https://my-snowstorm.example.com/snowstorm/snomed-ct`. |
 | `SNOMED_LANGUAGE` | No² | Accept-Language tag(s) for SNOMED responses, e.g. `pt`, `pt-BR`, `es`. Default `en`. Single-tag values are pass-through reliably; composite values with q-weights (e.g. `pt-BR,en;q=0.8`) depend on your Snowstorm instance's Accept-Language handling — fallback semantics may vary. Test against your specific deployment if relying on weighted fallback. |
