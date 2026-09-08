@@ -64,7 +64,7 @@ jobs:
       - run: npm ci
       - name: Build (o auditor precisa do bundle, não do fonte)
         run: npm run build
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - name: Auditar o servidor local
         run: uvx mcpscore --fail-under 98 --stdio node dist/index.js
 
@@ -76,6 +76,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - name: Auditar o endpoint em produção
         run: uvx mcpscore --fail-under 100 https://medical.sidneybissoli.com/mcp
