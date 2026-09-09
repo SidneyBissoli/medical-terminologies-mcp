@@ -1,28 +1,31 @@
-{
-  "name": "medical-terminologies-mcp-worker",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=22"
-  },
-  "description": "Cloudflare Worker that serves medical-terminologies-mcp over Streamable HTTP (Fase 0 hosting template: createMcpHandler + UsageTracker, with the legacy StatsCounter DO kept alongside for /stats history)",
-  "scripts": {
-    "prebuild:lib": "cd .. && npm run build:worker-lib",
-    "dev": "npm run prebuild:lib && wrangler dev",
-    "deploy": "npm run prebuild:lib && wrangler deploy",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
-  },
-  "//": "@modelcontextprotocol/server and zod are intentionally NOT listed here — they resolve from the parent package's node_modules so there is a single SDK copy (dist/worker-lib.js and `agents` both import them as externals/peers). `agents` declares them as hard peers, so .npmrc pins legacy-peer-deps=true to stop npm from installing a second copy here. If you extract this Worker to its own repo, add them as dependencies and depend on the published medical-terminologies-mcp package.",
-  "dependencies": {
-    "agents": "^0.22.0"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260904.1",
-    "typescript": "^7.0.2",
-    "vite": "^8.2.2",
-    "vitest": "^5.0.0",
-    "wrangler": "^4.129.0"
-  }
-}
+{
+  "name": "medical-terminologies-mcp-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "description": "Cloudflare Worker that serves medical-terminologies-mcp over Streamable HTTP (Fase 0 hosting template: createMcpHandler + UsageTracker, with the legacy StatsCounter DO kept alongside for /stats history)",
+  "scripts": {
+    "prebuild:lib": "cd .. && npm run build:worker-lib",
+    "dev": "npm run prebuild:lib && wrangler dev",
+    "deploy": "npm run prebuild:lib && wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "//": "@modelcontextprotocol/server and zod are intentionally NOT listed here — they resolve from the parent package's node_modules so there is a single SDK copy (dist/worker-lib.js and `agents` both import them as externals/peers). `agents` declares them as hard peers, so .npmrc pins legacy-peer-deps=true to stop npm from installing a second copy here. If you extract this Worker to its own repo, add them as dependencies and depend on the published medical-terminologies-mcp package.",
+  "dependencies": {
+    "agents": "^0.22.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260904.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0",
+    "wrangler": "^4.129.0"
+  },
+  "overrides": {
+    "sharp": "^0.35.4"
+  }
+}
