@@ -35,7 +35,13 @@ export function buildServer(record: RecordUsage = () => {}): McpServer {
     },
     { instructions: SERVER_INSTRUCTIONS },
   );
-  registerAll(server, (kind: "tool_call" | "tool_error", name: string) => record(kind, name));
+  // A FORMA da chamada (3º argumento) tem de atravessar. Este adaptador
+  // existia com aridade 2 e ENGOLIA em silêncio o que o registerAll passa:
+  // a telemetria de forma foi para produção gravando classe e parâmetros
+  // vazios, e só apareceu ao ler o Analytics Engine — nenhum teste pega, porque
+  // os dois lados estão certos e só a costura entre eles perde o argumento.
+  const encaminhar: RecordUsage = (kind, name, forma) => record(kind, name, forma);
+  registerAll(server, encaminhar as Parameters<typeof registerAll>[1]);
   // `server/discover` anuncia todas as revisões atendidas — ver src/discover.ts.
   announceServedVersions(server);
   return server;
