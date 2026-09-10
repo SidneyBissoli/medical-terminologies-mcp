@@ -67,12 +67,17 @@ export function classifyError(message: string): ErrorClass {
     valorDesconhecido ||
     /\b(obrigatóri|obrigatori|exige|requer|required|inválid|invalid|validation error|não aceita|nao aceita|no máximo|no maximo|só existe|so existe|recusad)/.test(
       m,
-    )
+    ) ||
+    // Inglês, das mensagens do ilo e do medical. `empty query` fica AQUI e não
+    // em nao_encontrado: consulta vazia é parâmetro que falta. Era o radical
+    // `empty` solto que a classificava errado — ele existia para "empty
+    // response", que é outra coisa, e agora está escrito por extenso lá.
+    /\b(empty query|not part of|too broad|has no codelist|has no enumerated)/.test(m)
   ) {
     return "contrato";
   }
   if (
-    /\b(não encontrad|nao encontrad|não existe|nao existe|not.?found|inexistent|vazi|empty|sem registros|não retornou dados|nao retornou dados|não publica|nao publica|404)/.test(
+    /\b(não encontrad|nao encontrad|não existe|nao existe|does ?n[o']t exist|not.?found|inexistent|vazi|empty response|empty result|returned empty|sem registros|não retornou dados|nao retornou dados|não publica|nao publica|404)/.test(
       m,
     ) ||
     // "Nenhum evento encontrado", "nenhuma reunião", "nenhum registro": a forma
