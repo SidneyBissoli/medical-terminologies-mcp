@@ -40,6 +40,14 @@ export type ErrorClass =
  * Classifica pela mensagem de erro, que é NOSSA. A ordem importa: "não
  * encontrado" e "vazio" são mais específicos que "erro da fonte", e um 404
  * casaria com os dois.
+ *
+ * O vocabulário foi ampliado depois de passar o classificador por TODAS as
+ * mensagens de erro do bcb e do senado (a varredura virou a guarda em
+ * `call-shape.test.ts`): 13 de 18 aqui e 12 de 18 lá caíam em `outro`, ou
+ * seja, a telemetria não responderia nada nestes dois servidores. As famílias
+ * que faltavam eram "Informe X ou Y", "só existe para", "desconhecido",
+ * "recusada", "não retornou dados" e "não publica" — nenhuma exótica; a versão
+ * inicial foi escrita a partir das mensagens do senado que eu já tinha lido.
  */
 export function classifyError(message: string): ErrorClass {
   const m = message.toLowerCase();
@@ -49,16 +57,38 @@ export function classifyError(message: string): ErrorClass {
   // vazia" caiu em `fonte` na primeira versão — a palavra que casava era
   // "upstream". Ordem também importa: "não encontrado" é mais específico que
   // "erro da fonte", e a mensagem real do senado tem sinal das duas famílias.
-  if (/\b(obrigatóri|obrigatori|exige|requer|required|inválid|invalid|não aceita|nao aceita|no máximo|no maximo)/.test(m)) {
-    return "contrato";
-  }
+  // "desconhecido" só é sinal de contrato quando qualifica um VALOR que o
+  // chamador passou ("Índice de preços desconhecido: X. Aceitos: ..."). O
+  // "Erro desconhecido ao consultar o calendário do IBGE" é o oposto — é
+  // justamente o caso sem classe — e a primeira versão desta ampliação o
+  // classificava como contrato.
+  const valorDesconhecido = /\bdesconhecid/.test(m) && !/\berro desconhecid/.test(m);
   if (
-    /\b(não encontrad|nao encontrad|não existe|nao existe|not.?found|inexistent|vazi|empty|sem registros|nenhuma reunião|nenhum resultado|404)/.test(
+    valorDesconhecido ||
+    /\b(obrigatóri|obrigatori|exige|requer|required|inválid|invalid|validation error|não aceita|nao aceita|no máximo|no maximo|só existe|so existe|recusad)/.test(
       m,
     )
   ) {
+    return "contrato";
+  }
+  if (
+    /\b(não encontrad|nao encontrad|não existe|nao existe|not.?found|inexistent|vazi|empty|sem registros|não retornou dados|nao retornou dados|não publica|nao publica|404)/.test(
+      m,
+    ) ||
+    // "Nenhum evento encontrado", "nenhuma reunião", "nenhum registro": a forma
+    // varia com o substantivo de cada servidor, então case pelo padrão.
+    /\bnenhum[ao]?s?\b[\s\S]{0,40}\b(encontrad|resultado|registro|dado)/.test(m)
+  ) {
     return "nao_encontrado";
   }
+  // "Informe X ou Y" é a mensagem canônica de parâmetro que falta — dez delas
+  // no senado, com e sem qualificador na frente ("Para por=senador, informe
+  // 'codigoSenador'"). Fica DEPOIS de "não encontrado" de propósito: é o sinal
+  // mais fraco dos dois, e um "informe um código válido" fechando uma mensagem
+  // de não encontrado não pode sequestrar a classe. Hoje nenhuma mensagem dos
+  // quatro servidores casa com as duas famílias — a ordem existe para a
+  // mensagem que alguém escrever amanhã.
+  if (/\binforme\b/.test(m)) return "contrato";
   // `\b5\d\d\b` e não `5\d\d`: sem a fronteira final, qualquer número com um 5
   // seguido de dois dígitos casava — um código de reunião "591234" citado na
   // mensagem virava "erro 5xx". A intenção sempre foi o status HTTP.
