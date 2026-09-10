@@ -73,7 +73,7 @@ describe("withAnalytics", () => {
     expect(points).toHaveLength(1);
     expect(points[0]!).toEqual({
       indexes: ["ibge_estados"],
-      blobs: ["ibge_estados", "ok", "", "", "BR", "Claro NXT"],
+      blobs: ["ibge_estados", "ok", "", "", "BR", "Claro NXT", "", ""],
       doubles: [0],
     });
   });
@@ -110,7 +110,7 @@ describe("withAnalytics", () => {
     const record = withAnalytics(() => {}, dataset, { self: true, country: "US", asOrg: "Anthropic" });
     record("tool_call", "ibge_estados");
     await microtasks();
-    expect(points[0]!.blobs).toEqual(["ibge_estados", "ok", "", "self", "US", "Anthropic"]);
+    expect(points[0]!.blobs).toEqual(["ibge_estados", "ok", "", "self", "US", "Anthropic", "", ""]);
   });
 
   it("repassa todos os eventos ao registrador original", () => {

@@ -22,7 +22,17 @@ export interface UsageEvent {
 }
 
 /** Assinatura do registrador injetado nas tools — fire-and-forget, nunca lança. */
-export type RecordUsage = (kind: UsageKind, name?: string) => void;
+/**
+ * A FORMA da chamada, quando o chamador sabe informá-la (o `registerAll` do
+ * core sabe; o resto do worker não). Opcional de propósito: quem só conta
+ * nome e desfecho continua chamando com dois argumentos.
+ */
+export interface FormaDaChamada {
+  params: string;
+  classe: string;
+}
+
+export type RecordUsage = (kind: UsageKind, name?: string, forma?: FormaDaChamada) => void;
 
 /** Chave de dia em UTC ("YYYY-MM-DD") — o grão de agregação persistido. */
 export function dayKeyUtc(d: Date): string {

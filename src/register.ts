@@ -56,6 +56,7 @@ import {
 import { logger } from './utils/logger.js';
 import { recordInvocation } from './utils/stats.js';
 import { runWithFetchMeta } from './utils/fetch-meta.js';
+import { classifyError, errorText, paramNames } from './call-shape.js';
 
 // Tool side-effect imports — each module registers its tools at load time.
 // This is now the ONLY place that needs the full list; both entry points
@@ -135,7 +136,22 @@ function promptArgsSchema(prompt: Prompt): StandardSchemaWithJSON | undefined {
  * The stdio entry passes nothing; the Cloudflare Worker passes its
  * UsageTracker Durable Object recorder.
  */
-export type ToolUsageRecorder = (kind: 'tool_call' | 'tool_error', name: string) => void;
+/**
+ * A FORMA da chamada, quando o chamador sabe informá-la: nomes dos parâmetros
+ * e classe do erro. Opcional para não quebrar quem já registra só nome e
+ * desfecho (o stdio não passa recorder nenhum). Ver src/call-shape.ts para a
+ * razão de gravar a forma e não o conteúdo.
+ */
+export interface FormaDaChamada {
+  params: string;
+  classe: string;
+}
+
+export type ToolUsageRecorder = (
+  kind: 'tool_call' | 'tool_error',
+  name: string,
+  forma?: FormaDaChamada,
+) => void;
 
 /**
  * Registers every tool, resource, and prompt from the module registries
@@ -157,14 +173,18 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
         // endpoint, no-op on stdio). Counts every dispatch that resolved,
         // including isError results — same semantics as the 1.x dispatcher.
         recordInvocation(name);
-        record?.('tool_call', name);
-        if (result.isError === true) record?.('tool_error', name);
+        const forma = { params: paramNames(args), classe: '' };
+        record?.('tool_call', name, forma);
+        if (result.isError === true) {
+          record?.('tool_error', name, { ...forma, classe: classifyError(errorText(result)) });
+        }
         return result;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error({ tool: name, err: errorMessage }, 'Tool handler failed');
-        record?.('tool_call', name);
-        record?.('tool_error', name);
+        const forma = { params: paramNames(args), classe: classifyError(errorMessage) };
+        record?.('tool_call', name, forma);
+        record?.('tool_error', name, forma);
         return {
           content: [
             {

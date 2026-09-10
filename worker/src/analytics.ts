@@ -9,10 +9,14 @@
  * Esquema de blobs CONSISTENTE com o senado-br-mcp-cloudflare (instrument.ts):
  *   index1 = tool | blob1 = tool | blob2 = "ok"/"error" | blob3 = classe de
  *   cache (não medida neste worker — vazio) | blob4 = "self"/"" | blob5 = país
- *   | blob6 = organização do AS | double1 = flag de erro.
+ *   | blob6 = organização do AS | blob7 = classe do erro | blob8 = NOMES dos
+ *   parâmetros | double1 = flag de erro.
  *
- * Privacidade: nome da tool, desfecho e contexto de rede agregável — nunca
- * argumentos, resultados, IP ou conteúdo de consulta.
+ * Privacidade: nome da tool, desfecho, contexto de rede agregável e, desde
+ * 2026-09-10, a FORMA da chamada — nomes de parâmetro (que são o esquema
+ * publicado) e uma classe de erro de vocabulário fechado. Nunca os VALORES dos
+ * argumentos, nunca resultados, IP ou conteúdo de consulta. A razão da linha
+ * está em src/call-shape.ts.
  *
  * A escrita pega carona no hook `record` do registerAll, que emite SEMPRE
  * `tool_call` e, sincronamente em seguida (mesmo bloco try/finally), o
@@ -59,25 +63,26 @@ export function withAnalytics(
 ): RecordUsage {
   if (!analytics) return record;
 
-  let pending: string | null = null;
+  let pending: { name: string; params: string } | null = null;
   const flushOk = () => {
     if (pending !== null) {
-      const name = pending;
+      const { name, params } = pending;
       pending = null;
-      writeToolCall(analytics, name, false, tag);
+      writeToolCall(analytics, name, false, tag, "", params);
     }
   };
 
-  return (kind, name) => {
+  return (kind, name, forma) => {
     if (kind === "tool_call" && name) {
       flushOk(); // segurança: nunca deve haver pendente aqui (par é atômico)
-      pending = name;
+      pending = { name, params: forma?.params ?? "" };
       queueMicrotask(flushOk); // nenhum tool_error síncrono seguiu → foi "ok"
-    } else if (kind === "tool_error" && name && pending === name) {
+    } else if (kind === "tool_error" && name && pending !== null && pending.name === name) {
+      const params = forma?.params || pending.params;
       pending = null;
-      writeToolCall(analytics, name, true, tag);
+      writeToolCall(analytics, name, true, tag, forma?.classe ?? "", params);
     }
-    record(kind, name);
+    record(kind, name, forma);
   };
 }
 
@@ -86,6 +91,8 @@ function writeToolCall(
   name: string,
   isError: boolean,
   tag: RequestTag,
+  errorClass = "",
+  params = "",
 ): void {
   try {
     analytics.writeDataPoint({
@@ -98,6 +105,8 @@ function writeToolCall(
         tag.self ? "self" : "",
         tag.country,
         tag.asOrg,
+        errorClass,
+        params,
       ],
       doubles: [isError ? 1 : 0],
     });
