@@ -103,8 +103,13 @@ export function classifyError(message: string): ErrorClass {
   // `\b5\d\d\b` e não `5\d\d`: sem a fronteira final, qualquer número com um 5
   // seguido de dois dígitos casava — um código de reunião "591234" citado na
   // mensagem virava "erro 5xx". A intenção sempre foi o status HTTP.
+  // A fonte falhou ou demorou. As quatro últimas vieram da fábrica de erros do
+  // ibge, onde caíam em `outro`: ela nomeia a falha de infraestrutura em vez de
+  // usar as palavras genéricas ("Tempo de resposta excedido", não "timeout";
+  // "Serviço em manutenção"; "Erro de conexão"). `erro interno do servidor` vai
+  // com o complemento, porque "erro interno" sozinho pode ser bug nosso.
   if (
-    /\b(timeout|tempo esgotado|indisponív|indisponiv|upstream|\b5\d\d\b|payload|too large|grande demais|limite de tamanho)/.test(
+    /\b(timeout|tempo esgotado|tempo de resposta excedid|excedeu o tempo|indisponív|indisponiv|manutenç|manutenc|erro de conexão|erro de conexao|erro interno do servidor|internal server error|upstream|\b5\d\d\b|payload|too large|grande demais|limite de tamanho)/.test(
       m,
     )
   ) {
