@@ -57,22 +57,28 @@ export function classifyError(message: string): ErrorClass {
   // vazia" caiu em `fonte` na primeira versão — a palavra que casava era
   // "upstream". Ordem também importa: "não encontrado" é mais específico que
   // "erro da fonte", e a mensagem real do senado tem sinal das duas famílias.
-  // "desconhecido" só é sinal de contrato quando qualifica um VALOR que o
-  // chamador passou ("Índice de preços desconhecido: X. Aceitos: ..."). O
-  // "Erro desconhecido ao consultar o calendário do IBGE" é o oposto — é
-  // justamente o caso sem classe — e a primeira versão desta ampliação o
-  // classificava como contrato.
-  const valorDesconhecido = /\bdesconhecid/.test(m) && !/\berro desconhecid/.test(m);
+  // "desconhecido"/"unknown" só é sinal de contrato quando qualifica um VALOR
+  // que o chamador passou ("Índice de preços desconhecido: X. Aceitos: ...",
+  // "Unknown dimension(s) for dataflow X"). "Erro desconhecido ao consultar o
+  // calendário do IBGE" e "Unknown error" são o oposto — são justamente o caso
+  // sem classe — e a primeira versão desta ampliação os classificava como
+  // contrato.
+  const valorDesconhecido =
+    /\b(desconhecid|unknown)/.test(m) && !/\b(erro desconhecid|unknown error)/.test(m);
   if (
     valorDesconhecido ||
     /\b(obrigatóri|obrigatori|exige|requer|required|inválid|invalid|validation error|não aceita|nao aceita|no máximo|no maximo|só existe|so existe|recusad)/.test(
       m,
     ) ||
-    // Inglês, das mensagens do ilo e do medical. `empty query` fica AQUI e não
-    // em nao_encontrado: consulta vazia é parâmetro que falta. Era o radical
-    // `empty` solto que a classificava errado — ele existia para "empty
+    // Inglês, das mensagens do ilo, do uis e do medical. `empty query` fica
+    // AQUI e não em nao_encontrado: consulta vazia é parâmetro que falta. Era o
+    // radical `empty` solto que a classificava errado — ele existia para "empty
     // response", que é outra coisa, e agora está escrito por extenso lá.
-    /\b(empty query|not part of|too broad|has no codelist|has no enumerated)/.test(m)
+    // "narrow it/the query" e "maximum N per call" são instruções ao chamador:
+    // a resposta não veio porque a chamada precisa mudar, que é contrato.
+    /\b(empty query|not part of|too broad|too many|maximum|narrow (it|the|your)|has no codelist|has no enumerated)/.test(
+      m,
+    )
   ) {
     return "contrato";
   }
