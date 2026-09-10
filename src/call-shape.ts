@@ -52,10 +52,21 @@ export function classifyError(message: string): ErrorClass {
   if (/\b(obrigatóri|obrigatori|exige|requer|required|inválid|invalid|não aceita|nao aceita|no máximo|no maximo)/.test(m)) {
     return "contrato";
   }
-  if (/\b(não encontrad|nao encontrad|not.?found|inexistent|vazi|empty|sem registros|nenhum resultado|404)/.test(m)) {
+  if (
+    /\b(não encontrad|nao encontrad|não existe|nao existe|not.?found|inexistent|vazi|empty|sem registros|nenhuma reunião|nenhum resultado|404)/.test(
+      m,
+    )
+  ) {
     return "nao_encontrado";
   }
-  if (/\b(timeout|tempo esgotado|indisponív|indisponiv|upstream|5\d\d|payload|too large|grande demais|limite de tamanho)/.test(m)) {
+  // `\b5\d\d\b` e não `5\d\d`: sem a fronteira final, qualquer número com um 5
+  // seguido de dois dígitos casava — um código de reunião "591234" citado na
+  // mensagem virava "erro 5xx". A intenção sempre foi o status HTTP.
+  if (
+    /\b(timeout|tempo esgotado|indisponív|indisponiv|upstream|\b5\d\d\b|payload|too large|grande demais|limite de tamanho)/.test(
+      m,
+    )
+  ) {
     return "fonte";
   }
   return "outro";
@@ -76,10 +87,29 @@ export function paramNames(args: unknown): string {
   return nomes.join(",").slice(0, 200);
 }
 
-/** Texto de erro de um resultado de tool, para classificar. Vazio quando não há. */
+/**
+ * Texto de erro de um resultado de tool, para classificar. Vazio quando não há.
+ *
+ * Lê o CAMPO `error` do envelope, não o payload serializado inteiro. O envelope
+ * padrão é `{ error, retryable, hint }`, e o `hint` de erro não recuperável
+ * termina com "a fonte oficial pode estar indisponível" — texto de formulário,
+ * igual em todos. Classificando o payload inteiro, esse "indisponível"
+ * arrastava TODO erro não recuperável para a classe `fonte`. Visto na produção
+ * do senado em 10/09/2026: a mensagem "Não existe reunião com o código X",
+ * que é `nao_encontrado` por definição, foi gravada como `fonte`.
+ */
 export function errorText(result: unknown): string {
   if (!result || typeof result !== "object") return "";
-  const r = result as { content?: Array<{ text?: unknown }> };
+  const r = result as { content?: Array<{ text?: unknown }>; structuredContent?: { error?: unknown } };
+  const estruturado = r.structuredContent?.error;
+  if (typeof estruturado === "string") return estruturado;
   const t = Array.isArray(r.content) ? r.content[0]?.text : undefined;
-  return typeof t === "string" ? t : "";
+  if (typeof t !== "string") return "";
+  try {
+    const j = JSON.parse(t) as { error?: unknown };
+    if (typeof j.error === "string") return j.error;
+  } catch {
+    // Não é o envelope JSON — vale o texto cru (é o caso de outros servidores).
+  }
+  return t;
 }
