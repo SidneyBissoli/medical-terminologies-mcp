@@ -14,7 +14,7 @@ import { createMcpHandler } from "agents/mcp/server";
 import { unknownCursorError } from "../../dist/worker-lib.js";
 
 import { StatsCounter, toolRegistry } from "../../dist/worker-lib.js";
-import { tagRequest, withAnalytics } from "./analytics.js";
+import { SELF_ROUTE, tagRequest, withAnalytics } from "./analytics.js";
 import { checkAuth } from "./auth.js";
 import { getServerCard } from "./card.js";
 import { SERVER_CONFIG } from "./config.js";
@@ -164,12 +164,15 @@ export default {
 
     // Contexto da requisição (país/AS/marcador self) + escrita no Analytics
     // Engine pegando carona no hook de uso — ver src/analytics.ts.
+    // A rota privada do dono serve EXATAMENTE a mesma superficie; o que muda
+    // e o registro (tagRequest marca self por ela). Ver src/analytics.ts.
+    const rotaMcp = url.pathname === SELF_ROUTE ? SELF_ROUTE : SERVER_CONFIG.mcpRoute;
     const recordWithAnalytics = withAnalytics(record, env.ANALYTICS, tagRequest(request, env.SELF_MARKER));
 
     // Cópia do corpo tirada ANTES do handler consumir o stream — é dela que o
     // guarda de cursor abaixo decide.
     const corpoMcp =
-      request.method === "POST" && url.pathname === SERVER_CONFIG.mcpRoute
+      request.method === "POST" && url.pathname === rotaMcp
         ? await request
             .clone()
             .json()
@@ -177,7 +180,7 @@ export default {
         : undefined;
 
     const handler = createMcpHandler(() => buildServer(recordWithAnalytics), {
-      route: SERVER_CONFIG.mcpRoute,
+      route: rotaMcp,
       // Sem a opção, o handler aceita localhost e *.workers.dev. Ao definir
       // extraAllowedHostnames (domínio próprio), a lista SUBSTITUI os defaults —
       // por isso config.ts inclui nela também o hostname workers.dev.
