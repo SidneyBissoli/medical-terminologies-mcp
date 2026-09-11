@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **As 31 tools de terminologia recusam parâmetro que não existe.** Sem isso o
+  zod descartava a chave desconhecida em silêncio, o parâmetro que o chamador
+  queria usar ficava com o default e a tool respondia OUTRA pergunta com cara
+  de resposta. Medido no irmão `ibge-br-mcp` em 11/09/2026: `periodo` no
+  singular, que o esquema não tem, devolveu a população de **2026** para uma
+  pergunta sobre 2023, sem nenhum aviso — um agente reporta isso como o número
+  de 2023. Resposta errada é pior que erro: erro o modelo corrige na chamada
+  seguinte, resposta errada vira número em relatório.
+
+  Aqui o `.strict()` faz DUAS coisas de uma vez, porque este servidor valida no
+  handler e não no SDK: publica `additionalProperties: false` no JSON Schema
+  (via `buildInputSchema`) E faz o `parse` do handler falhar, virando erro
+  pedagógico por `handleToolError`. Diferença importante em relação aos irmãos:
+  esse erro **passa pela instrumentação** e aparece na telemetria.
+
+  **Mudança de superfície:** as 31 publicam agora `additionalProperties: false`.
+  `search`/`fetch` ficam de fora — o contrato é da OpenAI e os esquemas vêm de
+  `@sbissoli/mcp-search`. Duas armadilhas no caminho: os dois esquemas com
+  `.refine()` (`ICD11LookupParamsSchema`, `RxNormNDCParamsSchema`) precisam do
+  `.strict()` no OBJETO, antes do refine, senão ele se perde no `ZodEffects`; e
+  `cid10_chapters`, que não tem parâmetro nenhum, monta o esquema inline e
+  ficou de fora da primeira passada.
+
 - **`rxnorm_ingredients` falhava 100% das vezes, desde sempre.** O cliente
   pedia os dois term types como `tty: 'IN+MIN'`, e a query é montada por
   `URLSearchParams` (form-urlencoding): o '+' do VALOR sai como `%2B`, e o

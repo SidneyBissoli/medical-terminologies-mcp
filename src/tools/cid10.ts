@@ -84,7 +84,7 @@ Use this tool to:
 - Build a navigable table of contents for downstream tooling
 
 Returns 22 entries — CID-10 V2008 has not been updated since 2008.`,
-  inputSchema: buildInputSchema(z.object({})),
+  inputSchema: buildInputSchema(z.object({}).strict()),
   outputSchema: buildOutputSchema(withProvenance(CID10ChaptersOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };

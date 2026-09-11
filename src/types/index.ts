@@ -46,7 +46,7 @@ export const ICD11SearchParamsSchema = z.object({
   query: z.string().min(1).describe('Search text (disease name, symptom, or keyword)'),
   language: SupportedLanguageSchema.optional().default('en'),
   max_results: maxResults(25),
-});
+}).strict();
 
 export const ICD11LookupParamsSchema = z
   .object({
@@ -54,6 +54,7 @@ export const ICD11LookupParamsSchema = z
     uri: z.string().url().optional().describe('Full ICD-11 foundation URI'),
     language: SupportedLanguageSchema.optional().default('en'),
   })
+  .strict()
   .refine((data) => Boolean(data.code) || Boolean(data.uri), {
     message: 'Either "code" or "uri" must be provided',
   });
@@ -63,15 +64,15 @@ export const ICD11HierarchyParamsSchema = z.object({
   direction: z
     .enum(['parents', 'children'])
     .describe('Direction: "parents" for ancestors, "children" for subtypes'),
-});
+}).strict();
 
 export const ICD11ChaptersParamsSchema = z.object({
   language: SupportedLanguageSchema.optional().default('en'),
-});
+}).strict();
 
 export const ICD11PostcoordinationParamsSchema = z.object({
   code: z.string().min(1).describe('ICD-11 code to get postcoordination info for'),
-});
+}).strict();
 
 // ============================================================================
 // ICD-11 output schemas (structuredContent)
@@ -172,12 +173,12 @@ export type ICD11PostcoordinationOutput = z.infer<typeof ICD11PostcoordinationOu
 export const LOINCSearchParamsSchema = z.object({
   query: z.string().min(1).describe('Search term (test name, keyword, or partial LOINC code)'),
   max_results: maxResults(25),
-});
+}).strict();
 
 /** Shared shape for loinc_details / loinc_answers / loinc_panels */
 export const LOINCByCodeParamsSchema = z.object({
   loinc_num: LOINCNumberSchema.describe('LOINC number (e.g., "2339-0")'),
-});
+}).strict();
 
 // ============================================================================
 // LOINC output schemas (structuredContent)
@@ -252,7 +253,7 @@ export type LOINCPanelsOutput = z.infer<typeof LOINCPanelsOutputSchema>;
 export const RxNormSearchParamsSchema = z.object({
   query: z.string().min(1).describe('Drug name to search (brand or generic)'),
   max_results: maxResults(25),
-});
+}).strict();
 
 export const RxNormConceptParamsSchema = z.object({
   rxcui: RxCUISchema.describe('RxNorm Concept Unique Identifier'),
@@ -261,12 +262,12 @@ export const RxNormConceptParamsSchema = z.object({
     .optional()
     .default(false)
     .describe('Include related concepts (ingredients, brands, dose forms)'),
-});
+}).strict();
 
 /** Shared shape for rxnorm_ingredients / rxnorm_classes */
 export const RxNormByRxcuiParamsSchema = z.object({
   rxcui: RxCUISchema.describe('RxCUI of the drug'),
-});
+}).strict();
 
 export const RxNormNDCParamsSchema = z
   .object({
@@ -277,6 +278,7 @@ export const RxNormNDCParamsSchema = z
       .optional()
       .describe('NDC code to look up RxCUI (alternative to rxcui)'),
   })
+  .strict()
   .refine((data) => Boolean(data.rxcui) || Boolean(data.ndc), {
     message: 'Either "rxcui" or "ndc" must be provided',
   });
@@ -376,18 +378,18 @@ export const MeSHSearchParamsSchema = z.object({
     .describe('Match type: exact, contains, or startswith. Default: contains'),
   language: SupportedLanguageSchema.optional().default('en'),
   max_results: maxResults(25),
-});
+}).strict();
 
 /** Shared shape for mesh_tree / mesh_qualifiers — those don't take a language. */
 export const MeSHByIdParamsSchema = z.object({
   mesh_id: MeSHIdSchema.describe('MeSH Descriptor ID (e.g., D015242, D003920)'),
-});
+}).strict();
 
 /** mesh_descriptor takes a language as well (Accept-Language propagated upstream). */
 export const MeSHDescriptorParamsSchema = z.object({
   mesh_id: MeSHIdSchema.describe('MeSH Descriptor ID (e.g., D015242, D003920)'),
   language: SupportedLanguageSchema.optional().default('en'),
-});
+}).strict();
 
 // ============================================================================
 // MeSH output schemas (structuredContent)
@@ -462,18 +464,18 @@ export const SNOMEDSearchParamsSchema = z.object({
     .describe('Only return active concepts. Default: true'),
   language: SupportedLanguageSchema.optional().default('en'),
   max_results: maxResults(25),
-});
+}).strict();
 
 /** Shared shape for snomed_descriptions (no language — that endpoint returns all). */
 export const SNOMEDBySctidParamsSchema = z.object({
   sctid: SCTIDSchema.describe('SNOMED CT Identifier (e.g., 73211009)'),
-});
+}).strict();
 
 /** snomed_concept takes a language as well (Accept-Language propagated upstream). */
 export const SNOMEDConceptParamsSchema = z.object({
   sctid: SCTIDSchema.describe('SNOMED CT Identifier (e.g., 73211009)'),
   language: SupportedLanguageSchema.optional().default('en'),
-});
+}).strict();
 
 export const SNOMEDHierarchyParamsSchema = z.object({
   sctid: SCTIDSchema.describe('SNOMED CT Identifier'),
@@ -490,12 +492,12 @@ export const SNOMEDHierarchyParamsSchema = z.object({
     .optional()
     .default(50)
     .describe('Maximum children to return (1-100). Default: 50'),
-});
+}).strict();
 
 export const SNOMEDECLParamsSchema = z.object({
   ecl: z.string().min(1).describe('ECL expression (e.g., "<< 73211009" for all types of diabetes)'),
   max_results: maxResults(25),
-});
+}).strict();
 
 // ============================================================================
 // SNOMED CT output schemas (structuredContent)
@@ -579,15 +581,15 @@ export const MapICD10ToICD11ParamsSchema = z.object({
     .string()
     .min(1)
     .describe('ICD-10 code to query in the ICD-11 search index (e.g., E11, I21.0, J18.9)'),
-});
+}).strict();
 
 export const MapSNOMEDToICD10ParamsSchema = z.object({
   sctid: SCTIDSchema.describe('SNOMED CT Identifier'),
-});
+}).strict();
 
 export const MapLOINCToSNOMEDParamsSchema = z.object({
   loinc_code: LOINCNumberSchema.describe('LOINC code (e.g., 2339-0 for Glucose)'),
-});
+}).strict();
 
 export const FindEquivalentParamsSchema = z.object({
   term: z.string().min(1).describe('Medical term to search (e.g., "diabetes", "aspirin")'),
@@ -609,7 +611,7 @@ export const FindEquivalentParamsSchema = z.object({
     .describe(
       'Maximum candidates returned PER terminology (1-10, default 5). This is a cap, not a page: the live fan-out has no stable cursor across five upstreams, so raise the limit instead of paging.',
     ),
-});
+}).strict();
 
 // ============================================================================
 // find_equivalent output schema (structuredContent)
@@ -855,7 +857,7 @@ export const ValidateCodesParamsSchema = z.object({
     .min(1, 'At least one code is required.')
     .max(50, 'Maximum 50 codes per call (rate limits apply per upstream API).')
     .describe('List of code+terminology pairs to validate. Hard cap of 50 per call to keep total latency under ~10 s given upstream rate limits.'),
-});
+}).strict();
 
 const ValidateCodesResultSchema = z.object({
   code: z.string().describe('The code as submitted.'),
@@ -909,7 +911,7 @@ export const TerminologyVersionsParamsSchema = z.object({
   terminology: ValidateCodesTerminologyEnum
     .optional()
     .describe('Filter to a single terminology. Omit to return all 8.'),
-});
+}).strict();
 
 const TerminologyVersionEntrySchema = z.object({
   code: ValidateCodesTerminologyEnum,
@@ -944,7 +946,7 @@ export const TerminologyDiffParamsSchema = z.object({
     .string()
     .optional()
     .describe('Version you want to compare to. Optional.'),
-});
+}).strict();
 
 const CrossRevisionSummarySchema = z.object({
   icd10_categories_total: z.number().int(),
@@ -993,19 +995,19 @@ export const ATCClassifyParamsSchema = z.object({
     .string()
     .min(1)
     .describe('Drug name to classify (brand or generic, e.g., "metformin")'),
-});
+}).strict();
 
 export const ATCByCodeParamsSchema = z.object({
   atc_code: ATCCodeSchema.describe(
     'ATC code at level 1-4 (1-5 chars). Substance-level codes (7 chars, e.g., A10BA02) are not exposed by this endpoint — use atc_classify with the drug name instead.',
   ),
-});
+}).strict();
 
 export const ATCMembersParamsSchema = z.object({
   atc_code: ATCCodeSchema.describe(
     'ATC code at any level. Higher levels (1-4) return all member substances; level 5 returns the single substance.',
   ),
-});
+}).strict();
 
 // ============================================================================
 // ATC output schemas (structuredContent)
@@ -1086,13 +1088,13 @@ export const CID10SearchParamsSchema = z.object({
       'Restrict search to 3-char categories, 4-char subcategories, or both. Default: all',
     ),
   max_results: maxResults(25),
-});
+}).strict();
 
 export const CID10LookupParamsSchema = z.object({
   code: CID10CodeSchema.describe(
     'CID-10 code (e.g., "A00", "A00.1", "A001", "I21"). Dotted and undotted forms both accepted.',
   ),
-});
+}).strict();
 
 // ============================================================================
 // CID-10 output schemas (structuredContent)
@@ -1169,7 +1171,7 @@ export const CID10ChapterParamsSchema = z.object({
     .min(1)
     .max(22)
     .describe('Chapter number (1-22). CID-10 V2008 has 22 chapters.'),
-});
+}).strict();
 
 export type CID10SearchOutput = z.infer<typeof CID10SearchOutputSchema>;
 export type CID10LookupOutput = z.infer<typeof CID10LookupOutputSchema>;

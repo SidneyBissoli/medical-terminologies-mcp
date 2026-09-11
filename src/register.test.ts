@@ -69,6 +69,47 @@ describe('MCP server protocol surface (SDK v2)', () => {
     }
   });
 
+  /**
+   * Parâmetro que não existe tem de ser RECUSADO, nunca descartado em silêncio.
+   *
+   * Com o esquema aberto, o zod tira a chave desconhecida, o parâmetro que o
+   * chamador queria usar fica com o default e a tool responde OUTRA pergunta
+   * com cara de resposta. Medido no irmão ibge-br-mcp em 11/09/2026: `periodo`
+   * no singular, que o esquema não tem, devolveu a população de 2026 para uma
+   * pergunta sobre 2023, sem nenhum aviso. Resposta errada é pior que erro.
+   *
+   * Aqui o `.strict()` do zod faz DUAS coisas de uma vez, porque este servidor
+   * valida no handler e não no SDK: publica `additionalProperties: false` no
+   * JSON Schema (via `buildInputSchema`) E faz o `parse` do handler falhar, o
+   * que vira erro pedagógico por `handleToolError` — e, ao contrário dos
+   * irmãos, esse erro PASSA pela instrumentação e aparece na telemetria.
+   *
+   * `search`/`fetch` ficam de fora: o contrato é da OpenAI e os esquemas vêm
+   * de `@sbissoli/mcp-search`.
+   */
+  it('recusa parâmetro que não existe, em vez de descartá-lo em silêncio', async () => {
+    const DEEP_RESEARCH = ['search', 'fetch'];
+    const { tools } = await client.listTools();
+    const proprias = tools.filter((t) => !DEEP_RESEARCH.includes(t.name));
+
+    expect(proprias.length).toBeGreaterThanOrEqual(31);
+    for (const t of proprias) {
+      const schema = t.inputSchema as { additionalProperties?: unknown };
+      expect(schema.additionalProperties, `${t.name} aceita chave desconhecida`).toBe(false);
+    }
+
+    // E a recusa precisa NOMEAR a chave, senão o modelo não sabe o que corrigir.
+    const r = await client.callTool({
+      name: 'icd11_search',
+      arguments: { query: 'diabetes', limite: 5 },
+    });
+    expect(r.isError).toBe(true);
+    const texto = Array.isArray(r.content)
+      ? r.content.map((c) => ('text' in c ? (c as { text: string }).text : '')).join(' ')
+      : '';
+    expect(texto).toContain('limite');
+  });
+
   it('marks every tool read-only, idempotent, and open-world', async () => {
     const { tools } = await client.listTools();
     for (const tool of tools) {
