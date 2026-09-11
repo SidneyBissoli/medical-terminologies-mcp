@@ -60,7 +60,7 @@
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
     "@sbissoli/mcp-provenance": "^0.1.0",
-    "@sbissoli/mcp-search": "^0.3.0",
+    "@sbissoli/mcp-search": "^0.4.0",
     "pino": "^10.2.1",
     "zod": "^4.5.4"
   },
