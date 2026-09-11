@@ -52,13 +52,26 @@ on:
   workflow_run:
     workflows: ["Deploy to Cloudflare Workers"]
     types: [completed]
+  # Semanal, porque o gatilho do deploy sozinho deixa um buraco: o
+  # `deploy-worker.yml` é filtrado por caminho, então semana inteira sem tocar
+  # em `src/` não audita nada. E o auditor não é estático — REGRA NOVA dele
+  # também reprova, e isso é notícia, não ruído (é a razão de o piso ser 100).
+  # Sem esta linha, uma regra nova só apareceria no deploy seguinte, que pode
+  # demorar. Os seis repositórios rodam em horas diferentes, de propósito: uma
+  # falha de infraestrutura da Cloudflare não deve chegar como seis alarmes
+  # simultâneos parecendo seis defeitos.
+  schedule:
+    - cron: "17 7 * * 1"
   workflow_dispatch:
 
 jobs:
   stdio:
     name: contrato no código do PR (stdio)
     # O eco do deploy não traz código novo para medir aqui — o PR e o push já
-    # mediram este mesmo commit.
+    # mediram este mesmo commit. Já o semanal ENTRA: o que muda sem commit é a
+    # versão do auditor (o `uvx` não pina) e a árvore de dependências, e as
+    # duas coisas mexem na nota. Rodar aqui é o que faz regra nova aparecer em
+    # sete dias em vez de no próximo deploy.
     if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     steps:
@@ -83,6 +96,7 @@ jobs:
     # conclui depois de conferir que /status já serve a versão do package.json.
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
