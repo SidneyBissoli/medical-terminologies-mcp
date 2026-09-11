@@ -49,11 +49,17 @@ on:
   pull_request:
   push:
     branches: [main, master]
+  workflow_run:
+    workflows: ["Deploy to Cloudflare Workers"]
+    types: [completed]
   workflow_dispatch:
 
 jobs:
   stdio:
     name: contrato no código do PR (stdio)
+    # O eco do deploy não traz código novo para medir aqui — o PR e o push já
+    # mediram este mesmo commit.
+    if: github.event_name != 'workflow_run'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -70,9 +76,14 @@ jobs:
 
   remoto:
     name: contrato no que está no ar (streamable http)
-    # Só no push: num PR o endpoint ainda serve o código anterior, e reprovar
-    # o PR por isso mediria a coisa errada.
-    if: github.event_name != 'pull_request'
+    # Depois do deploy, nunca no PR: num PR o endpoint ainda serve o código
+    # anterior, e reprovar o PR por isso mediria a coisa errada. E é o deploy
+    # que dá o sinal, não o push: até 11/09/2026 os dois corriam em paralelo e
+    # este job media a versão ANTERIOR, dando falha fantasma. O deploy só
+    # conclui depois de conferir que /status já serve a versão do package.json.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
