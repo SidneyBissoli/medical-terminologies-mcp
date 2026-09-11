@@ -45,6 +45,41 @@ const WHO_CONFIG = {
 const TOKEN_CACHE_KEY = 'who_oauth_token';
 
 /**
+ * An ICD-10 code: one letter and two digits, optionally a subdivision.
+ *
+ * No ICD-11 MMS code has this shape — they run four characters or more
+ * (`BA00`, `5A11`, `1A00-1A0Z`) — so a match is a safe signal that the caller
+ * brought a code from the wrong classification, and this server owns the
+ * converter for exactly that.
+ */
+const FORMATO_CID10 = /^[A-TV-Z]\d{2}(\.\d{1,2})?$/i;
+
+/**
+ * The message a caller gets when ICD-11 has no such code.
+ *
+ * Exported because it is the contract the tools are judged by: it must name
+ * the code, name the release, and name the tool that finds the right value.
+ */
+export function codigoIcd11NaoEncontrado(codeOrUri: string): string {
+  if (codeOrUri.startsWith('http')) {
+    return (
+      `ICD-11 entity "${codeOrUri}" was not found in release ${WHO_CONFIG.releaseId}. ` +
+      'Only URIs returned by icd11_search resolve here; entity URIs from other ICD releases do not.'
+    );
+  }
+  const comum =
+    `ICD-11 code "${codeOrUri}" was not found in release ${WHO_CONFIG.releaseId}. ` +
+    'ICD-11 codes look like "BA00", "5A11" or "1A00-1A0Z".';
+  if (FORMATO_CID10.test(codeOrUri)) {
+    return (
+      `${comum} "${codeOrUri}" has the shape of an ICD-10 code — use map_icd10_to_icd11 to ` +
+      'convert it, or cid10_search to check it first.'
+    );
+  }
+  return `${comum} Use icd11_search to find the code by name, or icd11_chapters to browse.`;
+}
+
+/**
  * WHO ICD-11 API Client with OAuth2 authentication
  *
  * Handles:
@@ -286,7 +321,8 @@ export class WHOClient {
       path = `/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/codeinfo/${codeOrUri}`;
     }
 
-    return cache.getOrSet(
+    return this.comCodigoInexistenteExplicado(codeOrUri, () =>
+      cache.getOrSet(
       CACHE_PREFIX.ICD11,
       cacheKey,
       async () => {
@@ -303,7 +339,39 @@ export class WHOClient {
         return entity;
       },
       DEFAULT_TTL.LOOKUP
+      )
     );
+  }
+
+  /**
+   * Turns "the WHO answered 404" into a message that teaches the way out.
+   *
+   * Why this exists: `icd11_hierarchy` and `icd11_lookup` were the two most
+   * failing tools of the portfolio (55 errors in 72 calls and 30 in 87, over
+   * 28 days ending 2026-09-10), and every failure was the same shape — a
+   * well-formed call carrying a code that ICD-11 does not have. What the
+   * caller got back was `Resource not found:
+   * /release/11/2026-01/mms/codeinfo/E11`: an internal path, no hint of what
+   * to do next, and the same text whether the code was an ICD-10 code, a
+   * disease name, or a typo. An agent cannot recover from that, so it
+   * retried the same mistake — which is exactly the daily 100% failure the
+   * telemetry recorded.
+   *
+   * The most common case is worth naming on its own: `E11`-shaped input is an
+   * ICD-10 code (letter + two digits), and this server owns the converter for
+   * it. ICD-11 MMS codes never have that shape — they are four characters or
+   * more, like `BA00`, `5A11`, `1A00-1A0Z`.
+   */
+  private async comCodigoInexistenteExplicado<T>(
+    codeOrUri: string,
+    executar: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await executar();
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.code !== 'NOT_FOUND') throw error;
+      throw new ApiError(codigoIcd11NaoEncontrado(codeOrUri), 'NOT_FOUND', 404);
+    }
   }
 
   /**

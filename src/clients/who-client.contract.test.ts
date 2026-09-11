@@ -12,7 +12,8 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import nock from 'nock';
-import { WHOClient } from './who-client.js';
+import { WHOClient, codigoIcd11NaoEncontrado } from './who-client.js';
+import { classifyError } from '../call-shape.js';
 import { cache } from '../utils/cache.js';
 
 const TOKEN_HOST = 'https://icdaccessmanagement.who.int';
@@ -231,6 +232,45 @@ describe('WHOClient — contract tests', () => {
 
       const e = await client.lookup('http://id.who.int/icd/entity/12345', 'en');
       expect(e['@id']).toBe('http://id.who.int/icd/entity/12345');
+    });
+  });
+
+  /**
+   * O 404 do WHO era repassado como `Resource not found:
+   * /release/11/2026-01/mms/codeinfo/E11` — caminho interno, nenhuma saída.
+   * Era a mensagem mais frequente do portfólio inteiro (icd11_hierarchy 55
+   * erros em 72 chamadas, icd11_lookup 30 em 87, 28 dias até 2026-09-10) e a
+   * mesma para causas diferentes, então quem chamou repetia o engano.
+   */
+  describe('código que o ICD-11 não tem', () => {
+    function esperaMensagem() {
+      nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
+      nock(API_HOST)
+        .get(/\/icd\/release\/11\/[\d-]+\/mms\/codeinfo\/.+/)
+        .reply(404, { error: 'not found' });
+    }
+
+    it('não vaza o caminho interno da API', async () => {
+      esperaMensagem();
+      await expect(client.lookup('ZZZZ', 'en')).rejects.toThrow(/ICD-11 code "ZZZZ"/);
+      expect(codigoIcd11NaoEncontrado('ZZZZ')).not.toContain('codeinfo');
+      expect(codigoIcd11NaoEncontrado('ZZZZ')).not.toContain('/release/');
+    });
+
+    it('reconhece a forma de um código CID-10 e aponta o conversor', async () => {
+      esperaMensagem();
+      await expect(client.lookup('E11', 'en')).rejects.toThrow(/map_icd10_to_icd11/);
+    });
+
+    it('para qualquer outro valor, aponta a busca', async () => {
+      esperaMensagem();
+      await expect(client.lookup('diabetes', 'en')).rejects.toThrow(/icd11_search/);
+    });
+
+    it('a mensagem cai na classe nao_encontrado da telemetria', async () => {
+      for (const codigo of ['E11', 'diabetes', 'http://id.who.int/icd/entity/999']) {
+        expect(classifyError(codigoIcd11NaoEncontrado(codigo))).toBe('nao_encontrado');
+      }
     });
   });
 

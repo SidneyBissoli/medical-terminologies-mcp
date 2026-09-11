@@ -119,7 +119,11 @@ describe('RxNormClient — contract tests against captured live fixtures', () =>
     it('flattens relatedGroup.conceptGroup[].conceptProperties[] tagging IN vs MIN', async () => {
       nock(HOST)
         .get(`${BASE}/rxcui/6809/related.json`)
-        .query({ tty: 'IN+MIN' })
+        // 'IN MIN' com espaço, e não 'IN+MIN', porque o nock compara a query
+        // DECODIFICADA: na URL vai `tty=IN+MIN`, e o '+' decodifica para
+        // espaço. É essa normalização que escondeu o defeito — a asserção
+        // sobre a URL crua, logo abaixo, é a que enxerga a diferença.
+        .query({ tty: 'IN MIN' })
         .reply(200, fixture('related-6809-ingredients.json'));
 
       const ings = await client.getIngredients('6809');
@@ -128,6 +132,40 @@ describe('RxNormClient — contract tests against captured live fixtures', () =>
       const metformin = ings.find((i) => i.name === 'metformin');
       expect(metformin).toBeDefined();
       expect(metformin!.isMultiple).toBe(false);
+    });
+
+    /**
+     * A URL CRUA, não a decodificada.
+     *
+     * O teste acima passou verde por meses sobre uma ferramenta que falhava
+     * 100% das vezes em produção: o cliente mandava `tty=IN%2BMIN` e o RxNav
+     * respondia 400 "Path or Query Parameter error", mas o nock compara a
+     * query já DECODIFICADA — e "%2B" decodifica exatamente para o '+' que a
+     * expectativa pedia. Toda a diferença que importa desaparece antes da
+     * comparação. Por isso esta asserção não passa por nock: lê a URL que o
+     * `fetch` recebeu, byte a byte.
+     */
+    it('manda tty=IN+MIN com o mais LITERAL, que é o que o RxNav aceita', async () => {
+      nock.enableNetConnect();
+      const original = globalThis.fetch;
+      const urls: string[] = [];
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        urls.push(String(input));
+        return new Response(JSON.stringify(fixture('related-6809-ingredients.json')), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }) as typeof globalThis.fetch;
+
+      try {
+        await client.getIngredients('6809');
+      } finally {
+        globalThis.fetch = original;
+      }
+
+      expect(urls).toHaveLength(1);
+      expect(urls[0]).toContain('tty=IN+MIN');
+      expect(urls[0]).not.toContain('%2B');
     });
   });
 

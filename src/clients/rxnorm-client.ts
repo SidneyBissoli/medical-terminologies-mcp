@@ -32,6 +32,17 @@ const RXNORM_CONFIG = {
  * - Retry with exponential backoff
  * - Response caching
  */
+/**
+ * Os dois term types que compõem "princípio ativo" no RxNav: IN (ingrediente)
+ * e MIN (ingrediente múltiplo).
+ *
+ * O separador que o RxNav espera é o sinal de mais LITERAL (`tty=IN+MIN`).
+ * Como a query é montada por URLSearchParams (form-urlencoding), o caractere
+ * que sai como '+' é o ESPAÇO — um '+' aqui sairia "%2B" e o RxNav responde
+ * 400. Ver o comentário em getIngredients e o teste que guarda a URL crua.
+ */
+export const TTY_INGREDIENTES = 'IN MIN';
+
 export class RxNormClient {
   private httpClient: HttpClient;
 
@@ -278,7 +289,16 @@ export class RxNormClient {
       cacheKey,
       async () => {
         const response = await this.request<RxNormRelatedResponse>(`/rxcui/${rxcui}/related.json`, {
-          tty: 'IN+MIN',
+          // ATENÇÃO: o separador de TTYs do RxNav é o sinal de mais LITERAL na
+          // URL (`tty=IN+MIN`), e quem monta a query aqui é URLSearchParams,
+          // que aplica form-urlencoding: um '+' no VALOR vira "%2B" e o RxNav
+          // responde 400 "Path or Query Parameter error" — era o defeito que
+          // fazia rxnorm_ingredients falhar 100% das vezes (14 de 14 chamadas
+          // em 28 dias, medido em 2026-09-10). Espaço é o caractere que o
+          // form-urlencoding serializa COMO '+', então "IN MIN" chega ao
+          // RxNav como `tty=IN+MIN`. Não "conserte" este espaço para um '+'.
+          // Guardado por src/clients/rxnorm-client.test.ts.
+          tty: TTY_INGREDIENTES,
         });
 
         if (!response.relatedGroup?.conceptGroup) {

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`rxnorm_ingredients` falhava 100% das vezes, desde sempre.** O cliente
+  pedia os dois term types como `tty: 'IN+MIN'`, e a query é montada por
+  `URLSearchParams` (form-urlencoding): o '+' do VALOR sai como `%2B`, e o
+  RxNav responde `400 Path or Query Parameter error`. O separador que ele
+  espera é o sinal de mais literal. O valor agora é `'IN MIN'` — espaço é o
+  caractere que o form-urlencoding serializa como '+', então a URL chega
+  correta. Medido pela telemetria: 14 erros em 14 chamadas em 28 dias.
+  O teste de contrato passava verde porque o `nock` compara a query
+  DECODIFICADA, e `%2B` decodifica exatamente para o '+' que a expectativa
+  pedia — a asserção nova lê a URL crua que o `fetch` recebeu.
+- **O 404 do WHO deixou de vazar caminho interno e passou a ensinar a saída.**
+  `icd11_hierarchy` e `icd11_lookup` eram as duas ferramentas que mais falhavam
+  no portfólio (55 erros em 72 chamadas e 30 em 87, 28 dias até 10/09/2026), e
+  toda falha era a mesma: chamada bem formada com um código que o ICD-11 não
+  tem. A resposta era `Resource not found:
+  /release/11/2026-01/mms/codeinfo/E11` — caminho interno da API, igual para
+  causas diferentes e sem nenhuma saída, então quem chamou repetia o engano.
+  Agora a mensagem nomeia o código e a release, mostra a forma de um código
+  ICD-11, e aponta `map_icd10_to_icd11` quando a entrada tem a forma de um
+  código CID-10 (letra + dois dígitos, que nenhum código ICD-11 tem) ou
+  `icd11_search` em qualquer outro caso.
+
+### Added
+
+- Teste ao vivo de `getIngredients` em `src/integration/` — a lacuna que deixou
+  o defeito acima passar: o método nunca esteve na suíte que roda contra as
+  APIs reais.
+
 ## [1.10.0] - 2026-09-02
 
 ### Added

@@ -72,6 +72,18 @@ describeIntegration('Integration: live API contracts', () => {
       expect(ttys.size).toBeGreaterThan(1);
     });
 
+    // Lacuna que custou caro: getIngredients nunca esteve aqui, e a URL que
+    // ele montava era recusada com 400 pelo RxNav desde sempre — o teste de
+    // contrato com nock passava porque nock compara a query DECODIFICADA,
+    // e "%2B" decodifica justamente para o '+' que o teste esperava.
+    // Medido em 2026-09-10: 14 erros em 14 chamadas, 28 dias.
+    it('ingredientes de 860975 (metformina + sitagliptina) voltam com IN', async () => {
+      const ings = await getRxNormClient().getIngredients('860975');
+      expect(ings.length).toBeGreaterThan(0);
+      expect(ings.some((i) => i.tty === 'IN')).toBe(true);
+      expect(ings.map((i) => i.name.toLowerCase()).join(' ')).toContain('metformin');
+    });
+
     it('ATC classify for "metformin" returns A10BA (Biguanides) class', async () => {
       // Note: byDrugName returns ATC1-4 codes (1-5 chars); the
       // substance-level (7-char) code A10BA02 is not exposed by this
