@@ -28,6 +28,12 @@ concurrency:
 jobs:
   integration:
     runs-on: ubuntu-latest
+    # Teto de parede. O alvo de um destes contratos pode parar de responder
+    # sem fechar a conexão — descarte silencioso em firewall, medido no
+    # senado-br-mcp em 12/09/2026 — e aí cada requisição só morre no timeout
+    # dela, o job nunca falha sozinho e vai até as 6 h padrão do GitHub.
+    # Rodada real aqui leva no máximo ~2,5 min.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
