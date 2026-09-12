@@ -1,0 +1,65 @@
+name: Integration retry
+
+# Re-roda num runner NOVO um job de integracao que falhou.
+#
+# Por que existe, MEDIDO em 12/09/2026: a fonte descarta pacotes de alguns
+# enderecos de origem, e o job que cai num deles esta perdido. Vinte runners
+# do GitHub dispararam no mesmo instante contra o Senado: 18 conectaram e 2
+# nao receberam NENHUMA resposta de TCP, em nenhum endereco do alvo, com
+# User-Agent nominal e com um curl generico igualmente, enquanto buscavam um
+# site de controle em menos de 60 ms. Vizinhos nas mesmas faixas da Azure
+# passaram: e lista por endereco, nao faixa de nuvem recusada.
+#
+# Neste repo o fenomeno apareceu no mesmo dia: a rodada das 09:52 UTC travou
+# e foi cortada pelo teto de 15 min; a re-rodada 17 min depois, mesmo codigo
+# e mesmo alvo, passou em 70 s. So mudou o runner.
+#
+# A cura e endereco novo, e nada mais. `gh run rerun --failed` re-roda so o
+# que falhou, num runner novo. A espera de 60 s nao serve para desbloquear
+# nada - so evita girar em falso diante de falha sistemica.
+
+on:
+  workflow_run:
+    workflows: ["Integration tests (live APIs)"]
+    types: [completed]
+
+permissions:
+  actions: write # gh run rerun
+
+jobs:
+  rerun:
+    # Deliberadamente NAO e `!= 'success'`: rodada cancelada a mao tambem
+    # reporta `cancelled`, e re-roda-la atropelaria a decisao de quem cancelou.
+    if: >-
+      (github.event.workflow_run.conclusion == 'failure' ||
+       github.event.workflow_run.conclusion == 'timed_out') &&
+      github.event.workflow_run.run_attempt < 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Espera curta e re-roda o que falhou num runner novo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          set -euo pipefail
+          echo "run $RUN_ID nao passou na tentativa $ATTEMPT; esperando 60s"
+          sleep 60
+          # Cinto para a guarda do job: expressao do GitHub converte campo
+          # ausente em 0, e `0 < 3` seria verdadeiro para sempre - falha real
+          # e reproduzivel viraria retry infinito. Perguntar a API em que
+          # tentativa a rodada esta, e recusar a partir do numero vivo.
+          live=$(gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID"             --jq '.run_attempt')
+          case "$live" in
+            ''|*[!0-9]*)
+              echo "nao consegui ler run_attempt (veio '$live'); recusando" >&2
+              exit 1
+              ;;
+          esac
+          if [ "$live" -ge 3 ]; then
+            echo "run $RUN_ID ja esta na tentativa $live; desistindo"
+            exit 0
+          fi
+          gh run rerun "$RUN_ID" --failed -R "${{ github.repository }}"
+          echo "re-rodada pedida para os jobs vermelhos de $RUN_ID"
