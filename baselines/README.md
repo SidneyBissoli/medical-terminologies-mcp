@@ -10,6 +10,7 @@ descrições 12× menores em produção). Nenhum teste unitário pega essa class
 
 | Arquivo | Como foi capturado | O que representa |
 |:--|:--|:--|
+| `surface-stdio-1.11.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-09-13 | 33 tools. Diff para a 1.10.0, todo deliberado e no CHANGELOG: `additionalProperties: false` em todas as tools (esquemas estritos de 11/09) e `icd11_hierarchy` com `uri` e `language`, `code` opcional e descrição nova (bloco/intervalo). O baseline `http-prod` correspondente é capturado depois do deploy. |
 | `surface-stdio-1.10.0.json` | `--stdio` sobre `dist/index.js` do fonte atual | o que o canal npm publica (SNOMED off = 33 tools, o default: 31 de terminologia + `search`/`fetch`) |
 | `surface-http-prod-1.10.0.json` | `--url https://medical.sidneybissoli.com/mcp` | o que o endpoint hospedado serve DE FATO |
 | `surface-{stdio,http-prod}-1.9.1.json` | idem, 2026-09-01 | a captura inicial (31 tools); o diff para a 1.10.0 são só as duas tools do contrato Deep Research |

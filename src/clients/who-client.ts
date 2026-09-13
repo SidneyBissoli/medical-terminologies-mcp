@@ -60,6 +60,19 @@ const FORMATO_CID10 = /^[A-TV-Z]\d{2}(\.\d{1,2})?$/i;
  * Exported because it is the contract the tools are judged by: it must name
  * the code, name the release, and name the tool that finds the right value.
  */
+/**
+ * A block (range) code, the way the MMS prints it: `1A00-1A0Z`, `5A10-5A2Y`,
+ * `BA00.0-BA0Z.Z`. The WHO API has no `/codeinfo/` for these — only leaf
+ * codes resolve there — yet they are what `icd11_hierarchy` itself hands back
+ * as parents (with `code` empty and `codeRange` set). An agent that walks up
+ * and then asks for the children of the block it was just given got
+ * "not found": a dead end built into the tool's own output. Measured on
+ * 2026-09-13 as the recurring `nao_encontrado` with `code,direction` filled
+ * from a residential network, after the ICD-10-shaped inputs had already
+ * been explained away.
+ */
+export const FORMATO_INTERVALO = /^([0-9A-Z]{4}(?:\.[0-9A-Z]+)?)-([0-9A-Z]{4}(?:\.[0-9A-Z]+)?)$/i;
+
 export function codigoIcd11NaoEncontrado(codeOrUri: string): string {
   if (codeOrUri.startsWith('http')) {
     return (
@@ -305,6 +318,16 @@ export class WHOClient {
    * @returns Entity details
    */
   async lookup(codeOrUri: string, language: string = 'en'): Promise<ICD11EntityResponse> {
+    // A block/range code has no /codeinfo entry; resolve it through the
+    // hierarchy instead (see FORMATO_INTERVALO). Wrapped like the code path
+    // so a miss explains itself in terms of the range the caller typed.
+    const intervalo = FORMATO_INTERVALO.exec(codeOrUri.trim());
+    if (intervalo) {
+      return this.comCodigoInexistenteExplicado(codeOrUri, () =>
+        this.lookupBloco(codeOrUri.trim(), intervalo[1], language),
+      );
+    }
+
     const cacheKey = `lookup:${codeOrUri}:${language}`;
 
     // Determine if it's a code or URI
@@ -341,6 +364,32 @@ export class WHOClient {
       DEFAULT_TTL.LOOKUP
       )
     );
+  }
+
+  /**
+   * Resolves a block/range code (`1A00-1A0Z`) to its entity.
+   *
+   * The API has no resolver for blocks, but the block is an ancestor of every
+   * code inside it: resolve the FIRST code of the range and climb the parent
+   * chain until the entity whose `codeRange` is the range asked for. Depth is
+   * capped — the MMS is at most ~8 levels deep — so a range that does not
+   * exist (typo, wrong release) ends in the same NOT_FOUND the caller already
+   * knows, explained by `codigoIcd11NaoEncontrado`.
+   */
+  private async lookupBloco(
+    intervalo: string,
+    primeiroCodigo: string,
+    language: string,
+  ): Promise<ICD11EntityResponse> {
+    const alvo = intervalo.toUpperCase();
+    let atual = await this.lookup(primeiroCodigo, language);
+    for (let nivel = 0; nivel < 10; nivel++) {
+      if ((atual.codeRange ?? '').toUpperCase() === alvo) return atual;
+      const pai = atual.parent?.[0];
+      if (!pai) break;
+      atual = await this.getEntity(pai, language);
+    }
+    throw new ApiError(codigoIcd11NaoEncontrado(intervalo), 'NOT_FOUND', 404);
   }
 
   /**
