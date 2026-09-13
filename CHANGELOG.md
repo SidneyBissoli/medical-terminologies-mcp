@@ -7,7 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-09-13
+
 ### Fixed
+
+- **`icd11_hierarchy` e `icd11_lookup` deixaram de ter um beco sem saída na
+  própria navegação.** `parents` devolve blocos com `code` vazio e um
+  `code_range` como `5A10-5A2Y`; pedir os filhos desse bloco dava "not found",
+  porque o `/codeinfo/` da OMS só resolve código-folha. Um agente que sobe um
+  nível e tenta descer de volta pelo que recebeu batia nisso — e era o erro
+  `nao_encontrado` com `code` e `direction` preenchidos que a telemetria
+  seguia registrando de uma rede residencial em 11/09/2026, depois que os
+  códigos com forma de CID-10 já tinham sido explicados. Três mudanças: um
+  intervalo de bloco agora resolve pelo primeiro código do intervalo, subindo
+  pelos pais até o ancestral cujo `codeRange` é o pedido (em `lookup()`, então
+  vale para as duas tools); `icd11_hierarchy` aceita `uri`, como `icd11_lookup`
+  já aceitava, e `language`; a descrição diz as três formas de nomear a
+  entidade e manda o código CID-10 para `map_icd10_to_icd11`. Medido ao vivo
+  antes do conserto: `5A11` parents ok, `5a11` ok, `BA00.0` children ok,
+  `1A00-1A0Z` children NOT_FOUND — o único caso quebrado era o bloco.
 
 - **As 31 tools de terminologia recusam parâmetro que não existe.** Sem isso o
   zod descartava a chave desconhecida em silêncio, o parâmetro que o chamador

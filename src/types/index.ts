@@ -59,12 +59,31 @@ export const ICD11LookupParamsSchema = z
     message: 'Either "code" or "uri" must be provided',
   });
 
-export const ICD11HierarchyParamsSchema = z.object({
-  code: z.string().min(1).describe('ICD-11 code to get hierarchy for'),
-  direction: z
-    .enum(['parents', 'children'])
-    .describe('Direction: "parents" for ancestors, "children" for subtypes'),
-}).strict();
+// `uri` entered on 2026-09-13: the tool's own `parents` answer hands back
+// blocks with `code` empty and only a `uri`/`code_range`, and the only way
+// to keep walking from one of those was a code the API could not resolve.
+// Same shape as ICD11LookupParamsSchema: code OR uri, plus language.
+export const ICD11HierarchyParamsSchema = z
+  .object({
+    code: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('ICD-11 code (e.g., "BA00", "5A11") or block range (e.g., "5A10-5A2Y")'),
+    uri: z
+      .string()
+      .url()
+      .optional()
+      .describe('Entity URI as returned by icd11_lookup, icd11_search or a previous icd11_hierarchy call'),
+    direction: z
+      .enum(['parents', 'children'])
+      .describe('Direction: "parents" for ancestors, "children" for subtypes'),
+    language: SupportedLanguageSchema.optional().default('en'),
+  })
+  .strict()
+  .refine((data) => Boolean(data.code) || Boolean(data.uri), {
+    message: 'Either "code" or "uri" must be provided',
+  });
 
 export const ICD11ChaptersParamsSchema = z.object({
   language: SupportedLanguageSchema.optional().default('en'),

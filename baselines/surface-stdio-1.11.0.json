@@ -1,25 +1,79 @@
 {
-  "identifier": "sidneybissoli-medical-terminologies-mcp",
-  "name": "Medical Terminologies MCP",
-  "version": "1.11.0",
-  "description": "Unified MCP server for global medical terminologies - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
-  "author": "Sidney Bissoli",
-  "authorUrl": "https://github.com/SidneyBissoli",
-  "homepage": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
-  "icon": "⚕️",
-  "category": "healthcare",
-  "tags": [
-    "icd-11",
-    "snomed",
-    "loinc",
-    "rxnorm",
-    "mesh",
-    "atc",
-    "cid-10",
-    "medical",
-    "terminology",
-    "health"
+  "prompts": [
+    {
+      "arguments": [
+        {
+          "description": "Termo médico em português a ser pesquisado (ex.: \"infecções respiratórias\", \"diabetes\"). Busca é insensível a acentos.",
+          "name": "term",
+          "required": true
+        }
+      ],
+      "description": "Procura um termo médico em português no CID-10 brasileiro (DataSUS V2008), com contexto de capítulo e descrição clínica. Searches a Portuguese medical term in the Brazilian CID-10 with chapter context.",
+      "name": "cid10-portuguese-lookup",
+      "title": "Cid10 Portuguese Lookup"
+    },
+    {
+      "arguments": [
+        {
+          "description": "The drug name (brand or generic) to look up. Approximate matches are accepted.",
+          "name": "drug_name",
+          "required": true
+        }
+      ],
+      "description": "Compile comprehensive information about a drug — normalized name, RxCUI, active ingredients, therapeutic classes, and WHO ATC classification — by composing RxNorm and ATC tool calls.",
+      "name": "drug-info",
+      "title": "Drug Info"
+    },
+    {
+      "arguments": [
+        {
+          "description": "The condition, symptom, or medical term to search for.",
+          "name": "condition",
+          "required": true
+        },
+        {
+          "description": "Preferred language hint — \"en\" or \"pt-BR\". When \"pt-BR\", CID-10 results are prioritized. Defaults to \"en\".",
+          "name": "language",
+          "required": false
+        }
+      ],
+      "description": "Search a clinical condition, symptom, or medical term across all available terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10) in parallel and synthesize the matches with their codes and source terminology.",
+      "name": "find-medical-code",
+      "title": "Find Medical Code"
+    }
   ],
+  "resources": [
+    {
+      "description": "List of the 22 CID-10 chapters (Brazilian Portuguese ICD-10, DataSUS V2008) with code ranges and Portuguese descriptions. Source: bundled CID-10 dataset.",
+      "mimeType": "application/json",
+      "name": "CID-10 chapters",
+      "title": "CID-10 chapters",
+      "uri": "info://cid10/chapters"
+    },
+    {
+      "description": "Per-terminology license disclaimers and access requirements. Important for downstream redistribution decisions and for surfacing license constraints in LLM answers.",
+      "mimeType": "text/markdown",
+      "name": "Terminology licenses",
+      "title": "Terminology licenses",
+      "uri": "info://licenses"
+    },
+    {
+      "description": "Version, tool count, supported terminologies, and feature-flag state. Useful for LLMs to ground answers about server capabilities.",
+      "mimeType": "application/json",
+      "name": "Server info",
+      "title": "Server info",
+      "uri": "info://server"
+    },
+    {
+      "description": "Per-tool invocation counts and total successful dispatches recorded by the hosted Cloudflare Workers endpoint. Excludes local stdio installs (those have no shared counter by design). Useful for adoption signal — see top_tool to know which terminology is pulling the most demand.",
+      "mimeType": "application/json",
+      "name": "Usage stats (hosted endpoint)",
+      "title": "Usage stats (hosted endpoint)",
+      "uri": "info://stats"
+    }
+  ],
+  "serverName": "medical-terminologies-mcp",
+  "toolCount": 33,
   "tools": [
     {
       "annotations": {
@@ -30,6 +84,7 @@
       },
       "description": "Look up the WHO ATC (Anatomical Therapeutic Chemical) classification(s) for a drug by name.\n\nUse this tool to:\n- Find the ATC code for a medication (e.g., \"metformin\" → A10BA02)\n- Identify the therapeutic and pharmacological class hierarchy\n- Cross-reference drugs with their international ATC codes\n\nReturns one entry per ATC code the drug belongs to. A single-ingredient drug typically maps to one substance-level code; combination products map to multiple. ATC codes are international (WHO Collaborating Centre); this tool retrieves them via NLM RxClass.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "drug_name": {
             "description": "Drug name to classify (brand or generic, e.g., \"metformin\")",
@@ -156,6 +211,7 @@
       },
       "description": "Look up an ATC code at level 1-4 to get its name and hierarchy level.\n\nUse this tool to:\n- Resolve an ATC code (e.g., \"A10BA\") to its class name (\"Biguanides\")\n- Confirm a code exists in the current ATC index\n- Identify the level (anatomical / therapeutic / pharmacological / chemical)\n\nAccepts codes 1-5 characters long: \"A\" (anatomical), \"A10\" (therapeutic), \"A10B\" (pharmacological), \"A10BA\" (chemical). Substance-level codes (7 chars, e.g., \"A10BA02\") are not exposed by this endpoint — use atc_classify with the drug name to retrieve the substance code.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "atc_code": {
             "description": "ATC code at level 1-4 (1-5 chars). Substance-level codes (7 chars, e.g., A10BA02) are not exposed by this endpoint — use atc_classify with the drug name instead.",
@@ -278,6 +334,7 @@
       },
       "description": "List the drugs (substances) that belong to an ATC class.\n\nUse this tool to:\n- Enumerate all members of a therapeutic class (e.g., \"A10BA\" → metformin, phenformin)\n- Build a list of drugs sharing a pharmacological mechanism\n- Explore an ATC subtree at any level\n\nEach member includes its substance-level (7-char) ATC code via source_atc_code, useful for disambiguation when the queried class is at level 1-4. RxNorm's catalog is US-centric; the ATC class names and codes themselves are international.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "atc_code": {
             "description": "ATC code at any level. Higher levels (1-4) return all member substances; level 5 returns the single substance.",
@@ -396,6 +453,7 @@
       },
       "description": "Get one CID-10 chapter and its constituent groups (e.g., \"Chapter IX → I00-I02 Febre reumática aguda, I05-I09 Doenças reumáticas crônicas do coração, ...\").\n\nUse this tool to:\n- Drill from a chapter into its groups\n- Build hierarchical browsers\n- Find which group contains a code range\n\nProvide a chapter number (1-22).",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "num": {
             "description": "Chapter number (1-22). CID-10 V2008 has 22 chapters.",
@@ -559,6 +617,7 @@
       },
       "description": "List the 22 chapters of CID-10 with their code ranges and Portuguese titles.\n\nUse this tool to:\n- See the top-level structure of CID-10 (chapters I-XXII, e.g., \"I. Algumas doenças infecciosas e parasitárias\", \"IX. Doenças do aparelho circulatório\")\n- Map a code to its chapter by code range (e.g., I00-I99 → chapter IX)\n- Build a navigable table of contents for downstream tooling\n\nReturns 22 entries — CID-10 V2008 has not been updated since 2008.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {},
         "type": "object"
       },
@@ -670,6 +729,7 @@
       },
       "description": "Look up a specific CID-10 code and return its Portuguese name.\n\nUse this tool to:\n- Resolve a code to its Brazilian description (\"I21\" → \"Infarto agudo do miocárdio\")\n- Confirm a 3-char category or 4-char subcategory exists in CID-10\n- Retrieve gender / cause-of-death restriction flags when applicable\n\nAccepts both dotted (\"A00.1\") and undotted (\"A001\") forms; returns the canonical display.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "description": "CID-10 code (e.g., \"A00\", \"A00.1\", \"A001\", \"I21\"). Dotted and undotted forms both accepted.",
@@ -844,6 +904,7 @@
       },
       "description": "Search the Brazilian CID-10 (Classificação Estatística Internacional de Doenças, 10ª Revisão) by Portuguese text.\n\nUse this tool to:\n- Find CID-10 codes for Brazilian SUS / ANVISA contexts (\"infarto\", \"diabetes\", \"tuberculose\")\n- Look up the official Portuguese (CBCD/USP) translation of a clinical term\n- Locate codes for billing, epidemiology, and clinical documentation in Brazil\n\nReturns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing \"infeccoes\" matches \"infecções\". This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "level": {
             "default": "all",
@@ -1162,6 +1223,7 @@
       },
       "description": "Ranked unified search for equivalent terms across multiple medical terminologies.\n\nUse this tool to:\n- Find the same concept in different coding systems\n- Compare how terminologies represent a concept\n- Support terminology mapping and data integration\n\nSearches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH. Set `target_terminologies` to limit which are searched, or set `source_terminology` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. `limit` caps candidates per terminology (default 5, max 10).\n\nEvery candidate carries `match_score` (lexical similarity to the search term, 0-1) and `rank` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in `groups` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).\n\nSearches upstreams in English. For official pt-BR content, use the dedicated tools: `icd11_search`/`mesh_search` accept `language: \"pt\"`, and `cid10_search` is natively Portuguese.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "limit": {
             "description": "Maximum candidates returned PER terminology (1-10, default 5). This is a cap, not a page: the live fan-out has no stable cursor across five upstreams, so raise the limit instead of paging.",
@@ -1700,6 +1762,7 @@
       },
       "description": "List all ICD-11 chapters (top-level categories).\n\nUse this tool to:\n- Get an overview of ICD-11 structure\n- Find which chapter covers a body system or condition type\n- Navigate to specific disease categories\n\nICD-11 has 28 chapters covering all areas of medicine.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "language": {
             "default": "en",
@@ -1843,11 +1906,12 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Navigate the ICD-11 hierarchy to find parent or child entities.\n\nUse this tool to:\n- Find broader categories (parents) of a condition\n- Find specific subtypes (children) of a condition\n- Understand the classification structure\n\nDirection 'parents' returns ancestor categories, 'children' returns subcategories.",
+      "description": "Navigate the ICD-11 hierarchy to find parent or child entities.\n\nUse this tool to:\n- Find broader categories (parents) of a condition\n- Find specific subtypes (children) of a condition\n- Understand the classification structure\n\nName the entity by `code` (a leaf code like \"5A11\", or a block range like \"5A10-5A2Y\" — blocks come back from 'parents' with an empty code and a code_range) or by `uri` (the URI any previous answer returned). Direction 'parents' returns ancestor categories, 'children' returns subcategories. ICD-10 codes (like \"E11\") are not ICD-11 codes: convert them first with map_icd10_to_icd11.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "code": {
-            "description": "ICD-11 code to get hierarchy for",
+            "description": "ICD-11 code (e.g., \"BA00\", \"5A11\") or block range (e.g., \"5A10-5A2Y\")",
             "minLength": 1,
             "type": "string"
           },
@@ -1858,10 +1922,31 @@
               "children"
             ],
             "type": "string"
+          },
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          },
+          "uri": {
+            "description": "Entity URI as returned by icd11_lookup, icd11_search or a previous icd11_hierarchy call",
+            "format": "uri",
+            "type": "string"
           }
         },
         "required": [
-          "code",
           "direction"
         ],
         "type": "object"
@@ -1986,6 +2071,7 @@
       },
       "description": "Get detailed information about a specific ICD-11 entity by code or URI.\n\nUse this tool to:\n- Get the full definition of a disease\n- Retrieve coding notes and exclusions\n- Get the official title and synonyms\n\nProvide either an ICD-11 code (e.g., \"BA00\") or a full foundation URI. Set `language` for WHO's official translations (e.g. `language: \"pt\"` for official Portuguese).",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "description": "ICD-11 code (e.g., \"BA00\", \"1A00\")",
@@ -2222,6 +2308,7 @@
       },
       "description": "Get postcoordination information for an ICD-11 code.\n\nUse this tool to:\n- Find available axes for building composite codes\n- Check required vs optional postcoordination\n- Understand code extension possibilities\n\nPostcoordination allows adding severity, laterality, anatomy, etc.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "code": {
             "description": "ICD-11 code to get postcoordination info for",
@@ -2349,6 +2436,7 @@
       },
       "description": "Search for medical conditions, diseases, and health problems in ICD-11 (International Classification of Diseases, 11th Revision).\n\nUse this tool to:\n- Find ICD-11 codes for diagnoses\n- Search for diseases by name or keyword\n- Look up conditions in multiple languages\n\nSet `language` for WHO's official translations — e.g. `language: \"pt\"` searches and returns the official Portuguese (pt-BR) ICD-11 labels. Never machine-translated.\n\nReturns matching entities with codes, titles, and relevance scores.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "language": {
             "default": "en",
@@ -2531,6 +2619,7 @@
       },
       "description": "Get the list of valid answers for a LOINC questionnaire item.\n\nUse this tool to:\n- Find valid response options for survey questions\n- Get answer codes for data entry validation\n- Look up standardized answer lists\n\nOnly applicable to LOINC codes that represent questions with defined answer sets.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "loinc_num": {
             "description": "LOINC number (e.g., \"2339-0\")",
@@ -2647,6 +2736,7 @@
       },
       "description": "Get detailed information about a specific LOINC code.\n\nUse this tool to:\n- Get the full name and description of a LOINC code\n- Find the component, property, timing, and system\n- Check the scale type and method\n\nProvide a LOINC number in format \"XXXXX-X\" (e.g., \"2339-0\" for Glucose).",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "loinc_num": {
             "description": "LOINC number (e.g., \"2339-0\")",
@@ -2784,6 +2874,7 @@
       },
       "description": "Get the structure of a LOINC panel or form.\n\nUse this tool to:\n- See all tests included in a panel (e.g., CBC, metabolic panel)\n- Get the structure of assessment forms\n- Find related observations grouped together\n\nReturns the list of LOINC codes that make up the panel.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "loinc_num": {
             "description": "LOINC number (e.g., \"2339-0\")",
@@ -2928,6 +3019,7 @@
       },
       "description": "Search for laboratory tests, clinical observations, and measurements in LOINC (Logical Observation Identifiers Names and Codes).\n\nUse this tool to:\n- Find LOINC codes for lab tests (e.g., \"glucose\", \"hemoglobin\")\n- Search for clinical measurements and vital signs\n- Look up diagnostic observations\n\nReturns matching LOINC codes with names, components, and properties.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "max_results": {
             "default": 25,
@@ -3100,6 +3192,7 @@
       },
       "description": "Authoritative ICD-10 → ICD-11 mapping using WHO transition tables (release 2025-01, bundled with the server).\n\nReturns the primary 1:1 ICD-11 category for the ICD-10 code plus any alternative ICD-11 candidates that WHO documents (some ICD-10 concepts split into multiple ICD-11 entities). For each mapping, includes the ICD-11 code, title, chapter, and the Foundation URI / Linearization URI for navigating to the full entity definition.\n\nUse this for clinical coding, billing migration, retrospective analysis, and any workflow that needs authoritative mapping rather than text-search candidates. Coverage: 11,243 ICD-10 categories (excludes chapters and blocks like \"A00-A09\" which aren't used in clinical coding).\n\nProvide a code like \"E11\" (Type 2 diabetes), \"I21\" (Acute MI), or \"A07.8\" (4 alternatives in WHO's table). Both dotted (\"A07.8\") and undotted (\"A078\") forms are accepted.\n\nReturns \"no mapping\" when the code isn't in the WHO category-level table — that's the honest answer rather than a fuzzy search fallback.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "icd10_code": {
             "description": "ICD-10 code to query in the ICD-11 search index (e.g., E11, I21.0, J18.9)",
@@ -3345,6 +3438,7 @@
       },
       "description": "This tool looks up a LOINC code in NLM Clinical Tables and returns guidance on where to obtain a LOINC → SNOMED CT mapping. It does not perform the mapping.\n\nDirect LOINC → SNOMED CT mappings are not freely available via API. UMLS Metathesaurus contains the relationships but requires an individual UMLS Terminology Services license; the LOINC SNOMED CT Expression Association is published by Regenstrief Institute as part of the LOINC release and requires authenticated download from loinc.org under the LOINC license.\n\nFor programmatic LOINC → SNOMED mapping, use UMLS or the LOINC Expression Association files. For interactive lookup, use the SNOMED CT browser available to your organization or the Regenstrief RELMA desktop tool.\n\nProvide a LOINC code like \"2339-0\" (Glucose) or \"718-7\" (Hemoglobin).",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "loinc_code": {
             "description": "LOINC code (e.g., 2339-0 for Glucose)",
@@ -3526,6 +3620,7 @@
       },
       "description": "Get detailed information about a MeSH descriptor by ID.\n\nUse this tool to:\n- Get the full definition (scope note) of a MeSH term\n- View tree numbers showing hierarchy location\n- See related concepts and synonyms\n\nProvide a MeSH Descriptor ID like \"D015242\" (Ofloxacin). Set `language` to request NLM's official translations where they exist (e.g. `language: \"pt\"`).",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "language": {
             "default": "en",
@@ -3720,6 +3815,7 @@
       },
       "description": "Get allowed qualifiers (subheadings) for a MeSH descriptor.\n\nUse this tool to:\n- Find which qualifiers can be combined with a descriptor\n- Build precise MeSH search queries\n- Understand aspects that can be specified\n\nQualifiers refine descriptors (e.g., \"Diabetes Mellitus/drug therapy\").",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "mesh_id": {
             "description": "MeSH Descriptor ID (e.g., D015242, D003920)",
@@ -3834,6 +3930,7 @@
       },
       "description": "Search for MeSH (Medical Subject Headings) descriptors.\n\nUse this tool to:\n- Find MeSH terms for indexing medical literature\n- Look up subject headings for PubMed searches\n- Find controlled vocabulary terms\n\nSet `language` to request NLM's official translations where they exist (e.g. `language: \"pt\"` for Portuguese labels); content is never machine-translated.\n\nReturns matching descriptors with MeSH IDs and labels.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "language": {
             "default": "en",
@@ -3997,6 +4094,7 @@
       },
       "description": "Get the tree hierarchy location(s) for a MeSH descriptor.\n\nUse this tool to:\n- See where a term fits in the MeSH hierarchy\n- Understand broader/narrower relationships\n- Find related terms in the same branch\n\nMeSH tree numbers show the hierarchical path (e.g., C14.280.647 for Myocardial Infarction).",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "mesh_id": {
             "description": "MeSH Descriptor ID (e.g., D015242, D003920)",
@@ -4107,6 +4205,7 @@
       },
       "description": "Get therapeutic and pharmacologic classes for a drug.\n\nUse this tool to:\n- Find the drug class (e.g., \"Beta-blockers\", \"NSAIDs\")\n- Identify therapeutic categories\n- Look up mechanism of action classifications\n\nReturns class IDs, names, and classification sources.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "rxcui": {
             "description": "RxCUI of the drug",
@@ -4225,6 +4324,7 @@
       },
       "description": "Get detailed information about a specific RxNorm concept by RxCUI.\n\nUse this tool to:\n- Get the full name and synonyms for a drug\n- Check the concept status (active, remapped, etc.)\n- View related concepts (ingredients, brands, forms)\n\nProvide an RxCUI (RxNorm Concept Unique Identifier) like \"161\".",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "include_related": {
             "default": false,
@@ -4410,6 +4510,7 @@
       },
       "description": "Get active ingredients for a drug by RxCUI.\n\nUse this tool to:\n- Find the active ingredients in a medication\n- Check for single vs. multiple ingredient products\n- Identify the generic components of brand drugs\n\nReturns ingredient RxCUIs and names.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "rxcui": {
             "description": "RxCUI of the drug",
@@ -4528,6 +4629,7 @@
       },
       "description": "Map between RxNorm concepts and National Drug Codes (NDC).\n\nUse this tool to:\n- Get all NDC codes for a drug (by RxCUI)\n- Find the RxCUI for an NDC code\n- Cross-reference between coding systems\n\nProvide either an RxCUI to get NDCs, or an NDC to get the RxCUI.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "ndc": {
             "description": "NDC code to look up RxCUI (alternative to rxcui)",
@@ -4654,6 +4756,7 @@
       },
       "description": "Search for drugs in RxNorm (Normalized names for clinical drugs).\n\nUse this tool to:\n- Find drug concepts by brand or generic name\n- Look up medications for prescribing\n- Search for drug formulations\n\nReturns matching drugs with RxCUI identifiers, names, and term types.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "max_results": {
             "default": 25,
@@ -4906,6 +5009,7 @@
       },
       "description": "Report what diff data is available between two versions of a terminology.\n\nFor most terminologies this is **guidance only** — the server doesn't ship historical snapshots, so the tool points at the publisher's official changelog and explains the cadence. `bundled_versions` lists the version(s) this server actually has on hand.\n\nFor **ICD-10 vs ICD-11** specifically, the tool surfaces a real cross-revision summary from the bundled WHO transition tables (the ICD-10 → ICD-11 case is a structural diff between two WHO revisions). Use `terminology: \"icd10\"` with no `to_version` to get the cross-revision summary: total mapped ICD-10 categories, how many are 1:1 vs split into multiple ICD-11 codes, and the average number of alternatives when split.\n\nInputs:\n- `terminology` (required): which terminology to report on.\n- `from_version` (optional): the version you have data from. If omitted, the tool reports against the currently-bundled version.\n- `to_version` (optional): the version you want to compare to. If omitted, the tool reports against the publisher's latest known release.\n\nThis tool is intentionally a metadata + guidance layer, not a diff engine — for terminologies that change frequently (SNOMED, LOINC, RxNorm, MeSH), the publisher's official changelog is the authoritative source.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "from_version": {
             "description": "Version you have data from. Optional; behavior depends on terminology.",
@@ -5099,6 +5203,7 @@
       },
       "description": "List the current version, release date, publisher, source URL, and update cadence of every terminology this server queries against.\n\nUseful for pipeline maintainers who need to:\n- Confirm which release of ICD-11 / SNOMED / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.\n- Verify the bundled CID-10 (frozen at V2008) and ICD-10 → ICD-11 transition tables (currently 2025-01) match expectations.\n- Cite the data version in research artifacts.\n\nPass `terminology` to filter to a single entry; otherwise the full set of 8 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "terminology": {
             "description": "Filter to a single terminology. Omit to return all 8.",
@@ -5274,6 +5379,7 @@
       },
       "description": "Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.\n\nFor each input `{ code, terminology }`, returns:\n- **valid**: whether the code exists in the source terminology.\n- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; SNOMED and LOINC return a real boolean).\n- **title**: the official label/name when available.\n- **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.\n- **source**: human-readable provenance of the validation (terminology + release/version).\n- **error**: non-null only when validation couldn't be performed (network error, SNOMED feature flag off, etc.). `valid: false` + `error: null` means \"code not found\"; `valid: false` + `error: set` means \"couldn't validate\".\n\nTerminology is **required per code** — auto-detection isn't supported because category codes like \"A00\" exist in both ICD-10 and CID-10. Accepted values: `icd11`, `icd10`, `snomed`, `loinc`, `rxnorm`, `mesh`, `atc`, `cid10`.\n\nHard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "codes": {
             "description": "List of code+terminology pairs to validate. Hard cap of 50 per call to keep total latency under ~10 s given upstream rate limits.",
@@ -5483,79 +5589,6 @@
         "type": "object"
       },
       "title": "Validate Medical Codes"
-    }
-  ],
-  "resources": [
-    {
-      "description": "List of the 22 CID-10 chapters (Brazilian Portuguese ICD-10, DataSUS V2008) with code ranges and Portuguese descriptions. Source: bundled CID-10 dataset.",
-      "mimeType": "application/json",
-      "name": "CID-10 chapters",
-      "title": "CID-10 chapters",
-      "uri": "info://cid10/chapters"
-    },
-    {
-      "description": "Per-terminology license disclaimers and access requirements. Important for downstream redistribution decisions and for surfacing license constraints in LLM answers.",
-      "mimeType": "text/markdown",
-      "name": "Terminology licenses",
-      "title": "Terminology licenses",
-      "uri": "info://licenses"
-    },
-    {
-      "description": "Version, tool count, supported terminologies, and feature-flag state. Useful for LLMs to ground answers about server capabilities.",
-      "mimeType": "application/json",
-      "name": "Server info",
-      "title": "Server info",
-      "uri": "info://server"
-    },
-    {
-      "description": "Per-tool invocation counts and total successful dispatches recorded by the hosted Cloudflare Workers endpoint. Excludes local stdio installs (those have no shared counter by design). Useful for adoption signal — see top_tool to know which terminology is pulling the most demand.",
-      "mimeType": "application/json",
-      "name": "Usage stats (hosted endpoint)",
-      "title": "Usage stats (hosted endpoint)",
-      "uri": "info://stats"
-    }
-  ],
-  "prompts": [
-    {
-      "arguments": [
-        {
-          "description": "Termo médico em português a ser pesquisado (ex.: \"infecções respiratórias\", \"diabetes\"). Busca é insensível a acentos.",
-          "name": "term",
-          "required": true
-        }
-      ],
-      "description": "Procura um termo médico em português no CID-10 brasileiro (DataSUS V2008), com contexto de capítulo e descrição clínica. Searches a Portuguese medical term in the Brazilian CID-10 with chapter context.",
-      "name": "cid10-portuguese-lookup",
-      "title": "Cid10 Portuguese Lookup"
-    },
-    {
-      "arguments": [
-        {
-          "description": "The drug name (brand or generic) to look up. Approximate matches are accepted.",
-          "name": "drug_name",
-          "required": true
-        }
-      ],
-      "description": "Compile comprehensive information about a drug — normalized name, RxCUI, active ingredients, therapeutic classes, and WHO ATC classification — by composing RxNorm and ATC tool calls.",
-      "name": "drug-info",
-      "title": "Drug Info"
-    },
-    {
-      "arguments": [
-        {
-          "description": "The condition, symptom, or medical term to search for.",
-          "name": "condition",
-          "required": true
-        },
-        {
-          "description": "Preferred language hint — \"en\" or \"pt-BR\". When \"pt-BR\", CID-10 results are prioritized. Defaults to \"en\".",
-          "name": "language",
-          "required": false
-        }
-      ],
-      "description": "Search a clinical condition, symptom, or medical term across all available terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10) in parallel and synthesize the matches with their codes and source terminology.",
-      "name": "find-medical-code",
-      "title": "Find Medical Code"
     }
   ]
 }

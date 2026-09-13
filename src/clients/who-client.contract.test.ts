@@ -224,6 +224,123 @@ describe('WHOClient — contract tests', () => {
       expect(e.parent).toHaveLength(1);
     });
 
+    /**
+     * O beco sem saída da navegação, medido em 13/09/2026: `parents` devolve
+     * blocos com `code` vazio e `codeRange` (ex.: 5A10-5A2Y), e pedir os filhos
+     * desse bloco dava "not found" — o /codeinfo só resolve código-folha. O
+     * bloco é resolvido pelo PRIMEIRO código do intervalo, subindo pelos pais
+     * até o ancestral cujo codeRange é o intervalo pedido.
+     */
+    it('lookup de um intervalo de bloco resolve pelo primeiro código e sobe até o bloco', async () => {
+      nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
+      nock(API_HOST)
+        .get(/\/icd\/release\/11\/[\d-]+\/mms\/codeinfo\/5A10/)
+        .reply(200, {
+          '@id': 'http://id.who.int/icd/release/11/2026-01/mms/codeinfo/5A10',
+          stemId: 'http://id.who.int/icd/release/11/2026-01/mms/1111',
+          code: '5A10',
+        });
+      nock(API_HOST).get('/icd/release/11/2026-01/mms/1111').reply(200, {
+        '@id': 'http://id.who.int/icd/release/11/2026-01/mms/1111',
+        code: '5A10',
+        title: { '@language': 'en', '@value': 'Type 1 diabetes mellitus' },
+        parent: ['http://id.who.int/icd/release/11/2026-01/mms/465177735'],
+      });
+      nock(API_HOST).get('/icd/release/11/2026-01/mms/465177735').reply(200, {
+        '@id': 'http://id.who.int/icd/release/11/2026-01/mms/465177735',
+        codeRange: '5A10-5A2Y',
+        classKind: 'block',
+        title: { '@language': 'en', '@value': 'Diabetes mellitus' },
+        parent: ['http://id.who.int/icd/release/11/2026-01/mms/2222'],
+        child: ['http://id.who.int/icd/release/11/2026-01/mms/1111'],
+      });
+
+      const bloco = await client.lookup('5A10-5A2Y', 'en');
+      expect(bloco.codeRange).toBe('5A10-5A2Y');
+      expect(bloco.title?.['@value']).toBe('Diabetes mellitus');
+      expect(bloco.child).toHaveLength(1);
+    });
+
+    it('intervalo em minúsculas resolve igual (o rótulo do bloco é comparado sem caixa)', async () => {
+      nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
+      nock(API_HOST)
+        .get(/\/icd\/release\/11\/[\d-]+\/mms\/codeinfo\/5a10/)
+        .reply(200, {
+          '@id': 'http://id.who.int/icd/release/11/2026-01/mms/1111',
+          code: '5A10',
+          title: { '@language': 'en', '@value': 'Type 1 diabetes mellitus' },
+          parent: ['http://id.who.int/icd/release/11/2026-01/mms/465177735'],
+        });
+      nock(API_HOST).get('/icd/release/11/2026-01/mms/465177735').reply(200, {
+        '@id': 'http://id.who.int/icd/release/11/2026-01/mms/465177735',
+        codeRange: '5A10-5A2Y',
+        title: { '@language': 'en', '@value': 'Diabetes mellitus' },
+      });
+      const bloco = await client.lookup('5a10-5a2y', 'en');
+      expect(bloco.codeRange).toBe('5A10-5A2Y');
+    });
+
+    it('intervalo que não existe como ancestral termina em NOT_FOUND explicado pelo intervalo', async () => {
+      nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
+      nock(API_HOST)
+        .get(/\/icd\/release\/11\/[\d-]+\/mms\/codeinfo\/5A10/)
+        .reply(200, {
+          '@id': 'http://id.who.int/icd/release/11/2026-01/mms/1111',
+          code: '5A10',
+          title: { '@language': 'en', '@value': 'Type 1 diabetes mellitus' },
+          parent: ['http://id.who.int/icd/release/11/2026-01/mms/465177735'],
+        });
+      nock(API_HOST).get('/icd/release/11/2026-01/mms/465177735').reply(200, {
+        '@id': 'http://id.who.int/icd/release/11/2026-01/mms/465177735',
+        codeRange: '5A10-5A2Y',
+        title: { '@language': 'en', '@value': 'Diabetes mellitus' },
+        // topo: sem pai — a subida acaba aqui sem casar com o intervalo pedido
+      });
+      await expect(client.lookup('5A10-5A9Z', 'en')).rejects.toThrow(/"5A10-5A9Z" was not found/);
+    });
+
+    it('primeiro código do intervalo inexistente também explica pelo intervalo, não pelo código', async () => {
+      nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
+      nock(API_HOST)
+        .get(/\/icd\/release\/11\/[\d-]+\/mms\/codeinfo\/ZZ00/)
+        .reply(404, { error: true, errorMessage: 'not found' });
+      await expect(client.lookup('ZZ00-ZZ9Z', 'en')).rejects.toThrow(/"ZZ00-ZZ9Z" was not found/);
+    });
+
+    it('getChildren de um intervalo devolve os filhos do bloco (o caminho da tool icd11_hierarchy)', async () => {
+      nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
+      nock(API_HOST)
+        .get(/\/icd\/release\/11\/[\d-]+\/mms\/codeinfo\/5A10/)
+        .reply(200, {
+          '@id': 'http://id.who.int/icd/release/11/2026-01/mms/1111',
+          code: '5A10',
+          title: { '@language': 'en', '@value': 'Type 1 diabetes mellitus' },
+          parent: ['http://id.who.int/icd/release/11/2026-01/mms/465177735'],
+        });
+      nock(API_HOST).get('/icd/release/11/2026-01/mms/465177735').reply(200, {
+        '@id': 'http://id.who.int/icd/release/11/2026-01/mms/465177735',
+        codeRange: '5A10-5A2Y',
+        title: { '@language': 'en', '@value': 'Diabetes mellitus' },
+        child: [
+          'http://id.who.int/icd/release/11/2026-01/mms/1111',
+          'http://id.who.int/icd/release/11/2026-01/mms/119724091',
+        ],
+      });
+      nock(API_HOST).get('/icd/release/11/2026-01/mms/119724091').reply(200, {
+        '@id': 'http://id.who.int/icd/release/11/2026-01/mms/119724091',
+        code: '5A11',
+        title: { '@language': 'en', '@value': 'Type 2 diabetes mellitus' },
+      });
+      // o filho 1111 é buscado por URI (cache de entidade), não pelo /codeinfo
+      nock(API_HOST).get('/icd/release/11/2026-01/mms/1111').reply(200, {
+        '@id': 'http://id.who.int/icd/release/11/2026-01/mms/1111',
+        code: '5A10',
+        title: { '@language': 'en', '@value': 'Type 1 diabetes mellitus' },
+      });
+      const filhos = await client.getChildren('5A10-5A2Y', 'en');
+      expect(filhos.map((f) => f.code).sort()).toEqual(['5A10', '5A11']);
+    });
+
     it('lookup by URI strips the absolute prefix and reuses the path', async () => {
       nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
       nock(API_HOST)

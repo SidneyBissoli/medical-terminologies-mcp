@@ -91,7 +91,7 @@ Use this tool to:
 - Find specific subtypes (children) of a condition
 - Understand the classification structure
 
-Direction 'parents' returns ancestor categories, 'children' returns subcategories.`,
+Name the entity by \`code\` (a leaf code like "5A11", or a block range like "5A10-5A2Y" — blocks come back from 'parents' with an empty code and a code_range) or by \`uri\` (the URI any previous answer returned). Direction 'parents' returns ancestor categories, 'children' returns subcategories. ICD-10 codes (like "E11") are not ICD-11 codes: convert them first with map_icd10_to_icd11.`,
   inputSchema: buildInputSchema(ICD11HierarchyParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(ICD11HierarchyOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -349,14 +349,17 @@ async function handleICD11Hierarchy(args: Record<string, unknown>): Promise<Call
   try {
     const params = ICD11HierarchyParamsSchema.parse(args);
     const client = getWHOClient();
+    // `lookup()` underneath resolves a code, a block range or a URI alike, so
+    // the three ways a caller can name an entity all walk the same tree.
+    const alvo = (params.code || params.uri) as string;
 
     const entities =
       params.direction === 'parents'
-        ? await client.getParents(params.code)
-        : await client.getChildren(params.code);
+        ? await client.getParents(alvo, params.language)
+        : await client.getChildren(alvo, params.language);
 
     const structured: ICD11HierarchyOutput = {
-      code: params.code,
+      code: alvo,
       direction: params.direction,
       entities: entities.map((e) => ({
         code: e.code ?? null,
@@ -369,7 +372,7 @@ async function handleICD11Hierarchy(args: Record<string, unknown>): Promise<Call
     const formatted = formatHierarchyList(entities, params.direction);
 
     return provenancedResult({
-      text: `## ICD-11 Hierarchy for ${params.code}\n\n${formatted}`,
+      text: `## ICD-11 Hierarchy for ${alvo}\n\n${formatted}`,
       structured,
       provenance: icd11Provenance(),
     });
