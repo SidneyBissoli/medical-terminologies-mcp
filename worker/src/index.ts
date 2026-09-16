@@ -14,7 +14,7 @@ import { createMcpHandler } from "agents/mcp/server";
 import { unknownCursorError } from "../../dist/worker-lib.js";
 
 import { StatsCounter, toolRegistry } from "../../dist/worker-lib.js";
-import { SELF_ROUTE, tagRequest, withAnalytics } from "./analytics.js";
+import { SELF_ROUTE, tagRequest, withAnalytics, recordProtocolMethods } from "./analytics.js";
 import { checkAuth } from "./auth.js";
 import { getServerCard } from "./card.js";
 import { SERVER_CONFIG } from "./config.js";
@@ -167,7 +167,8 @@ export default {
     // A rota privada do dono serve EXATAMENTE a mesma superficie; o que muda
     // e o registro (tagRequest marca self por ela). Ver src/analytics.ts.
     const rotaMcp = url.pathname === SELF_ROUTE ? SELF_ROUTE : SERVER_CONFIG.mcpRoute;
-    const recordWithAnalytics = withAnalytics(record, env.ANALYTICS, tagRequest(request, env.SELF_MARKER));
+    const tag = tagRequest(request, env.SELF_MARKER);
+    const recordWithAnalytics = withAnalytics(record, env.ANALYTICS, tag);
 
     // Cópia do corpo tirada ANTES do handler consumir o stream — é dela que o
     // guarda de cursor abaixo decide.
@@ -217,6 +218,12 @@ export default {
         },
       });
     }
+    // Métodos de protocolo (initialize, tools/list, notifications/*...) não
+    // passam pelo hook de tools: vão para o Analytics Engine daqui, com o
+    // desfecho lido do HTTP da resposta. Ver recordProtocolMethods em
+    // src/analytics.ts.
+    recordProtocolMethods(env.ANALYTICS, tag, corpoMcp, response.status);
+
     logger.info("request", {
       method: request.method,
       path: url.pathname,

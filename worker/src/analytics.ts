@@ -25,6 +25,10 @@
  * `tool_error` síncrono ("error"). O par é atômico no event loop, então não há
  * risco de interlevar chamadas concorrentes.
  *
+ * Métodos de PROTOCOLO (`initialize`, `tools/list`, `notifications/*`...) não
+ * passam pelo hook: são gravados na camada HTTP, a partir do corpo JSON-RPC,
+ * por `recordProtocolMethods` (chamada em src/index.ts) — ver o comentário dela.
+ *
  * `writeDataPoint` é síncrono e fire-and-forget no runtime — telemetria nunca
  * entra no caminho crítico; qualquer falha é engolida.
  */
@@ -134,4 +138,70 @@ function writeToolCall(
   } catch {
     // Falha de telemetria nunca quebra nem atrasa a resposta de uma tool.
   }
+}
+
+/**
+ * Métodos de PROTOCOLO, gravados na camada HTTP.
+ *
+ * O hook `record` só vê `tools/call`: é o registerAll quem o emite, de dentro
+ * da tool. `initialize`, `tools/list`, `notifications/*`, `ping` e o que mais
+ * o cliente mande (`server/discover`, por exemplo) atravessam o transporte sem
+ * tocar hook nenhum — e são eles que contam o FUNIL DE SESSÃO: quantos
+ * `initialize` viram chamada de ferramenta de verdade, que é o que separa
+ * "acharam o servidor" de "usaram o servidor". Medido em 2026-09-10: só o
+ * sih-br-mcp os gravava (178 das 285 linhas dele), porque lá o Worker é um
+ * proxy que lê o corpo JSON-RPC antes de encaminhar. Aqui o servidor roda
+ * dentro do Worker, e o corpo vem de uma CÓPIA tirada antes de o handler
+ * consumir o stream (src/index.ts).
+ *
+ * Mesmo esquema de blobs, com o método no lugar do nome da tool — igual ao
+ * sih. O painel separa os dois pelo nome (`metodo_de_protocolo`).
+ *
+ * O que entra, e de onde vem o desfecho:
+ *  - todo método que não é `tools/call` → uma linha, "ok" se o HTTP da
+ *    resposta for < 400, "error" senão. LIMITAÇÃO, a mesma do sih: erro
+ *    JSON-RPC que viaja dentro de um 200 (método desconhecido, -32601) sai
+ *    como "ok" — ler exigiria consumir o corpo que está sendo devolvido;
+ *  - `tools/call` só quando o HTTP é ≥ 400: o transporte recusou antes de
+ *    despachar (Accept errado, sessão inválida, Origin estrangeiro) e o hook
+ *    nunca rodou; sem isto a recusa seria invisível. Com HTTP < 400 o hook já
+ *    gravou a linha, com desfecho e forma de verdade — não se grava de novo;
+ *  - lote JSON-RPC (array) → uma linha por item; item sem `method` (resposta
+ *    do cliente, corpo que não é JSON) → nada.
+ *
+ * Só no Analytics Engine: o UsageTracker (/metrics) continua contando tools.
+ */
+export function protocolNamesFromBody(body: unknown, status: number): string[] {
+  const itens = Array.isArray(body) ? body : [body];
+  const nomes: string[] = [];
+  for (const item of itens) {
+    if (!item || typeof item !== "object") continue;
+    const msg = item as { method?: unknown; params?: unknown };
+    if (typeof msg.method !== "string" || msg.method === "") continue;
+    if (msg.method === "tools/call") {
+      if (status < 400) continue; // o hook de tools já gravou esta
+      const params = msg.params as { name?: unknown } | undefined;
+      nomes.push(typeof params?.name === "string" && params.name !== "" ? params.name : "tools/call");
+    } else {
+      nomes.push(msg.method);
+    }
+  }
+  return nomes;
+}
+
+/**
+ * Grava no Analytics Engine os métodos de protocolo de um POST no endpoint
+ * MCP (ver protocolNamesFromBody). Devolve os nomes gravados. Sem binding,
+ * não grava nada.
+ */
+export function recordProtocolMethods(
+  analytics: AnalyticsEngineDataset | undefined,
+  tag: RequestTag,
+  body: unknown,
+  status: number,
+): string[] {
+  if (!analytics || body === undefined) return [];
+  const nomes = protocolNamesFromBody(body, status);
+  for (const nome of nomes) writeToolCall(analytics, nome, status >= 400, tag, "", "");
+  return nomes;
 }
