@@ -32,7 +32,7 @@ function makeRequest(headers: Record<string, string> = {}, cf?: Record<string, u
   return req;
 }
 
-const TAG: RequestTag = { self: false, country: "BR", asOrg: "Claro NXT" };
+const TAG: RequestTag = { self: false, country: "BR", asOrg: "Claro NXT", sessao: "" };
 
 /** Espera os microtasks pendentes (flush do "ok") rodarem. */
 const microtasks = () => Promise.resolve();
@@ -40,11 +40,11 @@ const microtasks = () => Promise.resolve();
 describe("tagRequest", () => {
   it("extrai país e organização do AS de request.cf", () => {
     const tag = tagRequest(makeRequest({}, { country: "US", asOrganization: "Anthropic" }));
-    expect(tag).toEqual({ self: false, country: "US", asOrg: "Anthropic" });
+    expect(tag).toEqual({ self: false, country: "US", asOrg: "Anthropic", sessao: "" });
   });
 
   it("sem request.cf (dev local), país e AS ficam vazios", () => {
-    expect(tagRequest(makeRequest())).toEqual({ self: false, country: "", asOrg: "" });
+    expect(tagRequest(makeRequest())).toEqual({ self: false, country: "", asOrg: "", sessao: "" });
   });
 
   it("marca self somente quando o header bate com o secret", () => {
@@ -73,7 +73,7 @@ describe("withAnalytics", () => {
     expect(points).toHaveLength(1);
     expect(points[0]!).toEqual({
       indexes: ["ibge_estados"],
-      blobs: ["ibge_estados", "ok", "", "", "BR", "Claro NXT", "", ""],
+      blobs: ["ibge_estados", "ok", "", "", "BR", "Claro NXT", "", "", "", ""],
       doubles: [0],
     });
   });
@@ -107,10 +107,10 @@ describe("withAnalytics", () => {
 
   it("grava self em blob4 quando a requisição é do dono", async () => {
     const { points, dataset } = fakeDataset();
-    const record = withAnalytics(() => {}, dataset, { self: true, country: "US", asOrg: "Anthropic" });
+    const record = withAnalytics(() => {}, dataset, { self: true, country: "US", asOrg: "Anthropic", sessao: "" });
     record("tool_call", "ibge_estados");
     await microtasks();
-    expect(points[0]!.blobs).toEqual(["ibge_estados", "ok", "", "self", "US", "Anthropic", "", ""]);
+    expect(points[0]!.blobs).toEqual(["ibge_estados", "ok", "", "self", "US", "Anthropic", "", "", "", ""]);
   });
 
   it("repassa todos os eventos ao registrador original", () => {

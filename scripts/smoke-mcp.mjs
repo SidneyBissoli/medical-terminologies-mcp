@@ -188,7 +188,47 @@ function checkProvenance(label, result, { multi = false, sourceContains, contrac
 }
 
 // --- Script ------------------------------------------------------------------
+
+/**
+ * CONTRATO DE SESSÃO (desde 2026-09-17). O Worker emite `Mcp-Session-Id` no
+ * initialize para a telemetria ligar as mensagens de um aperto de mão; o
+ * handler é stateless e IGNORA o cabeçalho que o cliente devolve. Este teste
+ * existe porque isso depende do modo stateless do SDK e do `agents`: um
+ * upgrade que passasse a validar sessão quebraria todo cliente que devolve o
+ * id — e quebraria aqui, no deploy, antes de virar incidente. O DELETE é 405
+ * nos sete servidores (servidor sem sessão não encerra sessão).
+ */
+async function contratoDeSessao(endpoint) {
+  const cab = { "Content-Type": "application/json", Accept: "application/json, text/event-stream" };
+  const init = await fetch(endpoint, {
+    method: "POST", headers: cab,
+    body: JSON.stringify({ jsonrpc: "2.0", id: 91, method: "initialize", params: {
+      protocolVersion: "2025-06-18", capabilities: {},
+      clientInfo: { name: "smoke-contrato-sessao", version: "0.0.0" } } })
+  });
+  await init.text();
+  const sid = init.headers.get("mcp-session-id") ?? "";
+  if (!/^[A-Za-z0-9._~-]{1,64}$/.test(sid)) {
+    throw new Error(`contrato de sessão: initialize sem Mcp-Session-Id legível (${JSON.stringify(sid)})`);
+  }
+  const lista = await fetch(endpoint, {
+    method: "POST", headers: { ...cab, "mcp-session-id": "contrato-inexistente-" + Date.now() },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 92, method: "tools/list", params: {} })
+  });
+  await lista.text();
+  if (lista.status !== 200) {
+    throw new Error(`contrato de sessão: tools/list com id desconhecido respondeu HTTP ${lista.status} (o handler stateless tem de ignorar o cabeçalho)`);
+  }
+  const del = await fetch(endpoint, { method: "DELETE", headers: { "mcp-session-id": sid } });
+  await del.text();
+  if (del.status !== 405) {
+    throw new Error(`contrato de sessão: DELETE respondeu HTTP ${del.status}, esperado 405 (servidor sem sessão)`);
+  }
+  console.log("contrato de sessão: ok (id emitido no initialize, id desconhecido ignorado, DELETE 405)");
+}
+
 await confereRotaPublica(BASE);
+if (!STDIO) await contratoDeSessao(`${BASE}${ROTA_MCP}`);
 
 const init = await rpc("initialize", {
   protocolVersion: "2025-06-18",

@@ -27,7 +27,7 @@ function fakeDataset(): { points: DataPoint[]; dataset: AnalyticsEngineDataset }
   };
 }
 
-const TAG: RequestTag = { self: false, country: "BR", asOrg: "Claro NXT" };
+const TAG: RequestTag = { self: false, country: "BR", asOrg: "Claro NXT", sessao: "" };
 const rpc = (method: string, params?: unknown, id: number | null = 1) => ({ jsonrpc: "2.0", id, method, params });
 
 describe("protocolNamesFromBody", () => {
@@ -75,7 +75,7 @@ describe("recordProtocolMethods", () => {
     expect(points).toEqual([
       {
         indexes: ["initialize"],
-        blobs: ["initialize", "ok", "", "", "BR", "Claro NXT", "", ""],
+        blobs: ["initialize", "ok", "", "", "BR", "Claro NXT", "", "", "", ""],
         doubles: [0],
       },
     ]);
@@ -90,8 +90,8 @@ describe("recordProtocolMethods", () => {
 
   it("marca self em blob4 quando a requisição é do dono", () => {
     const { points, dataset } = fakeDataset();
-    recordProtocolMethods(dataset, { self: true, country: "US", asOrg: "Anthropic" }, rpc("tools/list"), 200);
-    expect(points[0]!.blobs).toEqual(["tools/list", "ok", "", "self", "US", "Anthropic", "", ""]);
+    recordProtocolMethods(dataset, { self: true, country: "US", asOrg: "Anthropic", sessao: "" }, rpc("tools/list"), 200);
+    expect(points[0]!.blobs).toEqual(["tools/list", "ok", "", "self", "US", "Anthropic", "", "", "", ""]);
   });
 
   it("sem binding ou sem corpo, não grava e devolve vazio", () => {
@@ -110,12 +110,15 @@ describe("recordProtocolMethods", () => {
     expect(() => recordProtocolMethods(boom, TAG, rpc("initialize"), 200)).not.toThrow();
   });
 
-  it("NENHUM blob carrega valor de argumento, nem no lote", () => {
+  it("só o NOME do cliente entra do initialize, normalizado e em blob10; nenhum outro valor", () => {
     const { points, dataset } = fakeDataset();
     const lote = [rpc("initialize", { clientInfo: { name: "segredo-do-cliente" } }), rpc("tools/list", { cursor: "abc" })];
     recordProtocolMethods(dataset, TAG, lote, 200);
     const tudo = points.flatMap((p) => p.blobs ?? []).join("|");
-    expect(tudo).not.toContain("segredo");
+    // O nome do cliente é o ÚNICO valor do initialize que entra, e só no blob10,
+    // normalizado (ver clientNameFromBody). O resto do corpo não vaza.
+    expect(points[0]!.blobs?.[9]).toBe("segredo-do-cliente");
+    expect(points[0]!.blobs?.slice(0, 9).join("|")).not.toContain("segredo");
     expect(tudo).not.toContain("abc");
   });
 });
