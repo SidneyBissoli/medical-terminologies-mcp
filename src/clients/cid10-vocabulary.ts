@@ -48,22 +48,16 @@
  * zika (0), TPM (0), LER/DORT (0 como sigla; "LER" casa 109 por substring de
  * "esclerose" etc.), magreza (0 — desnutrição é outra coisa).
  *
- * Vale para os dois caminhos de busca, pelas duas pontas da mesma tabela:
- * `cid10_search` expande o TERMO (OR dentro do termo, AND entre termos —
- * expandir só aumenta o recall, nunca perde casamento que já havia) e o índice
- * de `search` (Deep Research) recebe a palavra perguntada como KEYWORD do
- * código cujo título traz a palavra da fonte.
- *
- * Mesma receita de `src/ilostat/vocabulary.ts` (ilo 0.6.0), `src/uis/vocabulary.ts`
- * (uis 0.3.0) e `src/vocabulario.ts` (ibge 5.1.0).
+ * A MECÂNICA (frases da tabela antes da quebra em palavras, stopwords do
+ * pt-BR fora do AND, singular sem caco, OR das grafias da CID-10, a nota dita
+ * e a ponta inversa para o índice de `search`) mora em `@sbissoli/mcp-search`
+ * desde a 0.5.0 — cinco servidores a carregavam em cópia; aqui fica só a
+ * tabela. Os nomes exportados são os de sempre, para quem chama não mudar.
  */
 
-export interface VocabularyEntry {
-  /** Como o usuário escreve — normalizado (sem acento, minúsculo); pode ser frase. */
-  readonly asked: string;
-  /** Como a CID-10 escreve — substrings normalizadas, podendo ser frase. */
-  readonly source: readonly string[];
-}
+import { createVocabulary, type ExpandedTerm, type VocabularyEntry } from '@sbissoli/mcp-search';
+
+export type { ExpandedTerm, VocabularyEntry };
 
 export const VOCABULARY: readonly VocabularyEntry[] = [
   { asked: 'cancer', source: ['neoplasia maligna', 'carcinoma'] },
@@ -99,108 +93,15 @@ export const VOCABULARY: readonly VocabularyEntry[] = [
   { asked: 'tipo 1', source: ['tipo 1', 'insulino-dependente'] },
 ];
 
-const BY_ASKED: ReadonlyMap<string, readonly string[]> = new Map(VOCABULARY.map((e) => [e.asked, e.source]));
-
-/** As frases da tabela (com espaço), da mais longa para a mais curta — casam antes da quebra em palavras. */
-const PHRASES: readonly string[] = VOCABULARY.map((e) => e.asked)
-  .filter((a) => a.includes(' '))
-  .sort((a, b) => b.length - a.length);
-
-/**
- * Palavras que não carregam significado num título da CID-10 e, em AND,
- * excluem resultado certo ("infarto do miocárdio" não pode morrer no "do").
- * Só saem quando sobra algum termo.
- */
-const STOPWORDS: ReadonlySet<string> = new Set([
-  'a', 'o', 'as', 'os', 'um', 'uma', 'de', 'da', 'do', 'das', 'dos', 'e', 'em', 'no', 'na', 'nos', 'nas',
-  'ao', 'aos', 'por', 'para', 'com', 'sem', 'que', 'ou',
-]);
+const vocabulary = createVocabulary({ entries: VOCABULARY, locale: 'pt-BR', sourceName: 'a CID-10' });
 
 /** Sem acento, caixa baixa, espaços colapsados — o mesmo `deburr` do cliente. */
-export function normalize(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/**
- * Forma singular de um termo já normalizado — a substring mais curta casa o
- * plural também. Só as regras do português que não fabricam caco.
- */
-function singulars(term: string): string[] {
-  if (term.length > 4 && (term.endsWith('oes') || term.endsWith('aes'))) return [`${term.slice(0, -3)}ao`];
-  if (term.length > 4 && /(ais|eis|ois)$/.test(term)) return [`${term.slice(0, -2)}l`];
-  if (term.length > 3 && term.endsWith('s') && !term.endsWith('ss')) return [term.slice(0, -1)];
-  return [];
-}
-
-export interface ExpandedTerm {
-  readonly term: string;
-  readonly patterns: readonly string[];
-  /** A tabela (não a mera flexão de plural) mudou o que se procura. */
-  readonly translated: boolean;
-}
-
-function expandOne(term: string): ExpandedTerm {
-  const patterns = [
-    term,
-    ...(BY_ASKED.get(term) ?? []),
-    ...singulars(term).flatMap((s) => [s, ...(BY_ASKED.get(s) ?? [])]),
-  ];
-  const translated = BY_ASKED.has(term) || singulars(term).some((s) => BY_ASKED.has(s));
-  return { term, patterns: [...new Set(patterns)], translated };
-}
-
-/**
- * A consulta inteira, termo a termo. Uma frase da tabela ("pressão alta",
- * "dor de cabeça") vira UM termo antes da quebra em palavras — senão "alta"
- * e "cabeca" entrariam no AND e matariam o resultado. O que sobra é
- * quebrado em palavras, sem stopword, cada uma expandida.
- */
-export function expandQuery(query: string): ExpandedTerm[] {
-  let rest = ` ${normalize(query)} `;
-  const out: ExpandedTerm[] = [];
-  for (const phrase of PHRASES) {
-    const needle = ` ${phrase} `;
-    if (rest.includes(needle)) {
-      out.push(expandOne(phrase));
-      rest = rest.replace(needle, ' ');
-    }
-  }
-  const words = rest.split(' ').filter(Boolean);
-  const kept = words.filter((w) => !STOPWORDS.has(w));
-  for (const w of kept.length || out.length ? kept : words) out.push(expandOne(w));
-  return out;
-}
-
-/**
- * A frase que conta ao chamador que a palavra dele não é a da CID-10 — sem
- * isto a tradução é invisível e o resultado parece vir do que ele escreveu.
- */
-export function vocabularyNotes(expanded: readonly ExpandedTerm[]): string[] {
-  return expanded
-    .filter((e) => e.translated)
-    .map((e) => {
-      const others = e.patterns.filter((p) => p !== e.term);
-      return `"${e.term}" também foi buscado como ${others.join(', ')} — a palavra que a CID-10 usa.`;
-    });
-}
-
+export const normalize = vocabulary.normalize;
+/** A consulta inteira, termo a termo (frases da tabela viram UM termo antes da quebra). */
+export const expandQuery = vocabulary.expandQuery;
+/** A frase que conta ao chamador que a palavra dele não é a da CID-10. */
+export const vocabularyNotes = vocabulary.vocabularyNotes;
 /** Um título (já normalizado) casa TODOS os termos expandidos? */
-export function matchesQuery(normalizedTitle: string, expanded: readonly ExpandedTerm[]): boolean {
-  return expanded.every((e) => e.patterns.some((p) => normalizedTitle.includes(p)));
-}
-
-/**
- * A ponta inversa da tabela: as palavras com que se PERGUNTA por este título —
- * keywords do índice de `search`, que ranqueia por relevância em vez de casar
- * substring.
- */
-export function askedWordsFor(title: string): string[] {
-  const n = normalize(title);
-  const out = VOCABULARY.filter((e) => e.source.some((s) => n.includes(s))).map((e) => e.asked);
-  return [...new Set(out)];
-}
+export const matchesQuery = vocabulary.matchesQuery;
+/** A ponta inversa: as palavras com que se PERGUNTA por este título — keywords do índice de `search`. */
+export const askedWordsFor = vocabulary.askedWordsFor;
