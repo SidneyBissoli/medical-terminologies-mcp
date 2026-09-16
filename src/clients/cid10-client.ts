@@ -15,6 +15,7 @@
  */
 
 import dataset from '../data/cid10.json';
+import { expandQuery, matchesQuery, vocabularyNotes } from './cid10-vocabulary.js';
 
 interface TabularSection<T> {
   fields: string[];
@@ -224,43 +225,39 @@ export class CID10Client {
   /**
    * Searches categories and/or subcategories by Portuguese text. Match
    * is diacritic-insensitive and case-insensitive substring across
-   * `title` and `title_short`.
+   * `title` and `title_short` — every word must match (AND), and each word
+   * is an OR of the spellings the CID-10 uses for it ("câncer" → "neoplasia
+   * maligna"; src/clients/cid10-vocabulary.ts). Until 1.11.0 the whole query
+   * had to appear verbatim: "câncer de mama" returned zero against "Neoplasia
+   * maligna da mama". `notes` says when a word was translated.
    */
   search(
     query: string,
     level: 'categories' | 'subcategories' | 'all',
     maxResults: number,
-  ): { totalCount: number; hits: CID10SearchHit[] } {
-    const needle = deburr(query);
-    if (needle.length === 0) {
-      return { totalCount: 0, hits: [] };
+  ): { totalCount: number; hits: CID10SearchHit[]; notes: string[] } {
+    const expanded = expandQuery(query);
+    if (expanded.length === 0) {
+      return { totalCount: 0, hits: [], notes: [] };
     }
 
     const all: CID10SearchHit[] = [];
+    const matches = (title: string, short: string) =>
+      matchesQuery(deburr(title), expanded) || matchesQuery(deburr(short), expanded);
 
     if (level === 'categories' || level === 'all') {
       for (const c of categories()) {
-        if (
-          deburr(c.title).includes(needle) ||
-          deburr(c.title_short).includes(needle)
-        ) {
-          all.push(categoryToHit(c));
-        }
+        if (matches(c.title, c.title_short)) all.push(categoryToHit(c));
       }
     }
 
     if (level === 'subcategories' || level === 'all') {
       for (const s of subcategories()) {
-        if (
-          deburr(s.title).includes(needle) ||
-          deburr(s.title_short).includes(needle)
-        ) {
-          all.push(subcategoryToHit(s));
-        }
+        if (matches(s.title, s.title_short)) all.push(subcategoryToHit(s));
       }
     }
 
-    return { totalCount: all.length, hits: all.slice(0, maxResults) };
+    return { totalCount: all.length, hits: all.slice(0, maxResults), notes: vocabularyNotes(expanded) };
   }
 
   /**

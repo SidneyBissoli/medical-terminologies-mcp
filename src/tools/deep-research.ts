@@ -64,6 +64,7 @@ import {
 } from '@sbissoli/mcp-search';
 import { toolRegistry, type ToolHandler } from '../server-core.js';
 import { getCID10Client, type CID10Chapter, type CID10SearchHit } from '../clients/cid10-client.js';
+import { askedWordsFor } from '../clients/cid10-vocabulary.js';
 import { getWHOClient } from '../clients/who-client.js';
 import { getNLMClient } from '../clients/nlm-client.js';
 import { getRxNormClient } from '../clients/rxnorm-client.js';
@@ -212,7 +213,15 @@ export function cid10Entries(hits: CID10SearchHit[]): LocalDoc[] {
     title: `CID-10 ${h.display} — ${h.title}`,
     label: h.title,
     url: urlIcd10(h.display),
-    keywords: [h.code, h.display, h.level === 'category' ? 'categoria' : 'subcategoria'],
+    keywords: [
+      h.code,
+      h.display,
+      h.level === 'category' ? 'categoria' : 'subcategoria',
+      // The everyday word the user asks with when the title carries the CID-10's
+      // own ("câncer" for a neoplasia maligna) — without it the ranker cannot find
+      // the code by the user's word (src/clients/cid10-vocabulary.ts).
+      ...askedWordsFor(h.title),
+    ],
     text: h.title_short !== h.title ? h.title_short : undefined,
   }));
 }

@@ -5,7 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.12.0] - 2026-09-16
+
+### Fixed
+- **`cid10_search` devolvia ZERO quando a palavra do usuário não era a da
+  CID-10.** A busca casava o que o usuário escreveu contra o título do código
+  como UMA frase literal (sem acento e caixa — isso já estava certo). Quem
+  perguntava com a palavra de todo dia não recebia um resultado ruim: recebia
+  zero, calado. Medido nas 2.045 categorias + 12.451 subcategorias do dataset
+  V2008 embarcado em 16/09/2026: `câncer` **0** × neoplasia maligna 439
+  (`câncer de mama` 0 × "Neoplasia maligna da mama"); `ataque cardíaco` 0 ×
+  infarto 42; `AVC` 0 × acidente vascular cerebral 4; `pressão alta` 0 ×
+  hipertensão 44; `dor de cabeça` 0 × cefaleia 10; `suicídio` 0 × lesão
+  autoprovocada 167; `atropelamento` 0 × pedestre 97; `aids` 0 × HIV 40;
+  `pedra nos rins` 0 × calculose 16; `convulsão` 0 × convulsões 41;
+  `tabagismo`, `maconha`, `crack`, `burnout`, `obeso`, `cachorro`,
+  `disfunção erétil`, `dor nas costas`, `escorbuto`, `diabetes tipo 2` 0 —
+  com o código existindo sob a grafia da CID-10. A mesma classe medida e
+  consertada no ilo (0.6.0), no uis (0.3.0) e no ibge (5.1.0).
+
+  Conserto em `src/clients/cid10-vocabulary.ts`: as palavras casam em AND (não
+  mais frase literal: "câncer de mama" acha "Neoplasia maligna da mama"), com
+  stopwords do pt-BR fora do AND e plural sem fabricar caco; frases da tabela
+  ("pressão alta", "dor de cabeça") viram UM termo antes da quebra; cada
+  termo vira um OR das grafias da CID-10 a partir de uma tabela só de par
+  **medido**. A tradução é **dita** (`vocabulary_notes` no estruturado, linha
+  em itálico no texto) e zero resultado diz o que fazer (menos palavras; o
+  vocabulário da CID-10; `icd11_search` para inglês). O índice de `search`
+  (Deep Research) recebe a palavra perguntada como keyword do código cujo
+  título traz a palavra da fonte. O que a V2008 não traz fica de fora (covid,
+  zika): apelido para código inexistente promete o que a fonte não tem.
+  Rodado sobre o dataset inteiro pelo código construído: câncer 0 → 497,
+  câncer de mama 0 → 12, ataque cardíaco 0 → 42, AVC 0 → 11, pressão alta
+  0 → 44, suicídio 0 → 167, aids 0 → 45; covid e zika seguem em 0. 27 testes
+  novos em `src/clients/cid10-vocabulary.test.ts` (a fixture é o próprio
+  dataset: cada código esperado é conferido por `lookup`); caso novo no
+  contrato de saída. **Mudança de superfície:** a descrição de `cid10_search`
+  e de `query` dizem a regra nova; o `outputSchema` ganha `vocabulary_notes`
+  (opcional). Baseline `surface-stdio-1.12.0.json` capturado.
 
 ### Changed
 - **Telemetria: sessão e cliente (blobs 9 e 10).** O servidor passa a emitir

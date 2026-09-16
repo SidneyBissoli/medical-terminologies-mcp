@@ -51,7 +51,7 @@ Use this tool to:
 - Look up the official Portuguese (CBCD/USP) translation of a clinical term
 - Locate codes for billing, epidemiology, and clinical documentation in Brazil
 
-Returns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing "infeccoes" matches "infecções". This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.`,
+Returns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing "infeccoes" matches "infecções". Every word must match (AND), and everyday Portuguese is resolved to the CID-10's own wording (câncer→neoplasia maligna, AVC→acidente vascular cerebral, pressão alta→hipertensão, suicídio→lesão autoprovocada, aids→HIV); when that happens the response says so in vocabulary_notes. This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.`,
   inputSchema: buildInputSchema(CID10SearchParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(CID10SearchOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -131,7 +131,7 @@ async function handleCID10Search(args: Record<string, unknown>): Promise<CallToo
   try {
     const params = CID10SearchParamsSchema.parse(args);
     const client = getCID10Client();
-    const { totalCount, hits } = client.search(
+    const { totalCount, hits, notes } = client.search(
       params.query,
       params.level,
       params.max_results,
@@ -143,11 +143,24 @@ async function handleCID10Search(args: Record<string, unknown>): Promise<CallToo
       total_count: totalCount,
       shown_count: hits.length,
       hits,
+      ...(notes.length > 0 ? { vocabulary_notes: notes } : {}),
     };
 
+    // A tradução de vocabulário é DITA: sem isto o resultado parece vir do que
+    // o usuário escreveu.
+    const notesText = notes.map((n) => `_${n}_\n`).join('');
+
     if (hits.length === 0) {
+      // Zero resultado sem explicação é beco sem saída: o dataset é a CID-10 e
+      // usa o vocabulário dela. Dizer o que fazer em seguida é parte da resposta.
       return provenancedResult({
-        text: `Nenhum código CID-10 encontrado para "${params.query}".`,
+        text:
+          `Nenhum código CID-10 encontrado para "${params.query}".\n\n` +
+          notesText +
+          'Todas as palavras precisam casar com o título do código (acento e caixa não importam). ' +
+          'Tente menos palavras, ou a palavra que a CID-10 usa: neoplasia maligna (não câncer), ' +
+          'infarto (não ataque cardíaco), acidente vascular cerebral (não AVC), hipertensão (não pressão alta), ' +
+          'lesão autoprovocada (não suicídio), HIV (não aids). Para um termo em inglês ou da revisão atual da OMS, use icd11_search.',
         structured,
         provenance: cid10Provenance(),
       });
@@ -155,7 +168,8 @@ async function handleCID10Search(args: Record<string, unknown>): Promise<CallToo
 
     const header =
       `## Resultados CID-10 para "${params.query}"\n\n` +
-      `Total: ${totalCount} (mostrando ${hits.length}, escopo: ${params.level}).\n\n`;
+      `Total: ${totalCount} (mostrando ${hits.length}, escopo: ${params.level}).\n\n` +
+      (notesText ? notesText + '\n' : '');
     const body = hits.map((h, i) => `${i + 1}. ${formatHit(h)}`).join('\n\n');
 
     return provenancedResult({

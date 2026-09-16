@@ -288,10 +288,26 @@ Tradução brasileira da ICD-10 (DataSUS V2008). Vem embutida como conjunto est�
 
 | Ferramenta | Descrição | Exemplo |
 |------------|-----------|---------|
-| `cid10_search` | Busca textual em português (ignora acentos) | `query: "diabetes"` |
+| `cid10_search` | Busca textual em português (ignora acentos, AND entre palavras; a palavra de todo dia é traduzida para a da CID-10, e a resposta diz que traduziu) | `query: "câncer de mama"` |
 | `cid10_lookup` | Código → nome oficial em português | `code: "I21"` ou `"A00.1"` |
 | `cid10_chapters` | Lista os 22 capítulos da CID-10 | - |
 | `cid10_chapter` | Detalhe do capítulo com os grupos que o compõem | `num: 9` |
+
+**Pergunte com as suas palavras, não com as da CID-10.** A CID-10 é escrita em português clínico, e `cid10_search` casava o que você escreveu contra o título do código como UMA frase literal — então a palavra de todo dia devolvia **zero**. Medido nas 14.496 categorias e subcategorias do dataset V2008 embarcado (16/09/2026) e consertado na 1.12.0: toda palavra precisa casar (AND) e a palavra de todo dia é expandida para a da CID-10 (`src/clients/cid10-vocabulary.ts`, só pares medidos) — a resposta diz isso em `vocabulary_notes`, e zero resultado vem com a saída.
+
+| você pergunta | achava | a CID-10 escreve | acha |
+| --- | ---: | --- | ---: |
+| `câncer`, `câncer de mama` | 0 | neoplasia maligna (da mama) | 497, 12 |
+| `ataque cardíaco` | 0 | infarto | 42 |
+| `AVC` | 0 | acidente vascular cerebral | 11 |
+| `pressão alta` | 0 | hipertensão | 44 |
+| `dor de cabeça` | 0 | cefaleia | 10 |
+| `suicídio` | 0 | lesão autoprovocada | 167 |
+| `atropelamento` | 0 | pedestre traumatizado | 97 |
+| `aids` | 0 | doença pelo HIV | 45 |
+| `pedra nos rins`, `convulsão`, `tabagismo`, `maconha`, `crack`, `obeso`, `cachorro` | 0 | calculose, convulsões, fumo, canabinóides, cocaína, obesidade, provocado por cão | 19, 41, 17, 12, 13, 6, 11 |
+
+O que a V2008 não traz fica de fora e segue devolvendo zero — `covid` (U07.1 é de 2020), `zika` — porque apelido para código inexistente promete o que a fonte não tem. A mesma tabela alimenta o índice de `search` (Deep Research).
 
 ### Ferramentas de versionamento (2)
 

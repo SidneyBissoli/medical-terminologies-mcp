@@ -1098,7 +1098,7 @@ export const CID10SearchParamsSchema = z.object({
   query: z
     .string()
     .min(2)
-    .describe('Search term in Portuguese (e.g., "diabetes", "infarto", "tuberculose")'),
+    .describe('Search terms in Portuguese, AND between words (e.g., "diabetes", "infarto", "câncer de mama"); accents ignored, everyday words resolved to CID-10 wording'),
   level: z
     .enum(['categories', 'subcategories', 'all'])
     .optional()
@@ -1163,6 +1163,9 @@ export const CID10SearchOutputSchema = z.object({
   total_count: z.number().int(),
   shown_count: z.number().int(),
   hits: z.array(CID10HitSchema),
+  // Present only when a query word was translated to the CID-10's own wording
+  // ("câncer" → "neoplasia maligna"); says which (src/clients/cid10-vocabulary.ts).
+  vocabulary_notes: z.array(z.string()).optional(),
 });
 
 export const CID10LookupOutputSchema = z.object({
