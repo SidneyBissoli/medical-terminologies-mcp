@@ -267,6 +267,7 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
 
   ['cid10_search', 'bundled search', { query: 'diabetes' }],
   ['cid10_search', 'search without hits', { query: 'zzzznaoexiste' }],
+  ['cid10_search', 'everyday word translated (vocabulary_notes present)', { query: 'câncer de mama' }],
   ['cid10_lookup', 'known code', { code: 'A00' }],
   ['cid10_lookup', 'well-formed code absent from the dataset', { code: 'U99' }],
   ['cid10_chapters', 'chapter list', {}],

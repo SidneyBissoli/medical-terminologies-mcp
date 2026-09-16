@@ -288,10 +288,26 @@ Brazilian Portuguese translation of ICD-10 (DataSUS V2008). Bundled as a static 
 
 | Tool | Description | Example |
 |------|-------------|---------|
-| `cid10_search` | Portuguese text search (diacritic-insensitive) | `query: "diabetes"` |
+| `cid10_search` | Portuguese text search (diacritic-insensitive, AND between words; everyday words resolved to CID-10 wording, and the response says so) | `query: "câncer de mama"` |
 | `cid10_lookup` | Code → official Portuguese name | `code: "I21"` or `"A00.1"` |
 | `cid10_chapters` | List the 22 CID-10 chapters | - |
 | `cid10_chapter` | Chapter detail with constituent groups | `num: 9` |
+
+**Ask in your words, not the CID-10's.** The CID-10 is worded in clinical Portuguese, and `cid10_search` matched your words against the code title as one verbatim phrase — so the everyday word returned *nothing at all*. Measured over the 14,496 categories and subcategories of the bundled V2008 dataset (2026-09-16), fixed since 1.12.0: every word must match (AND), and the everyday word is expanded to the CID-10's own (`src/clients/cid10-vocabulary.ts`, measured pairs only) — the response says so in `vocabulary_notes`, and zero results come with a way out.
+
+| you ask | hits before | the CID-10 writes | hits |
+| --- | ---: | --- | ---: |
+| `câncer`, `câncer de mama` | 0 | neoplasia maligna (da mama) | 497, 12 |
+| `ataque cardíaco` | 0 | infarto | 42 |
+| `AVC` | 0 | acidente vascular cerebral | 11 |
+| `pressão alta` | 0 | hipertensão | 44 |
+| `dor de cabeça` | 0 | cefaleia | 10 |
+| `suicídio` | 0 | lesão autoprovocada | 167 |
+| `atropelamento` | 0 | pedestre traumatizado | 97 |
+| `aids` | 0 | doença pelo HIV | 45 |
+| `pedra nos rins`, `convulsão`, `tabagismo`, `maconha`, `crack`, `obeso`, `cachorro` | 0 | calculose, convulsões, fumo, canabinóides, cocaína, obesidade, provocado por cão | 19, 41, 17, 12, 13, 6, 11 |
+
+What the V2008 dataset does not carry stays out and still returns zero — `covid` (U07.1 is from 2020), `zika` — because an alias for a code that does not exist promises what the source does not have. The same table feeds the Deep Research `search` index.
 
 ### Versioning Tools (2)
 
