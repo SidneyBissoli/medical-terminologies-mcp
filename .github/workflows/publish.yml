@@ -139,16 +139,26 @@ jobs:
       - name: Wait for npm to expose the new version
         run: |
           VERSION=$(node -p "require('./server.json').version")
-          for i in 1 2 3 4 5 6 7 8 9 10; do
-            PUBLISHED=$(npm view medical-terminologies-mcp@$VERSION version 2>/dev/null || true)
+          # npm ACEITA o publish de forma assincrona ("Your package is being
+          # processed and may take a few minutes"), entao a visibilidade nao e
+          # imediata. A janela de 100s reprovou uma publicacao BEM-SUCEDIDA em
+          # 22/09/2026 (ibge-br-mcp 5.2.0, run 35762566680): `npm publish` deu
+          # `+ ibge-br-mcp@5.2.0` com proveniencia assinada e este passo ainda
+          # nao via a versao 111s depois. Run vermelho de pacote publicado manda
+          # gente investigar defeito que nao existe. 10 min e a janela que a
+          # outra metade do portfolio (ilo, uis, sih, senado-cloudflare) ja usa.
+          # `--prefer-online` revalida: o cache do npm vem restaurado pelo
+          # setup-node e pode servir packument velho.
+          for i in $(seq 1 40); do
+            PUBLISHED=$(npm view medical-terminologies-mcp@$VERSION version --prefer-online 2>/dev/null || true)
             if [ "$PUBLISHED" = "$VERSION" ]; then
-              echo "npm version $VERSION confirmed"
+              echo "npm version $VERSION confirmed (attempt $i)"
               exit 0
             fi
-            echo "Attempt $i: npm version $VERSION not yet visible; sleeping 10s"
-            sleep 10
+            echo "Attempt $i/40: npm version $VERSION not yet visible; sleeping 15s"
+            sleep 15
           done
-          echo "ERROR: npm version $VERSION not visible after 100s"
+          echo "ERROR: npm version $VERSION not visible after 10 min"
           exit 1
 
       # Pull the latest mcp-publisher binary. Pinning a version risks
