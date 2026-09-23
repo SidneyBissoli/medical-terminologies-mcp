@@ -33,6 +33,8 @@ export type ErrorClass =
   | "nao_encontrado"
   /** A fonte falhou ou demorou: 5xx, timeout, payload grande demais. */
   | "fonte"
+  /** Exceção de runtime escapando do handler: é bug NOSSO, não condição da fonte. */
+  | "defeito"
   /** Falhou por outro motivo — se esta classe crescer, é sinal de que falta uma classe. */
   | "outro";
 
@@ -158,4 +160,38 @@ export function errorText(result: unknown): string {
     // Não é o envelope JSON — vale o texto cru (é o caso de outros servidores).
   }
   return t;
+}
+
+/**
+ * Classifica uma exceção que ESCAPOU do handler, tendo o objeto do erro em mãos
+ * e não só a mensagem.
+ *
+ * Por que existe. Em 22/09/2026 o `ibge_cnae` respondia
+ * `Cannot read properties of undefined (reading 'divisao')` a um código de
+ * classe válido — um `TypeError` nosso, nascido de um `[]` da fonte que
+ * atravessou a camada de rede. Nenhum padrão de `classifyError` casa com essa
+ * frase, então ela caía em `outro`, que já era 13 dos 23 erros da ferramenta na
+ * semana. O comentário de `outro` avisava desde o início: *se esta classe
+ * crescer, é sinal de que falta uma classe*. Faltava esta. O conserto nasceu no
+ * `ibge-br-mcp` 5.1.2 e é o mesmo em toda a frota, porque a classe é a mesma.
+ *
+ * O sinal é o TIPO, não a frase, e é por isso que esta função existe separada
+ * de `classifyError`: `TypeError`, `RangeError`, `ReferenceError` e
+ * `SyntaxError` são erros de programa. A fonte não os produz — nós os
+ * produzimos ao supor a forma do que ela respondeu. Classificá-los por
+ * mensagem seria caçar o texto do motor de JS, que muda entre versões de Node.
+ *
+ * `classifyError` fica INTACTA: ela recebe mensagem e continua sendo o caminho
+ * do erro que NÓS escrevemos.
+ */
+export function classifyThrown(error: unknown): ErrorClass {
+  if (
+    error instanceof TypeError ||
+    error instanceof RangeError ||
+    error instanceof ReferenceError ||
+    error instanceof SyntaxError
+  ) {
+    return "defeito";
+  }
+  return classifyError(error instanceof Error ? error.message : String(error));
 }

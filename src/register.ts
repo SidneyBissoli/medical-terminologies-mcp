@@ -56,7 +56,7 @@ import {
 import { logger } from './utils/logger.js';
 import { recordInvocation } from './utils/stats.js';
 import { runWithFetchMeta } from './utils/fetch-meta.js';
-import { classifyError, errorText, paramNames } from './call-shape.js';
+import { classifyError, classifyThrown, errorText, paramNames } from './call-shape.js';
 
 // Tool side-effect imports — each module registers its tools at load time.
 // This is now the ONLY place that needs the full list; both entry points
@@ -182,7 +182,10 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error({ tool: name, err: errorMessage }, 'Tool handler failed');
-        const forma = { params: paramNames(args), classe: classifyError(errorMessage) };
+        // `classifyThrown` e não `classifyError`: aqui o OBJETO do erro existe,
+        // e o tipo dele separa bug nosso (`TypeError` & cia. -> `defeito`) de
+        // condição da fonte. Pela mensagem, um `TypeError` caía em `outro`.
+        const forma = { params: paramNames(args), classe: classifyThrown(error) };
         record?.('tool_call', name, forma);
         record?.('tool_error', name, forma);
         return {
