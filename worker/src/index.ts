@@ -15,6 +15,7 @@ import { unknownCursorError } from "../../dist/worker-lib.js";
 
 import { StatsCounter, toolRegistry } from "../../dist/worker-lib.js";
 import { SELF_ROUTE, tagRequest, withAnalytics, recordProtocolMethods, sessionFromRequest, withSessionHeader } from "./analytics.js";
+import { desfechosDoCorpo, teeResposta, type Desfecho } from "./envelope.js";
 import { checkAuth } from "./auth.js";
 import { getServerCard } from "./card.js";
 import { SERVER_CONFIG } from "./config.js";
@@ -182,7 +183,10 @@ export default {
     // cliente repetiu. Vai na telemetria (blob9). Ver src/analytics.ts.
     const sessao = sessionFromRequest(request, corpoMcp);
     const tag = tagRequest(request, env.SELF_MARKER, sessao.id);
-    const recordWithAnalytics = withAnalytics(record, env.ANALYTICS, tag);
+    // Recibo do hook de tools: o que ele gravar nesta requisição fica aqui, e é
+    // contra ele que recordProtocolMethods reconcilia. Ver src/analytics.ts.
+    const gravados = new Map<string, number>();
+    const recordWithAnalytics = withAnalytics(record, env.ANALYTICS, tag, gravados);
 
     const handler = createMcpHandler(() => buildServer(recordWithAnalytics), {
       route: rotaMcp,
@@ -223,11 +227,34 @@ export default {
       });
     }
     // Métodos de protocolo (initialize, tools/list, notifications/*...) não
-    // passam pelo hook de tools: vão para o Analytics Engine daqui, com o
-    // desfecho lido do HTTP da resposta. Ver recordProtocolMethods em
-    // src/analytics.ts.
+    // passam pelo hook de tools, e nem toda `tools/call` passa: a recusa de
+    // esquema é respondida pelo SDK antes do handler. As duas vão para o
+    // Analytics Engine daqui. Ver recordProtocolMethods em src/analytics.ts.
+    //
+    // O desfecho sai do ENVELOPE da resposta, não do HTTP — o protocolo MCP
+    // manda escrever o erro dentro da mensagem e deixar o HTTP em 200. Para
+    // lê-lo sem atrasar ninguém, o corpo é teado e o ramo de leitura corre em
+    // `ctx.waitUntil`, DEPOIS de a resposta ter saído; o cliente recebe no mesmo
+    // ritmo de antes. Esperar o fim do stream é também o que garante que o hook
+    // já terminou de gravar, e portanto que o recibo `gravados` está completo.
     response = withSessionHeader(response, sessao);
-    recordProtocolMethods(env.ANALYTICS, tag, corpoMcp, response.status);
+    if (corpoMcp !== undefined) {
+      const status = response.status;
+      const grava = (desfechos: Map<string, Desfecho>): void => {
+        recordProtocolMethods(env.ANALYTICS, tag, corpoMcp, status, desfechos, gravados);
+      };
+      const { paraCliente, paraLeitura } = teeResposta(response);
+      response = paraCliente;
+      if (paraLeitura) {
+        ctx.waitUntil(
+          desfechosDoCorpo(paraLeitura)
+            .then(grava)
+            .catch(() => grava(new Map())),
+        );
+      } else {
+        grava(new Map()); // resposta sem corpo: vale o HTTP, como antes
+      }
+    }
 
     logger.info("request", {
       method: request.method,

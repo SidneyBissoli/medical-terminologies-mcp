@@ -195,3 +195,42 @@ export function classifyThrown(error: unknown): ErrorClass {
   }
   return classifyError(error instanceof Error ? error.message : String(error));
 }
+
+/**
+ * Classe de um erro JSON-RPC do PROTOCOLO, pelo código antes da mensagem.
+ *
+ * POR QUE ELE CHEGA AQUI AGORA. Até 24/09/2026 este arquivo só era chamado de
+ * dentro do handler, com a exceção da tool na mão — e o cabeçalho acima ainda
+ * registra o limite daquele desenho: *erro de validação de esquema NÃO chega a
+ * esta camada; o SDK o responde antes do handler, e a chamada não é contada nem
+ * como chamada nem como erro*. Era verdade, e era o defeito: a recusa de esquema
+ * não gerava linha NENHUMA de telemetria. Medido na produção em 24/09/2026 pela
+ * rota do dono, ela sai como HTTP **200** com `result.isError: true` e sem
+ * código JSON-RPC; e ferramenta inexistente sai como **200** com o código
+ * **−32602** (não −32601, como se supunha). Desde então a telemetria lê o
+ * ENVELOPE da resposta (src/envelope.ts) e estes casos passam a existir.
+ *
+ * Os códigos reservados pela especificação JSON-RPC 2.0 dizem, sem ambiguidade
+ * de idioma, de quem é o conserto:
+ *
+ *  - −32700 parse error, −32600 invalid request, −32601 method not found e
+ *    −32602 invalid params são o CHAMADOR mandando algo que o protocolo
+ *    recusa. É `contrato` — e o painel exclui `contrato` da taxa de erro
+ *    (`eh_recusa_de_contrato()`), porque ferramenta que recusa chamada
+ *    malformada está funcionando;
+ *  - −32603 internal error é erro NOSSO, que escapou. É `defeito`, e por
+ *    decisão do dono em 24/09/2026 ele entra na fila de saúde do painel: sem
+ *    isso passaríamos a medir e continuaríamos a não agir.
+ *
+ * Código fora dessa faixa (erro definido pelo servidor, −32000 e abaixo) cai
+ * na mensagem, que é o caminho de `classifyError`.
+ *
+ * Cópia FIEL de sih-br-mcp/worker/src/call-shape.ts, onde a função estreou:
+ * classe medida por servidor com classificador diferente não é comparável, e
+ * comparar os sete é a razão de existir da seção de saúde do painel.
+ */
+export function classeDoErroRpc(code: number | undefined, message: string): ErrorClass {
+  if (code === -32700 || code === -32600 || code === -32601 || code === -32602) return "contrato";
+  if (code === -32603) return "defeito";
+  return classifyError(message);
+}

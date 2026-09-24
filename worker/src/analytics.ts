@@ -35,6 +35,7 @@
  * entra no caminho crítico; qualquer falha é engolida.
  */
 
+import { resolveDesfecho, type Desfecho } from "./envelope.js";
 import type { RecordUsage } from "./usage-core.js";
 
 /** Header que os clientes MCP do dono enviam (valor = secret SELF_MARKER). */
@@ -85,20 +86,32 @@ export function tagRequest(request: Request, selfSecret?: string, sessao = ""): 
  * Envolve o registrador de uso: repassa todo evento ao UsageTracker e, para o
  * par tool_call/tool_error, grava UMA linha no Analytics Engine. Sem binding
  * (dev local/testes), devolve o registrador original intacto.
+ *
+ * `gravados` é o RECIBO desta requisição: quantas linhas o hook escreveu para
+ * cada nome de ferramenta. É por ele que `recordProtocolMethods` sabe o que já
+ * foi contado — ver a nota sobre a reconciliação em protocolMessagesFromBody.
+ * É uma CONTAGEM e não um conjunto de propósito: num lote com duas chamadas à
+ * mesma ferramenta, onde uma roda e a outra é recusada pelo esquema, o conjunto
+ * suprimiria as duas e a recusa voltaria a ser invisível.
  */
 export function withAnalytics(
   record: RecordUsage,
   analytics: AnalyticsEngineDataset | undefined,
   tag: RequestTag,
+  gravados?: Map<string, number>,
 ): RecordUsage {
   if (!analytics) return record;
 
   let pending: { name: string; params: string } | null = null;
+  const anota = (name: string) => {
+    if (gravados) gravados.set(name, (gravados.get(name) ?? 0) + 1);
+  };
   const flushOk = () => {
     if (pending !== null) {
       const { name, params } = pending;
       pending = null;
       writeToolCall(analytics, name, false, tag, "", params);
+      anota(name);
     }
   };
 
@@ -111,6 +124,7 @@ export function withAnalytics(
       const params = forma?.params || pending.params;
       pending = null;
       writeToolCall(analytics, name, true, tag, forma?.classe ?? "", params);
+      anota(name);
     }
     record(kind, name, forma);
   };
@@ -165,56 +179,108 @@ function writeToolCall(
  * Mesmo esquema de blobs, com o método no lugar do nome da tool — igual ao
  * sih. O painel separa os dois pelo nome (`metodo_de_protocolo`).
  *
- * O que entra, e de onde vem o desfecho:
- *  - todo método que não é `tools/call` → uma linha, "ok" se o HTTP da
- *    resposta for < 400, "error" senão. LIMITAÇÃO, a mesma do sih: erro
- *    JSON-RPC que viaja dentro de um 200 (método desconhecido, -32601) sai
- *    como "ok" — ler exigiria consumir o corpo que está sendo devolvido;
- *  - `tools/call` só quando o HTTP é ≥ 400: o transporte recusou antes de
- *    despachar (Accept errado, sessão inválida, Origin estrangeiro) e o hook
- *    nunca rodou; sem isto a recusa seria invisível. Com HTTP < 400 o hook já
- *    gravou a linha, com desfecho e forma de verdade — não se grava de novo;
+ * O que entra:
+ *  - todo método que não é `tools/call` → uma linha;
+ *  - `tools/call` que o hook NÃO gravou → uma linha, pelo nome da tool;
  *  - lote JSON-RPC (array) → uma linha por item; item sem `method` (resposta
  *    do cliente, corpo que não é JSON) → nada.
  *
+ * A RECONCILIAÇÃO — o defeito que este arquivo carregava até 24/09/2026.
+ *
+ * Aqui estava `if (status < 400) continue; // o hook de tools já gravou esta`:
+ * a reconciliação era por STATUS HTTP, e supunha que 200 implica hook gravado.
+ * Só que o hook mora DENTRO da tool. Quando a tool não chega a rodar — recusa
+ * de esquema do zod, que o SDK responde antes do handler —, ninguém grava, e o
+ * `continue` fechava a única outra porta. Medido na produção: a recusa sai HTTP
+ * 200, então a chamada não era contada nem como chamada nem como erro. Não era
+ * número errado; era número AUSENTE.
+ *
+ * Agora a reconciliação é por NOME, contra o recibo que o próprio hook deixou
+ * (`gravados`, preenchido por withAnalytics). Cada `tools/call` do pedido
+ * consome uma unidade do recibo daquele nome; quando não há o que consumir, a
+ * linha é escrita aqui. Isso é correto nos dois sentidos: nunca conta duas
+ * vezes (se o hook gravou, o recibo existe) e nunca deixa de contar (se o hook
+ * não gravou, não há recibo). O status HTTP sai da reconciliação e fica só onde
+ * sempre devia estar: como critério de RESERVA do desfecho.
+ *
+ * O DESFECHO vem do ENVELOPE da resposta (src/envelope.ts), casado por `id`
+ * JSON-RPC — não mais do HTTP. Com isso cai junto a LIMITAÇÃO que este
+ * comentário declarava: erro JSON-RPC dentro de um 200 saía como "ok". A classe
+ * do erro tem de vir do envelope também: deduzir "não foi gravado, logo
+ * `contrato`" acertaria a recusa de esquema e erraria o −32603, que é `defeito`
+ * e é bug nosso.
+ *
  * Só no Analytics Engine: o UsageTracker (/metrics) continua contando tools.
  */
-export function protocolNamesFromBody(body: unknown, status: number): string[] {
-  const itens = Array.isArray(body) ? body : [body];
-  const nomes: string[] = [];
-  for (const item of itens) {
-    if (!item || typeof item !== "object") continue;
-    const msg = item as { method?: unknown; params?: unknown };
-    if (typeof msg.method !== "string" || msg.method === "") continue;
-    if (msg.method === "tools/call") {
-      if (status < 400) continue; // o hook de tools já gravou esta
-      const params = msg.params as { name?: unknown } | undefined;
-      nomes.push(typeof params?.name === "string" && params.name !== "" ? params.name : "tools/call");
-    } else {
-      nomes.push(msg.method);
-    }
-  }
-  return nomes;
+
+/** Uma mensagem do PEDIDO que vira linha: o nome gravado e o `id` que a liga à resposta. */
+export interface MensagemDoPedido {
+  /** O método, ou o nome da tool quando é `tools/call`. */
+  nome: string;
+  /** `id` JSON-RPC como texto; "" na notificação, que não tem resposta. */
+  id: string;
 }
 
 /**
- * Grava no Analytics Engine os métodos de protocolo de um POST no endpoint
- * MCP (ver protocolNamesFromBody). Devolve os nomes gravados. Sem binding,
- * não grava nada.
+ * As mensagens do corpo que ainda precisam de linha, já descontado o recibo.
+ *
+ * `gravados` é CONSUMIDO (decrementado) durante a varredura — quem chamar duas
+ * vezes com o mesmo mapa escreve duas vezes. Chamar sem ele significa "o hook
+ * não gravou nada", que é o que vale quando não há binding de Analytics.
+ */
+export function protocolMessagesFromBody(
+  body: unknown,
+  gravados?: Map<string, number>,
+): MensagemDoPedido[] {
+  const itens = Array.isArray(body) ? body : [body];
+  const mensagens: MensagemDoPedido[] = [];
+  for (const item of itens) {
+    if (!item || typeof item !== "object") continue;
+    const msg = item as { method?: unknown; params?: unknown; id?: unknown };
+    if (typeof msg.method !== "string" || msg.method === "") continue;
+    const id = typeof msg.id === "string" || typeof msg.id === "number" ? String(msg.id) : "";
+    if (msg.method === "tools/call") {
+      const params = msg.params as { name?: unknown } | undefined;
+      const nome =
+        typeof params?.name === "string" && params.name !== "" ? params.name : "tools/call";
+      const recibo = gravados?.get(nome) ?? 0;
+      if (recibo > 0) {
+        gravados?.set(nome, recibo - 1); // o hook já gravou esta; não se grava de novo
+        continue;
+      }
+      mensagens.push({ nome, id });
+    } else {
+      mensagens.push({ nome: msg.method, id });
+    }
+  }
+  return mensagens;
+}
+
+/**
+ * Grava no Analytics Engine os métodos de protocolo de um POST no endpoint MCP
+ * (ver acima). Devolve os nomes gravados. Sem binding, não grava nada.
+ *
+ * `desfechos` é o que a leitura do envelope colheu por `id`; sem ele — corpo
+ * não teado, stream cortado — vale o HTTP, que é o critério de reserva de
+ * `resolveDesfecho`.
  */
 export function recordProtocolMethods(
   analytics: AnalyticsEngineDataset | undefined,
   tag: RequestTag,
   body: unknown,
   status: number,
+  desfechos: Map<string, Desfecho> = new Map(),
+  gravados?: Map<string, number>,
 ): string[] {
   if (!analytics || body === undefined) return [];
   const cliente = clientNameFromBody(body);
-  const nomes = protocolNamesFromBody(body, status);
-  for (const nome of nomes) {
-    writeToolCall(analytics, nome, status >= 400, tag, "", "", nome === "initialize" ? cliente : "");
+  const falhouHttp = status >= 400;
+  const mensagens = protocolMessagesFromBody(body, gravados);
+  for (const { nome, id } of mensagens) {
+    const { erro, classe } = resolveDesfecho(id, desfechos, falhouHttp);
+    writeToolCall(analytics, nome, erro, tag, classe, "", nome === "initialize" ? cliente : "");
   }
-  return nomes;
+  return mensagens.map((m) => m.nome);
 }
 
 /**
