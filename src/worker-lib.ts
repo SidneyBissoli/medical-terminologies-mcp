@@ -37,3 +37,10 @@ export { announceServedVersions } from './discover.js';
 export { unknownCursorError, INVALID_PARAMS, PAGINATED_LIST_METHODS } from './pagination.js';
 export { setStatsRecorder, type StatsRecorder, type StatsPayload } from './utils/stats.js';
 export { StatsCounter } from './durable-objects/stats-counter.js';
+// The error vocabulary, for the Worker's envelope reader (worker/src/envelope.ts).
+// It has to be THIS copy: a class measured per server with a different classifier
+// is not comparable, and comparing the seven is why the panel's health section
+// exists. `src/call-shape.ts` is where the guard that sweeps this server's own
+// messages lives, so the Worker reaches it through this surface like everything
+// else — never by importing `../../src/*.ts`.
+export { classeDoErroRpc, classifyError, errorText, type ErrorClass } from './call-shape.js';
