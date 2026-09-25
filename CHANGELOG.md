@@ -5,10 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.14.0] - 2026-09-23
+## [1.14.0] - 2026-09-25
 
 Esta versão carrega tudo o que entrou desde a 1.12.1: a 1.13.0 foi numerada no
-`package.json` e nunca publicada, e a tag leva o master inteiro.
+`package.json` e nunca publicada, a 1.14.0 foi numerada em 23/09 e publicada
+em 25/09, e a tag leva o master inteiro.
+
+### Fixed (Worker)
+- **A recusa de esquema não era contada — nem como chamada nem como erro
+  (só o Worker; o canal stdio não muda).** A reconciliação entre o hook de
+  tools e a camada HTTP era por status e supunha que 200 implica hook gravado;
+  a recusa do zod é respondida antes do handler, então ninguém gravava.
+  Medido em produção em 24/09/2026 pela rota do dono. Agora a reconciliação é
+  por NOME contra o recibo do hook, e o desfecho sai do envelope da resposta
+  casado por `id` JSON-RPC — erro JSON-RPC dentro de um 200 deixa de sair
+  `ok`. Mesmo conserto dos seis servidores (nascido no ilo-mcp-server).
+- **A ficha do LobeHub passa a ser presa por teste.** `src/lhm-manifest.test.ts`
+  compara `lhm.plugin.json` com o servidor real (`npm run manifest:lhm` o
+  regenera). Medido em 25/09/2026: a ficha publicada estava na 1.10.0 com o
+  npm em 1.12.1 — o LobeHub só ingere o que `lhm plugin update` publica.
 
 ### Added
 - **Classe `defeito` na telemetria, e `classifyThrown()`.** `classifyError`
