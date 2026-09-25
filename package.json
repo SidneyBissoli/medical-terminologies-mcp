@@ -55,7 +55,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build",
-    "build:worker-lib": "esbuild src/worker-lib.ts --bundle --platform=browser --target=es2022 --format=esm --outfile=dist/worker-lib.js --tree-shaking=false --conditions=workerd,browser --define:process.env.NODE_ENV=\\\"production\\\" --external:node:* --external:cloudflare:* --external:@modelcontextprotocol/* --external:zod --alias:events=node:events --alias:stream=node:stream --alias:buffer=node:buffer --alias:util=node:util --alias:path=node:path --alias:os=node:os --alias:fs=node:fs --alias:url=node:url --alias:crypto=node:crypto"
+    "build:worker-lib": "esbuild src/worker-lib.ts --bundle --platform=browser --target=es2022 --format=esm --outfile=dist/worker-lib.js --tree-shaking=false --conditions=workerd,browser --define:process.env.NODE_ENV=\\\"production\\\" --external:node:* --external:cloudflare:* --external:@modelcontextprotocol/* --external:zod --alias:events=node:events --alias:stream=node:stream --alias:buffer=node:buffer --alias:util=node:util --alias:path=node:path --alias:os=node:os --alias:fs=node:fs --alias:url=node:url --alias:crypto=node:crypto",
+    "manifest:lhm": "node scripts/gen-lhm-manifest.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
