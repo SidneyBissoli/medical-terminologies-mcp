@@ -1,25 +1,79 @@
 {
-  "identifier": "sidneybissoli-medical-terminologies-mcp",
-  "name": "Medical Terminologies MCP",
-  "version": "1.15.0",
-  "description": "Unified MCP server for global medical terminologies - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
-  "author": "Sidney Bissoli",
-  "authorUrl": "https://github.com/SidneyBissoli",
-  "homepage": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
-  "icon": "⚕️",
-  "category": "healthcare",
-  "tags": [
-    "icd-11",
-    "snomed",
-    "loinc",
-    "rxnorm",
-    "mesh",
-    "atc",
-    "cid-10",
-    "medical",
-    "terminology",
-    "health"
+  "prompts": [
+    {
+      "arguments": [
+        {
+          "description": "Termo médico em português a ser pesquisado (ex.: \"infecções respiratórias\", \"diabetes\"). Busca é insensível a acentos.",
+          "name": "term",
+          "required": true
+        }
+      ],
+      "description": "Procura um termo médico em português no CID-10 brasileiro (DataSUS V2008), com contexto de capítulo e descrição clínica. Searches a Portuguese medical term in the Brazilian CID-10 with chapter context.",
+      "name": "cid10-portuguese-lookup",
+      "title": "Cid10 Portuguese Lookup"
+    },
+    {
+      "arguments": [
+        {
+          "description": "The drug name (brand or generic) to look up. Approximate matches are accepted.",
+          "name": "drug_name",
+          "required": true
+        }
+      ],
+      "description": "Compile comprehensive information about a drug — normalized name, RxCUI, active ingredients, therapeutic classes, and WHO ATC classification — by composing RxNorm and ATC tool calls.",
+      "name": "drug-info",
+      "title": "Drug Info"
+    },
+    {
+      "arguments": [
+        {
+          "description": "The condition, symptom, or medical term to search for.",
+          "name": "condition",
+          "required": true
+        },
+        {
+          "description": "Preferred language hint — \"en\" or \"pt-BR\". When \"pt-BR\", CID-10 results are prioritized. Defaults to \"en\".",
+          "name": "language",
+          "required": false
+        }
+      ],
+      "description": "Search a clinical condition, symptom, or medical term across all available terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10) in parallel and synthesize the matches with their codes and source terminology.",
+      "name": "find-medical-code",
+      "title": "Find Medical Code"
+    }
   ],
+  "resources": [
+    {
+      "description": "List of the 22 CID-10 chapters (Brazilian Portuguese ICD-10, DataSUS V2008) with code ranges and Portuguese descriptions. Source: bundled CID-10 dataset.",
+      "mimeType": "application/json",
+      "name": "CID-10 chapters",
+      "title": "CID-10 chapters",
+      "uri": "info://cid10/chapters"
+    },
+    {
+      "description": "Per-terminology license disclaimers and access requirements. Important for downstream redistribution decisions and for surfacing license constraints in LLM answers.",
+      "mimeType": "text/markdown",
+      "name": "Terminology licenses",
+      "title": "Terminology licenses",
+      "uri": "info://licenses"
+    },
+    {
+      "description": "Version, tool count, supported terminologies, and feature-flag state. Useful for LLMs to ground answers about server capabilities.",
+      "mimeType": "application/json",
+      "name": "Server info",
+      "title": "Server info",
+      "uri": "info://server"
+    },
+    {
+      "description": "Per-tool invocation counts and total successful dispatches recorded by the hosted Cloudflare Workers endpoint. Excludes local stdio installs (those have no shared counter by design). Useful for adoption signal — see top_tool to know which terminology is pulling the most demand.",
+      "mimeType": "application/json",
+      "name": "Usage stats (hosted endpoint)",
+      "title": "Usage stats (hosted endpoint)",
+      "uri": "info://stats"
+    }
+  ],
+  "serverName": "medical-terminologies-mcp",
+  "toolCount": 33,
   "tools": [
     {
       "annotations": {
@@ -94,7 +148,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -114,74 +168,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -200,7 +186,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -285,7 +270,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -305,74 +290,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -391,7 +308,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -474,7 +390,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -494,74 +410,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -580,7 +428,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -705,7 +552,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -725,74 +572,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -811,7 +590,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -889,7 +667,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -909,74 +687,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -995,7 +705,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -1131,7 +840,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -1151,74 +860,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -1237,7 +878,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -1390,7 +1030,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -1410,74 +1050,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -1496,7 +1068,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -1581,7 +1152,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -1601,74 +1172,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -1687,7 +1190,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -1849,10 +1351,9 @@
             "type": "array"
           },
           "provenance": {
-            "description": "One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)",
+            "description": "One provenance block per upstream source that contributed to this response (contract v1.0; licenses are never merged)",
             "items": {
               "additionalProperties": false,
-              "description": "Bloco de proveniência (contrato v1.1): fonte, URL, competência, extração, diagnóstico de origem, citação e licença",
               "properties": {
                 "citation": {
                   "description": "Ready-to-use citation/attribution string",
@@ -1872,74 +1373,6 @@
                     "null"
                   ]
                 },
-                "retrieval": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "anomalies": {
-                          "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                          "items": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "count": {
-                                "description": "Ocorrências desta classe na chamada",
-                                "maximum": 9007199254740991,
-                                "minimum": 1,
-                                "type": "integer"
-                              },
-                              "kind": {
-                                "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                                "enum": [
-                                  "timeout",
-                                  "network",
-                                  "http_4xx",
-                                  "http_5xx",
-                                  "rate_limited",
-                                  "malformed_body"
-                                ],
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "kind",
-                              "count"
-                            ],
-                            "type": "object"
-                          },
-                          "type": "array"
-                        },
-                        "attempts": {
-                          "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                          "maximum": 9007199254740991,
-                          "minimum": 1,
-                          "type": "integer"
-                        },
-                        "requests": {
-                          "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                          "maximum": 9007199254740991,
-                          "minimum": 1,
-                          "type": "integer"
-                        },
-                        "unstable": {
-                          "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "requests",
-                        "attempts",
-                        "anomalies",
-                        "unstable"
-                      ],
-                      "type": "object"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-                },
                 "retrieved_at": {
                   "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                   "type": "string"
@@ -1958,7 +1391,6 @@
                 "source_url",
                 "data_vintage",
                 "retrieved_at",
-                "retrieval",
                 "citation",
                 "license"
               ],
@@ -2420,7 +1852,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -2440,74 +1872,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -2526,7 +1890,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -2650,7 +2013,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -2670,74 +2033,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -2756,7 +2051,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -2939,7 +2233,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -2959,74 +2253,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -3045,7 +2271,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -3154,7 +2379,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -3174,74 +2399,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -3260,7 +2417,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -3397,7 +2553,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -3417,74 +2573,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -3503,7 +2591,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -3592,7 +2679,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -3612,74 +2699,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -3698,7 +2717,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -3774,7 +2792,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -3794,74 +2812,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -3880,7 +2830,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -4013,7 +2962,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -4033,74 +2982,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -4119,7 +3000,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -4240,7 +3120,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -4260,74 +3140,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -4346,7 +3158,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -4539,7 +3350,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -4559,74 +3370,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -4645,7 +3388,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -4811,7 +3553,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -4831,74 +3573,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -4917,7 +3591,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -5032,7 +3705,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -5052,74 +3725,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -5138,7 +3743,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -5246,7 +3850,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -5266,74 +3870,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -5352,7 +3888,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -5492,7 +4027,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -5512,74 +4047,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -5598,7 +4065,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -5663,7 +4129,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -5683,74 +4149,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -5769,7 +4167,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -5867,7 +4264,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -5887,74 +4284,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -5973,7 +4302,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -6039,7 +4367,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -6059,74 +4387,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -6145,7 +4405,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -6310,7 +4569,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -6330,74 +4589,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -6416,7 +4607,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -6494,7 +4684,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -6514,74 +4704,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -6600,7 +4722,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -6705,7 +4826,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -6725,74 +4846,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -6811,7 +4864,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -6869,10 +4921,9 @@
             "type": "array"
           },
           "provenance": {
-            "description": "One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)",
+            "description": "One provenance block per upstream source that contributed to this response (contract v1.0; licenses are never merged)",
             "items": {
               "additionalProperties": false,
-              "description": "Bloco de proveniência (contrato v1.1): fonte, URL, competência, extração, diagnóstico de origem, citação e licença",
               "properties": {
                 "citation": {
                   "description": "Ready-to-use citation/attribution string",
@@ -6892,74 +4943,6 @@
                     "null"
                   ]
                 },
-                "retrieval": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "anomalies": {
-                          "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                          "items": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "count": {
-                                "description": "Ocorrências desta classe na chamada",
-                                "maximum": 9007199254740991,
-                                "minimum": 1,
-                                "type": "integer"
-                              },
-                              "kind": {
-                                "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                                "enum": [
-                                  "timeout",
-                                  "network",
-                                  "http_4xx",
-                                  "http_5xx",
-                                  "rate_limited",
-                                  "malformed_body"
-                                ],
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "kind",
-                              "count"
-                            ],
-                            "type": "object"
-                          },
-                          "type": "array"
-                        },
-                        "attempts": {
-                          "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                          "maximum": 9007199254740991,
-                          "minimum": 1,
-                          "type": "integer"
-                        },
-                        "requests": {
-                          "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                          "maximum": 9007199254740991,
-                          "minimum": 1,
-                          "type": "integer"
-                        },
-                        "unstable": {
-                          "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "requests",
-                        "attempts",
-                        "anomalies",
-                        "unstable"
-                      ],
-                      "type": "object"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-                },
                 "retrieved_at": {
                   "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                   "type": "string"
@@ -6978,7 +4961,6 @@
                 "source_url",
                 "data_vintage",
                 "retrieved_at",
-                "retrieval",
                 "citation",
                 "license"
               ],
@@ -7139,7 +5121,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -7159,74 +5141,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -7245,7 +5159,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -7332,7 +5245,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -7352,74 +5265,6 @@
                   "null"
                 ]
               },
-              "retrieval": {
-                "anyOf": [
-                  {
-                    "additionalProperties": false,
-                    "properties": {
-                      "anomalies": {
-                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                        "items": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "count": {
-                              "description": "Ocorrências desta classe na chamada",
-                              "maximum": 9007199254740991,
-                              "minimum": 1,
-                              "type": "integer"
-                            },
-                            "kind": {
-                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                              "enum": [
-                                "timeout",
-                                "network",
-                                "http_4xx",
-                                "http_5xx",
-                                "rate_limited",
-                                "malformed_body"
-                              ],
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "kind",
-                            "count"
-                          ],
-                          "type": "object"
-                        },
-                        "type": "array"
-                      },
-                      "attempts": {
-                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "requests": {
-                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                        "maximum": 9007199254740991,
-                        "minimum": 1,
-                        "type": "integer"
-                      },
-                      "unstable": {
-                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                        "type": "boolean"
-                      }
-                    },
-                    "required": [
-                      "requests",
-                      "attempts",
-                      "anomalies",
-                      "unstable"
-                    ],
-                    "type": "object"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-              },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
@@ -7438,7 +5283,6 @@
               "source_url",
               "data_vintage",
               "retrieved_at",
-              "retrieval",
               "citation",
               "license"
             ],
@@ -7607,10 +5451,9 @@
             "type": "integer"
           },
           "provenance": {
-            "description": "One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)",
+            "description": "One provenance block per upstream source that contributed to this response (contract v1.0; licenses are never merged)",
             "items": {
               "additionalProperties": false,
-              "description": "Bloco de proveniência (contrato v1.1): fonte, URL, competência, extração, diagnóstico de origem, citação e licença",
               "properties": {
                 "citation": {
                   "description": "Ready-to-use citation/attribution string",
@@ -7630,74 +5473,6 @@
                     "null"
                   ]
                 },
-                "retrieval": {
-                  "anyOf": [
-                    {
-                      "additionalProperties": false,
-                      "properties": {
-                        "anomalies": {
-                          "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
-                          "items": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "count": {
-                                "description": "Ocorrências desta classe na chamada",
-                                "maximum": 9007199254740991,
-                                "minimum": 1,
-                                "type": "integer"
-                              },
-                              "kind": {
-                                "description": "Classe da anomalia (vocabulário fechado do contrato)",
-                                "enum": [
-                                  "timeout",
-                                  "network",
-                                  "http_4xx",
-                                  "http_5xx",
-                                  "rate_limited",
-                                  "malformed_body"
-                                ],
-                                "type": "string"
-                              }
-                            },
-                            "required": [
-                              "kind",
-                              "count"
-                            ],
-                            "type": "object"
-                          },
-                          "type": "array"
-                        },
-                        "attempts": {
-                          "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
-                          "maximum": 9007199254740991,
-                          "minimum": 1,
-                          "type": "integer"
-                        },
-                        "requests": {
-                          "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
-                          "maximum": 9007199254740991,
-                          "minimum": 1,
-                          "type": "integer"
-                        },
-                        "unstable": {
-                          "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
-                          "type": "boolean"
-                        }
-                      },
-                      "required": [
-                        "requests",
-                        "attempts",
-                        "anomalies",
-                        "unstable"
-                      ],
-                      "type": "object"
-                    },
-                    {
-                      "type": "null"
-                    }
-                  ],
-                  "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
-                },
                 "retrieved_at": {
                   "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                   "type": "string"
@@ -7716,7 +5491,6 @@
                 "source_url",
                 "data_vintage",
                 "retrieved_at",
-                "retrieval",
                 "citation",
                 "license"
               ],
@@ -7821,79 +5595,6 @@
         "type": "object"
       },
       "title": "Validate Medical Codes"
-    }
-  ],
-  "resources": [
-    {
-      "description": "List of the 22 CID-10 chapters (Brazilian Portuguese ICD-10, DataSUS V2008) with code ranges and Portuguese descriptions. Source: bundled CID-10 dataset.",
-      "mimeType": "application/json",
-      "name": "CID-10 chapters",
-      "title": "CID-10 chapters",
-      "uri": "info://cid10/chapters"
-    },
-    {
-      "description": "Per-terminology license disclaimers and access requirements. Important for downstream redistribution decisions and for surfacing license constraints in LLM answers.",
-      "mimeType": "text/markdown",
-      "name": "Terminology licenses",
-      "title": "Terminology licenses",
-      "uri": "info://licenses"
-    },
-    {
-      "description": "Version, tool count, supported terminologies, and feature-flag state. Useful for LLMs to ground answers about server capabilities.",
-      "mimeType": "application/json",
-      "name": "Server info",
-      "title": "Server info",
-      "uri": "info://server"
-    },
-    {
-      "description": "Per-tool invocation counts and total successful dispatches recorded by the hosted Cloudflare Workers endpoint. Excludes local stdio installs (those have no shared counter by design). Useful for adoption signal — see top_tool to know which terminology is pulling the most demand.",
-      "mimeType": "application/json",
-      "name": "Usage stats (hosted endpoint)",
-      "title": "Usage stats (hosted endpoint)",
-      "uri": "info://stats"
-    }
-  ],
-  "prompts": [
-    {
-      "arguments": [
-        {
-          "description": "Termo médico em português a ser pesquisado (ex.: \"infecções respiratórias\", \"diabetes\"). Busca é insensível a acentos.",
-          "name": "term",
-          "required": true
-        }
-      ],
-      "description": "Procura um termo médico em português no CID-10 brasileiro (DataSUS V2008), com contexto de capítulo e descrição clínica. Searches a Portuguese medical term in the Brazilian CID-10 with chapter context.",
-      "name": "cid10-portuguese-lookup",
-      "title": "Cid10 Portuguese Lookup"
-    },
-    {
-      "arguments": [
-        {
-          "description": "The drug name (brand or generic) to look up. Approximate matches are accepted.",
-          "name": "drug_name",
-          "required": true
-        }
-      ],
-      "description": "Compile comprehensive information about a drug — normalized name, RxCUI, active ingredients, therapeutic classes, and WHO ATC classification — by composing RxNorm and ATC tool calls.",
-      "name": "drug-info",
-      "title": "Drug Info"
-    },
-    {
-      "arguments": [
-        {
-          "description": "The condition, symptom, or medical term to search for.",
-          "name": "condition",
-          "required": true
-        },
-        {
-          "description": "Preferred language hint — \"en\" or \"pt-BR\". When \"pt-BR\", CID-10 results are prioritized. Defaults to \"en\".",
-          "name": "language",
-          "required": false
-        }
-      ],
-      "description": "Search a clinical condition, symptom, or medical term across all available terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10) in parallel and synthesize the matches with their codes and source terminology.",
-      "name": "find-medical-code",
-      "title": "Find Medical Code"
     }
   ]
 }

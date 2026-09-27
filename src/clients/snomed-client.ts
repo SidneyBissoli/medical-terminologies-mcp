@@ -13,10 +13,8 @@
 
 import { HttpClient, HttpError } from '../utils/http.js';
 import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
-import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError } from '../types/index.js';
-import { SERVER_INFO } from '../server-core.js';
 import { extractErrorMessage } from '../utils/extract-error-message.js';
 import { getEnv } from '../utils/env.js';
 
@@ -65,13 +63,15 @@ export class SNOMEDClient {
     // English on unsupported tags. Per-call language overrides are layered
     // on top of this default via the request() acceptLanguage argument.
     this.defaultAcceptLanguage = getEnv('SNOMED_LANGUAGE') ?? 'en';
+    // 60 s ceiling for slow self-hosted Snowstorm instances and the
+    // portfolio User-Agent come from the shared fetch policy
+    // (src/utils/upstream.ts) — every origin gets the same identifiable UA.
     this.httpClient = new HttpClient({
+      source: CACHE_PREFIX.SNOMED,
       baseURL: SNOMED_CONFIG.baseUrl,
-      timeout: 60000, // 60 seconds for slow connections
       headers: {
         'Accept': 'application/json',
         'Accept-Language': this.defaultAcceptLanguage,
-        'User-Agent': `${SERVER_INFO.name}/${SERVER_INFO.version}`,
       },
     });
   }
@@ -89,43 +89,35 @@ export class SNOMEDClient {
   ): Promise<T> {
     await rateLimiters.snomed.acquire();
 
-    return withRetry(
-      async () => {
-        try {
-          const response = await this.httpClient.get<T>(path, {
-            params,
-            ...(acceptLanguage
-              ? { headers: { 'Accept-Language': acceptLanguage } }
-              : {}),
-          });
-          return response.data;
-        } catch (error) {
-          if (error instanceof HttpError) {
-            const status = error.status;
-            const message = extractErrorMessage(error);
+    try {
+      const response = await this.httpClient.get<T>(path, {
+        params,
+        ...(acceptLanguage
+          ? { headers: { 'Accept-Language': acceptLanguage } }
+          : {}),
+      });
+      return response.data;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        const status = error.status;
+        const message = extractErrorMessage(error);
 
-            if (status === 404) {
-              throw new ApiError('Resource not found', 'NOT_FOUND', status);
-            }
-            if (status === 429) {
-              throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status);
-            }
-
-            throw new ApiError(
-              `SNOMED CT API error: ${message}`,
-              'API_ERROR',
-              status,
-              error.data
-            );
-          }
-          throw error;
+        if (status === 404) {
+          throw new ApiError('Resource not found', 'NOT_FOUND', status);
         }
-      },
-      {
-        maxRetries: 2,
-        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+        if (status === 429) {
+          throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status);
+        }
+
+        throw new ApiError(
+          `SNOMED CT API error: ${message}`,
+          'API_ERROR',
+          status,
+          error.data
+        );
       }
-    );
+      throw error;
+    }
   }
 
   // ===========================================================================

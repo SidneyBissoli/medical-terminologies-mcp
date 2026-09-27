@@ -97,8 +97,8 @@ describe('RxNormClient — contract tests against captured live fixtures', () =>
       // ingredient-level RxCUIs. The client wraps the call in try/catch
       // and falls back to a default Active status. Pin that.
       nock(HOST).get(`${BASE}/rxcui/161/properties.json`).reply(200, fixture('properties-161.json'));
-      // The 404 will be retried by withRetry — allow it 3x (initial + 2 retries).
-      nock(HOST).get(`${BASE}/rxcui/161/status.json`).times(3).reply(404, '');
+      // A 404 is never retried (absence is the answer): one interceptor is enough.
+      nock(HOST).get(`${BASE}/rxcui/161/status.json`).reply(404, '');
 
       const c = await client.getConcept('161');
       expect(c).not.toBeNull();

@@ -27,6 +27,7 @@ import {
   urlRxNorm,
 } from './deep-research.js';
 import { getCID10Client } from '../clients/cid10-client.js';
+import { upstreamIo } from '../utils/upstream.js';
 
 describe('canonical public URLs (what ChatGPT cites)', () => {
   it('ICD-10 browser by dotted code and chapter by roman numeral', () => {
@@ -110,6 +111,9 @@ describe('the local index', () => {
 describe('search and fetch with every live upstream unreachable', () => {
   const originalFetch = global.fetch;
   beforeEach(() => {
+    // The shared fetch really repeats 5xx/network now (backoff 1 s → 2 s):
+    // the wait is silenced so a permanent-failure stub does not cost 3 s.
+    vi.spyOn(upstreamIo, 'sleep').mockResolvedValue(undefined);
     global.fetch = vi.fn(async () => {
       throw new Error('ECONNREFUSED (test: no network)');
     }) as unknown as typeof fetch;

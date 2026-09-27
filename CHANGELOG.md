@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2026-09-27
+
+### Added
+- **Diagnóstico de origem no bloco de proveniência (contrato v1.1, chave
+  `retrieval`).** Toda resposta passa a dizer *com que dificuldade* o dado
+  veio: idas à origem, tentativas somadas e anomalias contornadas (`timeout`,
+  `network`, `http_4xx`, `http_5xx`, `rate_limited`, `malformed_body`), com
+  `unstable: true` quando houve anomalia — nos três canais
+  (`structuredContent.provenance`, espelho `_meta`, rodapé). **Um coletor por
+  ORIGEM, não por chamada:** as respostas multi-fonte (`find_equivalent`,
+  `validate_codes`, `search`) emitem um bloco por fonte, e o `retrieval` de
+  cada bloco é o DAQUELA origem — a anomalia da WHO não contamina o bloco da
+  LOINC. `null` para os conjuntos embutidos (CID-10, tabelas de transição) e
+  para resposta servida só do cache: quem não mediu não inventa. O token
+  OAuth da WHO é infraestrutura e nunca chega a um bloco. Item "Diagnóstico
+  de origem" do roadmap técnico; ideia vinda de comentário no dev.to (26/09).
+
+### Changed
+- **A ida à origem é do `@sbissoli/mcp-upstream` 0.3.0, o fetch comum do
+  portfólio** — quinta adoção, depois de bcb, ibge, ilo e uis. O `HttpClient`
+  continua o adaptador dos cinco clientes (modo `response`; a leitura
+  leniente do corpo — JSON, senão texto, vazio vira `undefined` — não muda),
+  mas o retry sai dos clientes e vai para o pacote, ANTES de o `HttpError`
+  virar `ApiError`. **Isso ressuscita o retry por status, que estava morto
+  desde sempre:** cada cliente capturava `HttpError` e relançava `ApiError`
+  dentro da função que `withRetry` repetia, então a lista
+  `[408, 429, 500, 502, 503, 504]` nunca era consultada — só a falha de rede
+  por substring (`ECONNRESET`…) repetia, e o timeout ("timeout of 30000ms
+  exceeded") não casava com nada. Agora **5xx, 429 (honrando `Retry-After`)
+  e falha de rede repetem duas vezes** (3 tentativas, esperas de 1 s e 2 s);
+  **timeout NÃO repete** (a tentativa já gastou o teto); 404 e 401 seguem
+  sem repetir. Tetos preservados: 30 s por tentativa (WHO, NLM, RxNorm,
+  MeSH), 60 s (SNOMED), 15 s (token da WHO); orçamento = teto + 6 s por ida.
+  Origens medidas em 27/09/2026 (curl): RxNav, RxClass, MeSH e ClinicalTables
+  respondem em 0,5–1,8 s; a WHO é a mais distante (0,7 s só de TCP) e a busca
+  ICD-11 autenticada, medida pela borda de produção, leva 4,6 s por consulta
+  (5,7 s com o token) — a ida mais lenta do servidor, seis vezes abaixo do teto.
+- **User-Agent identificável em TODAS as origens**
+  (`medical-terminologies-mcp/<versão> (https://medical.sidneybissoli.com;
+  sbissoli76@gmail.com)`) — antes só o cliente SNOMED mandava um.
+- **O `outputSchema` do bloco de proveniência é importado do pacote**
+  (`ConciseBlockSchema`, com as descrições deste servidor enxertadas), não
+  mais transcrito à mão: a transcrição selada com
+  `additionalProperties: false` derrubava o gate de contrato de saída em
+  TODAS as tools ao subir o contrato (64 falhas). Chave nova chega junto com
+  a lib que a emite.
+- `@sbissoli/mcp-provenance` `^0.1.0` → `^0.2.0` (contrato v1.1);
+  `@sbissoli/mcp-upstream` `^0.3.0` (novo). Mensagem de erro de origem que
+  repetiu ganha o sufixo "(after N attempts)".
+
+### Removed
+- `src/utils/retry.ts` (`withRetry`/`retryable`): código morto desde a
+  origem — ver acima.
+
+### Surface
+- `outputSchema` de todas as 33 tools: o nó `provenance` ganha a chave
+  obrigatória `retrieval` (objeto ou `null`); nada mais muda
+  (`baselines/surface-stdio-1.15.0.json` vs `1.14.0`).
+
 ## [1.14.0] - 2026-09-25
 
 Esta versão carrega tudo o que entrou desde a 1.12.1: a 1.13.0 foi numerada no

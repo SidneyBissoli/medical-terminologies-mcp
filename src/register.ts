@@ -56,6 +56,7 @@ import {
 import { logger } from './utils/logger.js';
 import { recordInvocation } from './utils/stats.js';
 import { runWithFetchMeta } from './utils/fetch-meta.js';
+import { withUpstreamCalls } from './utils/upstream.js';
 import { classifyError, classifyThrown, errorText, paramNames } from './call-shape.js';
 
 // Tool side-effect imports — each module registers its tools at load time.
@@ -163,11 +164,14 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
   const handle = (name: string, handler: ToolHandler) =>
     async (args: unknown) => {
       try {
-        // The fetch-meta collector gives the provenance block the REAL
-        // upstream extraction instant per source (cache hits keep the
-        // original fetch instant) — see src/utils/fetch-meta.ts.
+        // Two ambient collectors per dispatch, both AsyncLocalStorage:
+        // fetch-meta gives the provenance block the REAL upstream extraction
+        // instant per source (cache hits keep the original fetch instant —
+        // src/utils/fetch-meta.ts); the upstream collectors count the trips,
+        // attempts and anomalies of each source for the `retrieval` block
+        // (src/utils/upstream.ts). `search`/`fetch` go through here too.
         const result = await runWithFetchMeta(() =>
-          handler((args ?? {}) as Record<string, unknown>),
+          withUpstreamCalls(() => handler((args ?? {}) as Record<string, unknown>)),
         );
         // Fire-and-forget stats increment (StatsCounter DO on the hosted
         // endpoint, no-op on stdio). Counts every dispatch that resolved,
