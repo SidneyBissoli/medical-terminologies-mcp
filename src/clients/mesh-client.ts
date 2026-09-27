@@ -10,7 +10,6 @@
 
 import { HttpClient, HttpError } from '../utils/http.js';
 import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
-import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError } from '../types/index.js';
 import { extractErrorMessage } from '../utils/extract-error-message.js';
@@ -36,8 +35,8 @@ export class MeSHClient {
 
   constructor() {
     this.httpClient = new HttpClient({
+      source: CACHE_PREFIX.MESH,
       baseURL: MESH_CONFIG.baseUrl,
-      timeout: 30000,
       headers: {
         'Accept': 'application/json',
       },
@@ -60,43 +59,35 @@ export class MeSHClient {
   ): Promise<T> {
     await rateLimiters.nlm.acquire();
 
-    return withRetry(
-      async () => {
-        try {
-          const response = await this.httpClient.get<T>(path, {
-            params,
-            ...(acceptLanguage
-              ? { headers: { 'Accept-Language': acceptLanguage } }
-              : {}),
-          });
-          return response.data;
-        } catch (error) {
-          if (error instanceof HttpError) {
-            const status = error.status;
-            const message = extractErrorMessage(error);
+    try {
+      const response = await this.httpClient.get<T>(path, {
+        params,
+        ...(acceptLanguage
+          ? { headers: { 'Accept-Language': acceptLanguage } }
+          : {}),
+      });
+      return response.data;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        const status = error.status;
+        const message = extractErrorMessage(error);
 
-            if (status === 404) {
-              throw new ApiError('Resource not found', 'NOT_FOUND', status);
-            }
-            if (status === 429) {
-              throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status);
-            }
-
-            throw new ApiError(
-              `MeSH API error: ${message}`,
-              'API_ERROR',
-              status,
-              error.data
-            );
-          }
-          throw error;
+        if (status === 404) {
+          throw new ApiError('Resource not found', 'NOT_FOUND', status);
         }
-      },
-      {
-        maxRetries: 2,
-        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+        if (status === 429) {
+          throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status);
+        }
+
+        throw new ApiError(
+          `MeSH API error: ${message}`,
+          'API_ERROR',
+          status,
+          error.data
+        );
       }
-    );
+      throw error;
+    }
   }
 
   // ===========================================================================

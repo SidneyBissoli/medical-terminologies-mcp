@@ -8,11 +8,11 @@ import {
 } from './provenance.js';
 import { RANKING_METHOD_NOTE } from './utils/lexical-score.js';
 
-describe('medicalProvenance (canonical block v1.0)', () => {
+describe('medicalProvenance (canonical block v1.1)', () => {
   it('every source preset carries the legal floor: license + citation + verified_at', () => {
     for (const key of Object.keys(MEDICAL_SOURCES) as Array<keyof typeof MEDICAL_SOURCES>) {
       const p = medicalProvenance(key);
-      expect(p.contract_version).toBe('1.0');
+      expect(p.contract_version).toBe('1.1');
       expect(p.license.id ?? p.license.name).toBeTruthy();
       expect(p.license.verified_at).toBe('2026-08-08');
       expect(p.citation.length).toBeGreaterThan(20);

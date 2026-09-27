@@ -10,11 +10,12 @@
  *  - expires_in being honored from the token response
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import nock from 'nock';
 import { WHOClient, codigoIcd11NaoEncontrado } from './who-client.js';
 import { classifyError } from '../call-shape.js';
 import { cache } from '../utils/cache.js';
+import { upstreamIo } from '../utils/upstream.js';
 
 const TOKEN_HOST = 'https://icdaccessmanagement.who.int';
 const API_HOST = 'https://id.who.int';
@@ -38,6 +39,9 @@ describe('WHOClient — contract tests', () => {
   let client: WHOClient;
 
   beforeEach(() => {
+    // The shared fetch really repeats 5xx/network now (backoff 1 s → 2 s):
+    // the wait is silenced so a permanent-failure stub does not cost 3 s.
+    vi.spyOn(upstreamIo, 'sleep').mockResolvedValue(undefined);
     cache.flush();
     setupCreds();
     client = new WHOClient();

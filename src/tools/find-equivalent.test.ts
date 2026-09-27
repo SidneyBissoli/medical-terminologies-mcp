@@ -8,10 +8,11 @@
  * parser correctness stays in the clients' contract tests.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import nock from 'nock';
 import { toolRegistry } from '../server-core.js';
 import { cache } from '../utils/cache.js';
+import { upstreamIo } from '../utils/upstream.js';
 import { FindEquivalentOutputSchema, FindEquivalentOutput } from '../types/index.js';
 
 // Side-effect import — registers find_equivalent.
@@ -52,6 +53,9 @@ async function callFindEquivalent(args: Record<string, unknown>): Promise<FindEq
 
 describe('find_equivalent — ranked unified search', () => {
   beforeEach(() => {
+    // The shared fetch really repeats 5xx/network now (backoff 1 s → 2 s):
+    // the wait is silenced so a permanent-failure stub does not cost 3 s.
+    vi.spyOn(upstreamIo, 'sleep').mockResolvedValue(undefined);
     cache.flush();
     nock.disableNetConnect();
   });
@@ -161,7 +165,7 @@ describe('find_equivalent — ranked unified search', () => {
     nock(RXNAV)
       .get('/REST/drugs.json')
       .query({ name: 'aspirin' })
-      .times(4) // withRetry retries 5xx; keep every attempt failing
+      .times(3) // the shared fetch retries a 5xx twice (3 attempts); keep every attempt failing
       .reply(500, 'boom');
     nock(MESH)
       .get('/mesh/lookup/descriptor')

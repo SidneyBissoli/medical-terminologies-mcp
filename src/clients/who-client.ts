@@ -1,6 +1,5 @@
 import { HttpClient, HttpError } from '../utils/http.js';
 import { cache, CACHE_PREFIX, DEFAULT_TTL } from '../utils/cache.js';
-import { withRetry } from '../utils/retry.js';
 import { rateLimiters } from '../utils/rate-limiter.js';
 import { ApiError, CachedToken, OAuthTokenResponse } from '../types/index.js';
 import { extractErrorMessage } from '../utils/extract-error-message.js';
@@ -106,6 +105,7 @@ export class WHOClient {
   private clientId: string;
   private clientSecret: string;
   private httpClient: HttpClient;
+  private tokenClient: HttpClient;
 
   /**
    * Creates a new WHO API client
@@ -123,11 +123,21 @@ export class WHOClient {
     }
 
     this.httpClient = new HttpClient({
+      source: CACHE_PREFIX.ICD11,
       baseURL: WHO_CONFIG.apiBaseUrl,
-      timeout: 30000,
       headers: {
         'Accept': 'application/json',
         'API-Version': 'v2',
+      },
+    });
+    // The OAuth token is infrastructure, not data: its trips are counted
+    // under their own source so no ICD-11 provenance block inherits them
+    // (the same reason `cacheMetaFor` never receives the `token` prefix).
+    this.tokenClient = new HttpClient({
+      source: CACHE_PREFIX.TOKEN,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
   }
@@ -147,34 +157,19 @@ export class WHOClient {
       return cachedToken.accessToken;
     }
 
-    // Request new token
-    const tokenResponse = await withRetry(
-      async () => {
-        const response = await this.httpClient.post<OAuthTokenResponse>(
-          WHO_CONFIG.tokenUrl,
-          new URLSearchParams({
-            client_id: this.clientId,
-            client_secret: this.clientSecret,
-            grant_type: 'client_credentials',
-            scope: WHO_CONFIG.scope,
-          }).toString(),
-          {
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            timeout: 15000,
-          }
-        );
-        return response.data;
-      },
-      {
-        maxRetries: 3,
-        initialDelay: 2000,
-        onRetry: (attempt, error) => {
-          log.warn({ attempt, error: error.message }, 'Token request retry');
-        },
-      }
-    );
+    // Request new token. Retry (5xx/429/network) and the 15 s ceiling are
+    // the shared fetch's policy for the `token` source (src/utils/upstream.ts).
+    const tokenResponse = (
+      await this.tokenClient.post<OAuthTokenResponse>(
+        WHO_CONFIG.tokenUrl,
+        new URLSearchParams({
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          grant_type: 'client_credentials',
+          scope: WHO_CONFIG.scope,
+        }).toString(),
+      )
+    ).data;
 
     // Honor the API's real expires_in with a 60s safety margin so we
     // refresh before the token actually expires. Floor at 60s in case the
@@ -216,56 +211,48 @@ export class WHOClient {
 
     log.debug({ url: fullUrl, params, language }, 'HTTP request');
 
-    return withRetry(
-      async () => {
-        try {
-          const startTime = Date.now();
-          const response = await this.httpClient.get<T>(path, {
-            params,
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Accept-Language': language,
-            },
-          });
-          const duration = Date.now() - startTime;
-          log.debug({ status: response.status, duration }, 'HTTP response OK');
-          return response.data;
-        } catch (error) {
-          if (error instanceof HttpError) {
-            const status = error.status;
-            const responseData = error.data;
-            const message = extractErrorMessage(error);
+    try {
+      const startTime = Date.now();
+      const response = await this.httpClient.get<T>(path, {
+        params,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept-Language': language,
+        },
+      });
+      const duration = Date.now() - startTime;
+      log.debug({ status: response.status, duration }, 'HTTP response OK');
+      return response.data;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        const status = error.status;
+        const responseData = error.data;
+        const message = extractErrorMessage(error);
 
-            log.error({ status, data: responseData }, 'HTTP error response');
+        log.error({ status, data: responseData }, 'HTTP error response');
 
-            // Handle specific error codes
-            if (status === 401) {
-              // Token expired, clear cache and retry
-              cache.delete(CACHE_PREFIX.TOKEN, TOKEN_CACHE_KEY);
-              throw new ApiError('Authentication failed - token expired', 'AUTH_EXPIRED', status);
-            }
-            if (status === 404) {
-              throw new ApiError(`Resource not found: ${path}`, 'NOT_FOUND', status);
-            }
-            if (status === 429) {
-              throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status);
-            }
-
-            throw new ApiError(
-              `WHO API error: ${message}`,
-              'API_ERROR',
-              status,
-              error.data
-            );
-          }
-          throw error;
+        // Handle specific error codes
+        if (status === 401) {
+          // Token expired, clear cache and retry
+          cache.delete(CACHE_PREFIX.TOKEN, TOKEN_CACHE_KEY);
+          throw new ApiError('Authentication failed - token expired', 'AUTH_EXPIRED', status);
         }
-      },
-      {
-        maxRetries: 2,
-        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+        if (status === 404) {
+          throw new ApiError(`Resource not found: ${path}`, 'NOT_FOUND', status);
+        }
+        if (status === 429) {
+          throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status);
+        }
+
+        throw new ApiError(
+          `WHO API error: ${message}`,
+          'API_ERROR',
+          status,
+          error.data
+        );
       }
-    );
+      throw error;
+    }
   }
 
   /**

@@ -1,24 +1,34 @@
 /**
- * Minimal HTTP client over the native `fetch` API (Node >= 18 undici,
- * Cloudflare Workers). Replaces axios so the dependency tree carries no
- * third-party HTTP stack — see CHANGELOG (axios → fetch migration).
+ * Minimal HTTP client over the portfolio's shared fetch
+ * (`@sbissoli/mcp-upstream`, since 1.15.0; native `fetch` before that —
+ * axios before 1.4.0). No third-party HTTP stack in the dependency tree.
  *
  * Surface is deliberately small: GET/POST with baseURL joining, query
- * params, per-request header overrides, and a timeout via
- * AbortSignal.timeout. Non-2xx responses and network failures both
- * throw HttpError; callers branch on `error.status` being set (HTTP
- * error) or undefined (network/timeout, always retryable).
+ * params, per-request header overrides, and a timeout per attempt. The
+ * trip itself — retry with backoff, `Retry-After`, budget, and the count
+ * that feeds the provenance `retrieval` block — is the package's, under
+ * this server's policy (`src/utils/upstream.ts`): every client names its
+ * `source`, and its trips land in the collector of that source for the
+ * current tool call. Non-2xx responses and network failures both throw
+ * HttpError; callers branch on `error.status` being set (HTTP error) or
+ * undefined (network/timeout).
  */
+
+import { UpstreamError } from '@sbissoli/mcp-upstream';
+import { upstreamCallFor, type UpstreamSource, UPSTREAM_POLICY } from './upstream.js';
 
 /**
  * Error thrown for any failed HTTP exchange.
  *
- * - `status` set: the server responded with a non-2xx code; `data` holds
- *   the parsed response body (object when JSON, string otherwise).
+ * - `status` set: the server responded with a non-2xx code — after the
+ *   retries the policy allows, for a 5xx/429; `data` holds the parsed
+ *   response body (object when JSON, string otherwise).
  * - `status` undefined: the request never completed (DNS failure,
  *   connection refused/reset, timeout). The underlying cause's message is
- *   folded into `message` so retry heuristics that match on
- *   ECONNRESET/ETIMEDOUT/etc. keep working.
+ *   folded into `message`; a timeout reads "timeout of <ms>ms exceeded"
+ *   (`tools/crosswalk.ts` and `classifyError` read the word "timeout").
+ *   When more than one attempt was made, the message ends with
+ *   "(after N attempts)".
  */
 export class HttpError extends Error {
   readonly status?: number;
@@ -33,9 +43,15 @@ export class HttpError extends Error {
 }
 
 export interface HttpClientConfig {
+  /**
+   * The origin this client talks to, keyed like the cache: its trips are
+   * counted in the collector of this source (`retrieval` of the block that
+   * cites it) and get the attempt ceiling of `UPSTREAM_POLICY.timeoutMs`.
+   */
+  source: UpstreamSource;
   /** Prefix for relative request paths. Absolute URLs bypass it. */
   baseURL?: string;
-  /** Default request timeout in milliseconds (default: 30000). */
+  /** Ceiling of one attempt in ms (default: the policy's, per source). */
   timeout?: number;
   /** Headers sent on every request; per-request headers override them. */
   headers?: Record<string, string>;
@@ -57,7 +73,8 @@ interface HttpResponse<T> {
  * fall back to the raw string, because some upstreams (and nock fixtures)
  * serve JSON without an application/json content-type, while error pages
  * (Cloudflare challenges, nginx 502 HTML) need to surface as strings for
- * extractErrorMessage's preview/truncation path.
+ * extractErrorMessage's preview/truncation path. This is why the trip is
+ * made in the package's `response` mode: the body is ours to read.
  */
 async function parseBody(response: Response): Promise<unknown> {
   const text = await response.text();
@@ -73,15 +90,12 @@ async function parseBody(response: Response): Promise<unknown> {
 
 /**
  * Unwraps fetch's rejection shapes into a flat message:
- * - AbortSignal.timeout → DOMException Timeout/AbortError
  * - undici network failure → TypeError('fetch failed') whose `cause`
  *   carries the real ECONNREFUSED/ENOTFOUND error (sometimes an
  *   AggregateError when multiple address families were tried)
+ * - anything else → its message
  */
-function describeFetchFailure(error: unknown, timeoutMs: number): string {
-  if (error instanceof DOMException && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
-    return `timeout of ${timeoutMs}ms exceeded`;
-  }
+function describeFetchFailure(error: unknown): string {
   if (error instanceof Error) {
     const cause = (error as Error & { cause?: unknown }).cause;
     if (cause instanceof AggregateError && cause.errors.length > 0) {
@@ -93,13 +107,41 @@ function describeFetchFailure(error: unknown, timeoutMs: number): string {
     }
     return error.message;
   }
-  return String(error);
+  return error === undefined ? 'fetch failed' : String(error);
+}
+
+/**
+ * From the package's error (class + count) to the error the rest of the
+ * server reads (`HttpError`, by `instanceof` in the five clients). A
+ * response that arrived keeps its status and parsed body, so the 404 →
+ * `ApiError NOT_FOUND` mapping and `extractErrorMessage` are untouched.
+ */
+export async function translateUpstreamError(error: unknown, timeoutMs: number): Promise<unknown> {
+  if (!(error instanceof UpstreamError)) return error;
+  const after = error.attempts > 1 ? ` (after ${error.attempts} attempts)` : '';
+  switch (error.kind) {
+    case 'timeout':
+      return new HttpError(`timeout of ${timeoutMs}ms exceeded${after}`);
+    case 'network':
+      return new HttpError(`${describeFetchFailure(error.cause)}${after}`);
+    case 'aborted':
+      return new HttpError(`request aborted${after}`);
+    case 'malformed_body':
+      // Not reachable in `response` mode (the body is parsed here, leniently).
+      return new HttpError(`malformed upstream response${after}`, { status: error.status });
+    default: {
+      // A response arrived: http_4xx, http_5xx, rate_limited, not_found.
+      const status = error.status ?? error.response?.status;
+      const data = error.response ? await parseBody(error.response) : error.body;
+      return new HttpError(`Request failed with status code ${status}${after}`, { status, data });
+    }
+  }
 }
 
 export class HttpClient {
   private readonly config: HttpClientConfig;
 
-  constructor(config: HttpClientConfig = {}) {
+  constructor(config: HttpClientConfig) {
     this.config = config;
   }
 
@@ -134,30 +176,23 @@ export class HttpClient {
     options: HttpRequestOptions,
   ): Promise<HttpResponse<T>> {
     const fullUrl = this.buildUrl(url, options.params);
-    const timeout = options.timeout ?? this.config.timeout ?? 30000;
+    const timeout =
+      options.timeout ?? this.config.timeout ?? UPSTREAM_POLICY.timeoutMs[this.config.source];
     const headers = { ...this.config.headers, ...options.headers };
 
     let response: Response;
     try {
-      response = await fetch(fullUrl, {
+      response = await upstreamCallFor(this.config.source).response(fullUrl, {
         method,
         headers,
         body,
-        signal: AbortSignal.timeout(timeout),
+        timeoutMs: timeout,
       });
     } catch (error) {
-      throw new HttpError(describeFetchFailure(error, timeout));
+      throw await translateUpstreamError(error, timeout);
     }
 
-    const data = await parseBody(response);
-
-    if (!response.ok) {
-      throw new HttpError(`Request failed with status code ${response.status}`, {
-        status: response.status,
-        data,
-      });
-    }
-
-    return { data: data as T, status: response.status };
+    // Only 2xx reaches here: the package throws on every other status.
+    return { data: (await parseBody(response)) as T, status: response.status };
   }
 }

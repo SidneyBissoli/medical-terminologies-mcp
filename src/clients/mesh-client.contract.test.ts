@@ -10,12 +10,13 @@
  * drift).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import nock from 'nock';
 import { MeSHClient } from './mesh-client.js';
 import { cache } from '../utils/cache.js';
+import { upstreamIo } from '../utils/upstream.js';
 
 const FIXTURES = join(process.cwd(), 'src', '__fixtures__', 'mesh');
 
@@ -34,6 +35,9 @@ describe('MeSHClient — contract tests against captured live fixtures', () => {
   let client: MeSHClient;
 
   beforeEach(() => {
+    // The shared fetch really repeats 5xx/network now (backoff 1 s → 2 s):
+    // the wait is silenced so a permanent-failure stub does not cost 3 s.
+    vi.spyOn(upstreamIo, 'sleep').mockResolvedValue(undefined);
     // Per-test cache flush — node-cache is process-global, so without
     // this, fixtures from previous tests would leak across cases and
     // hide whether the client is actually hitting the mocked endpoints.
@@ -176,8 +180,8 @@ describe('MeSHClient — contract tests against captured live fixtures', () => {
         if (i < 17) {
           nock(HOST).get(`${BASE}/${qId}.json`).reply(200, fixture('qualifier-Q000503.json'));
         } else {
-          // Retry path will hit 500 maxRetries times, so allow each id to
-          // fail multiple times (withRetry retries 2 times → 3 total attempts).
+          // The shared fetch retries a 5xx twice (3 attempts per id), so
+          // each failing id must answer 500 three times.
           nock(HOST).get(`${BASE}/${qId}.json`).times(3).reply(500, '');
         }
       });

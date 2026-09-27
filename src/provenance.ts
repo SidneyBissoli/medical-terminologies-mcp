@@ -1,5 +1,5 @@
 /**
- * Provenance block (portfolio contract v1.0) — English/UTC adapter over
+ * Provenance block (portfolio contract v1.1) — English/UTC adapter over
  * `@sbissoli/mcp-provenance`. The canonical model, the `concise`/`detailed`
  * projections, serialization determinism, timezone handling and the footer
  * wording live in the package; this module binds them to this server:
@@ -17,7 +17,11 @@
  *    fetch instant — the legally relevant extraction date. Bundled
  *    datasets (CID-10, transition tables) have no fetch: `retrieved_at`
  *    is the in-memory query instant and the authority lives in
- *    `data_vintage` (V2008 / 2025-01).
+ *    `data_vintage` (V2008 / 2025-01). Since 1.15.0 it also carries the
+ *    `retrieval` block (v1.1): trips, attempts and anomalies of THAT
+ *    source in this call, from the per-source network collectors of
+ *    `src/utils/upstream.ts` — `null` for bundled data and for responses
+ *    served entirely from cache (nothing was measured).
  *
  * Multi-source responses (`find_equivalent`, `validate_codes`) carry ONE
  * BLOCK PER SOURCE (license segregation is a contract rule); their
@@ -37,12 +41,15 @@ import { z } from 'zod';
 import type { CallToolResult } from '@modelcontextprotocol/server';
 import {
   attributionList,
+  CONCISE_BLOCK_JSON_SCHEMA,
+  ConciseBlockSchema,
   createProvenanceContext,
   renderConcise,
   type CanonicalProvenance,
   type ConciseBlock,
 } from '@sbissoli/mcp-provenance';
 import { cacheMetaFor, type FetchMeta } from './utils/fetch-meta.js';
+import { retrievalFor } from './utils/upstream.js';
 import { getEnv } from './utils/env.js';
 import { WHO_ICD11_DEFAULT_RELEASE } from './clients/who-client.js';
 
@@ -54,7 +61,7 @@ export const provenanceContext = createProvenanceContext({
   defaultMode: 'concise',
 });
 
-/** Canonical envelope v1.0 (post-validation). */
+/** Canonical envelope v1.1 (post-validation). */
 export type Provenance = CanonicalProvenance;
 
 /** Namespaced `_meta` keys (stable — audit/UI consumers read by these keys). */
@@ -355,6 +362,9 @@ export function medicalProvenance(
       : {}),
     data_vintage: opts.dataVintage !== undefined ? opts.dataVintage : src.defaultVintage(),
     retrieved_at: meta.retrievedAt,
+    // The network diagnostics of THIS source in this call (per-source
+    // collectors keyed like the cache); the package derives `unstable`.
+    retrieval: retrievalFor(src.cachePrefixes),
     citation: src.citation(date, opts.citationDetail),
     license: src.license,
     notices: src.notices,
@@ -396,32 +406,102 @@ export function provenancedResult(opts: {
   };
 }
 
-/** Concise projection of a block (the shape embedded in `structuredContent`/`_meta`). */
-export const provenanceBlockSchema = z.object({
-  source: z.string().describe('Official upstream source of this data'),
-  source_url: z.string().describe('Canonical URL of the source (API base or dataset release)'),
-  data_vintage: z
-    .string()
-    .nullable()
-    .describe('Version/release of the data as exposed by the source; null when not exposed'),
-  retrieved_at: z
-    .string()
-    .describe(
-      'Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.',
-    ),
-  citation: z.string().describe('Ready-to-use citation/attribution string'),
-  license: z.string().nullable().describe('License / legal regime of the data'),
-});
+/**
+ * This server's wording for the top-level keys of the concise block. Typed
+ * against the package's shape on purpose: a key the contract adds and this
+ * map does not describe fails to compile, instead of reaching the client
+ * undescribed.
+ */
+const BLOCK_DESCRIPTIONS: Record<keyof typeof ConciseBlockSchema.shape, string> = {
+  source: 'Official upstream source of this data',
+  source_url: 'Canonical URL of the source (API base or dataset release)',
+  data_vintage: 'Version/release of the data as exposed by the source; null when not exposed',
+  retrieved_at:
+    'Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.',
+  retrieval:
+    'Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)',
+  citation: 'Ready-to-use citation/attribution string',
+  license: 'License / legal regime of the data',
+};
+
+/** The subset of JSON Schema the walker reads: descriptions, and where the children are. */
+interface JsonSchemaNode {
+  description?: string;
+  type?: string | readonly string[];
+  properties?: Record<string, JsonSchemaNode>;
+  items?: JsonSchemaNode;
+  oneOf?: readonly JsonSchemaNode[];
+}
+
+/**
+ * Grafts descriptions onto a zod schema, node by node, from the JSON Schema
+ * the package publishes for the same projection (`overrides` win at the top
+ * level). The SHAPE — keys, types, strictness — stays the package's.
+ */
+function describeFromJsonSchema(
+  schema: z.ZodType,
+  node: JsonSchemaNode | undefined,
+  overrides: Partial<Record<string, string>> = {},
+  /** Description of THIS node; `undefined` = the JSON Schema's, `''` = none (the parent carries it). */
+  text: string | undefined = node?.description,
+): z.ZodType {
+  let out: z.ZodType;
+  if (schema instanceof z.ZodNullable) {
+    // `x | null` is `oneOf: [x, null]` (retrieval) or `type: [x, "null"]` (vintage).
+    const inner = node?.oneOf ? node.oneOf.find((n) => n.type !== 'null') : node;
+    out = describeFromJsonSchema(schema.unwrap() as z.ZodType, inner, {}, '').nullable();
+  } else if (schema instanceof z.ZodArray) {
+    out = z.array(describeFromJsonSchema(schema.element as z.ZodType, node?.items));
+  } else if (schema instanceof z.ZodObject) {
+    out = z.strictObject(
+      Object.fromEntries(
+        Object.entries(schema.shape).map(([key, child]) => [
+          key,
+          describeFromJsonSchema(
+            child as z.ZodType,
+            node?.properties?.[key],
+            {},
+            overrides[key] ?? node?.properties?.[key]?.description,
+          ),
+        ]),
+      ),
+    );
+  } else {
+    out = schema;
+  }
+  return text ? out.describe(text) : out;
+}
+
+/**
+ * Concise projection of a block — the shape embedded in `structuredContent`
+ * and `_meta`, and the `provenance` node of every tool's `outputSchema`.
+ *
+ * The shape is the package's `ConciseBlockSchema`, NOT a transcription.
+ * Until 1.14.0 this module transcribed the six v1.0 keys by hand; the SDK
+ * converts the zod to a sealed JSON Schema (`additionalProperties: false`),
+ * and raising the package to a contract with a new key (v1.1, `retrieval`)
+ * without touching the transcription made EVERY tool fail the output-
+ * contract gate ("must NOT have additional properties", 64 tests — the
+ * package's own header records "medical 64 falhas"). Importing the shape
+ * means a new key arrives together with the lib that emits it. Descriptions
+ * are this server's wording at the top level and the package's own text
+ * underneath (the `retrieval` sub-fields).
+ */
+export const provenanceBlockSchema = describeFromJsonSchema(
+  ConciseBlockSchema,
+  CONCISE_BLOCK_JSON_SCHEMA,
+  BLOCK_DESCRIPTIONS,
+) as typeof ConciseBlockSchema;
 
 /**
  * Extends a single-source tool's output schema with the provenance channel
- * of the contract v1.0: the concise block + the `attribution` URL list
+ * of the contract v1.1: the concise block + the `attribution` URL list
  * (MCP RFC #711). Every successful response carries both.
  */
 export function withProvenance<T extends z.ZodObject<z.ZodRawShape>>(schema: T) {
   return schema.extend({
     provenance: provenanceBlockSchema.describe(
-      'Provenance block (contract v1.0): source, URL, data vintage, extraction instant, citation, license',
+      'Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license',
     ),
     attribution: z
       .array(z.string())
@@ -439,7 +519,7 @@ export function withProvenanceMulti<T extends z.ZodObject<z.ZodRawShape>>(schema
     provenance: z
       .array(provenanceBlockSchema)
       .describe(
-        'One provenance block per upstream source that contributed to this response (contract v1.0; licenses are never merged)',
+        'One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)',
       ),
     attribution: z
       .array(z.string())
