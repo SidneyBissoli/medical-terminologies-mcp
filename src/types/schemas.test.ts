@@ -103,9 +103,53 @@ describe('input param schemas — strict validators run', () => {
       ['6809', true],
       ['aspirin', false],
       ['68-09', false],
+      ['', false],
     ])('rxcui "%s" → valid=%s', (input, expected) => {
       const result = RxNormConceptParamsSchema.safeParse({ rxcui: input });
       expect(result.success).toBe(expected);
+    });
+
+    // Measured 2026-09-28: the `contrato` refusals of rxnorm_concept from
+    // real connectors were the RxCUI as a JSON number and/or include_related
+    // as text. The handler always sees the string / the boolean.
+    it.each([
+      [161, '161'],
+      [6809, '6809'],
+      [0, '0'],
+    ])('rxcui %s as an integer is accepted and coerced to "%s"', (input, expected) => {
+      const result = RxNormConceptParamsSchema.safeParse({ rxcui: input });
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.rxcui).toBe(expected);
+    });
+
+    it.each([[161.5], [-1], [Number.NaN], [true], [null]])('rxcui %s is still refused', (input) => {
+      const result = RxNormConceptParamsSchema.safeParse({ rxcui: input });
+      expect(result.success).toBe(false);
+    });
+
+    it('names the rule when both branches fail', () => {
+      const result = RxNormConceptParamsSchema.safeParse({ rxcui: 161.5 });
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.error.issues[0].message).toMatch(/RxCUI must be numeric/);
+    });
+
+    it.each([
+      [true, true],
+      [false, false],
+      ['true', true],
+      ['false', false],
+      [undefined, false],
+    ])('include_related %s → %s', (input, expected) => {
+      const args: Record<string, unknown> = { rxcui: '161' };
+      if (input !== undefined) args.include_related = input;
+      const result = RxNormConceptParamsSchema.safeParse(args);
+      expect(result.success).toBe(true);
+      if (result.success) expect(result.data.include_related).toBe(expected);
+    });
+
+    it.each([['yes'], ['1'], [1], ['TRUE']])('include_related %s is still refused', (input) => {
+      const result = RxNormConceptParamsSchema.safeParse({ rxcui: '161', include_related: input });
+      expect(result.success).toBe(false);
     });
   });
 

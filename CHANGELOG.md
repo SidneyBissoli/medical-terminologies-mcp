@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2026-09-28
+
+Contexto: o painel do portfólio acusava `rxnorm_concept` com 84% de erro
+(1245 de 1482 chamadas, 13–20/09). Medido na telemetria em 28/09/2026: 97%
+desse erro era UMA rede automatizada enumerando RxCUI inexistentes
+(`nao_encontrado`) — a ferramenta respondia certo, na borda, inclusive para
+os 18 RxCUI que a própria `rxnorm_search` devolve. O que sobrou de real está
+abaixo: uma ida morta por chamada e 45 recusas de contrato a chamadores que
+queriam a coisa certa.
+
+### Fixed
+- **`rxnorm_concept` deixa de pagar uma ida falha por chamada.** O status do
+  conceito vinha de `/rxcui/{id}/status.json`, que está morto na origem:
+  responde 404 para RxCUI VÁLIDOS (161, 6809 — medido em 28/09/2026). Toda
+  consulta fazia duas idas, uma falhava calada, o `retrieval` da proveniência
+  contava a ida perdida (`requests: 2`) e o status caía sempre no default
+  `Active`. Agora o status vem de `/rxcui/{id}/historystatus.json`
+  (getRxcuiHistoryStatus, vivo): `status` de `metaData.status` e
+  `remapped_to` de `derivedConcepts.remappedConcept[]` — `remapped_to`, que o
+  endpoint morto nunca pôde preencher, passa a sair para conceitos
+  `Remapped` (fixture viva 105048, o exemplo da documentação da NLM).
+- **Teste de contrato pinado no caso REAL de ausência:** a RxCUI inexistente
+  o RxNav responde **200 com `{}`**, não 404 (fixture viva 999999999). O
+  teste antigo só cobria o 404, que a origem não emite; ficou como cinto.
+
+### Changed
+- **Entrada tolerante para identificador numérico e booleano em texto — é o
+  que muda o contrato publicado, daí o minor.** Medido na produção em
+  28/09/2026 (35 dias): TODAS as recusas de contrato de `rxnorm_concept`
+  vindas de conectores reais (45) eram `rxcui` como número JSON (`161` em vez
+  de `"161"`) e/ou `include_related` como texto (`"true"`). Agora `rxcui`
+  aceita string de dígitos OU inteiro não negativo (o handler recebe sempre a
+  string) nas quatro tools que o tomam — `rxnorm_concept`,
+  `rxnorm_ingredients`, `rxnorm_classes`, `rxnorm_ndc` — e
+  `include_related` aceita `true`/`false` ou `"true"`/`"false"`. A mesma regra
+  vale para `sctid` nas tools SNOMED (desligadas por padrão; superfície
+  publicada não muda). `"abc"`, `161.5`, `-1`, `"yes"` seguem recusados, com
+  a mensagem pedagógica que nomeia a regra.
+
+### Surface
+- `inputSchema` de `rxnorm_concept`, `rxnorm_ingredients`, `rxnorm_classes`
+  e `rxnorm_ndc`: `rxcui` vira `anyOf` [string `^\d+$`, integer ≥ 0].
+  `rxnorm_concept.include_related` vira `anyOf` [boolean, enum
+  `"true"`/`"false"`] e **perde a chave `default: false`** — o Zod 4 não a
+  emite sobre união com transformação (medido nas quatro variantes); o
+  default continua valendo no handler e a descrição o diz. Descrições de
+  `rxcui` e da tool `rxnorm_concept` dizem que aceitam inteiro.
+  `baselines/surface-stdio-1.16.0.json` vs `1.15.0`: só isso.
+
 ## [1.15.0] - 2026-09-27
 
 ### Added

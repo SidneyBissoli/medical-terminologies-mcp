@@ -12,13 +12,35 @@ const SupportedLanguageSchema = z
 
 const TerminologyEnum = z.enum(['icd11', 'snomed', 'loinc', 'rxnorm', 'mesh']);
 
-const SCTIDSchema = z
-  .string()
-  .regex(/^\d+$/, 'SCTID must be numeric (digits only)');
+/**
+ * A numeric identifier that clients send either as the string the source
+ * publishes ("161") or as a JSON integer (161). Measured in production
+ * 2026-09-28: every `contrato` refusal of `rxnorm_concept` from real
+ * connectors (45 in 35 days) was the identifier as a number and/or a boolean
+ * as text — callers that meant the right thing and were turned away. The
+ * handler always receives the string; the advertised input schema says both.
+ */
+function numericIdSchema(label: string) {
+  return z
+    .union(
+      [
+        z.string().regex(/^\d+$/, `${label} must be numeric (digits only)`),
+        z.number().int().nonnegative(),
+      ],
+      { error: `${label} must be numeric: a string of digits or a non-negative integer` }
+    )
+    .transform((v) => String(v));
+}
 
-const RxCUISchema = z
-  .string()
-  .regex(/^\d+$/, 'RxCUI must be numeric (digits only)');
+/** A boolean that also accepts the strings "true" / "false" (same measurement as above). */
+const lenientBoolean = z.union([
+  z.boolean(),
+  z.enum(['true', 'false']).transform((v) => v === 'true'),
+]);
+
+const SCTIDSchema = numericIdSchema('SCTID');
+
+const RxCUISchema = numericIdSchema('RxCUI');
 
 const LOINCNumberSchema = z
   .string()
@@ -275,12 +297,11 @@ export const RxNormSearchParamsSchema = z.object({
 }).strict();
 
 export const RxNormConceptParamsSchema = z.object({
-  rxcui: RxCUISchema.describe('RxNorm Concept Unique Identifier'),
-  include_related: z
-    .boolean()
+  rxcui: RxCUISchema.describe('RxNorm Concept Unique Identifier (string of digits or integer, e.g. "161" or 161)'),
+  include_related: lenientBoolean
     .optional()
     .default(false)
-    .describe('Include related concepts (ingredients, brands, dose forms)'),
+    .describe('Include related concepts (ingredients, brands, dose forms). Default false; true/false, also accepted as the strings "true"/"false"'),
 }).strict();
 
 /** Shared shape for rxnorm_ingredients / rxnorm_classes */

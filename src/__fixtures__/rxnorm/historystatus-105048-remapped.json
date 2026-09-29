@@ -1,0 +1,39 @@
+{
+  "rxcuiStatusHistory": {
+    "metaData": {
+      "status": "Remapped",
+      "source": "RXNORM",
+      "releaseStartDate": "042005",
+      "releaseEndDate": "052009",
+      "isCurrent": "NO",
+      "activeStartDate": "042005",
+      "activeEndDate": "052009",
+      "remappedDate": "062009"
+    },
+    "attributes": {
+      "rxcui": "105048",
+      "name": "Amantadine 100 MG Oral Capsule [Symmetrel]",
+      "tty": "SBD",
+      "isMultipleIngredient": "",
+      "isBranded": ""
+    },
+    "definitionalFeatures": {},
+    "pack": {},
+    "derivedConcepts": {
+      "remappedConcept": [
+        {
+          "remappedRxCui": "849389",
+          "remappedName": "amantadine hydrochloride 100 MG Oral Capsule",
+          "remappedTTY": "SCD",
+          "remappedActive": "YES"
+        },
+        {
+          "remappedRxCui": "849394",
+          "remappedName": "amantadine hydrochloride 100 MG Oral Capsule [Symmetrel]",
+          "remappedTTY": "SBD",
+          "remappedActive": "NO"
+        }
+      ]
+    }
+  }
+}

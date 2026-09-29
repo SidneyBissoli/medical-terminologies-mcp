@@ -10,6 +10,7 @@ descrições 12× menores em produção). Nenhum teste unitário pega essa class
 
 | Arquivo | Como foi capturado | O que representa |
 |:--|:--|:--|
+| `surface-stdio-1.16.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-09-28 | 33 tools. Diff para a 1.15.0, deliberado e no CHANGELOG: `rxcui` vira `anyOf` [string, integer] em `rxnorm_concept`, `rxnorm_ingredients`, `rxnorm_classes` e `rxnorm_ndc`; `rxnorm_concept.include_related` vira `anyOf` [boolean, "true"/"false"] e perde `default`; descrições. O `http-prod` correspondente é capturado depois do deploy. |
 | `surface-stdio-1.12.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-09-16 | 33 tools. Diff para a 1.11.0, deliberado e no CHANGELOG: só `cid10_search` muda — descrição da tool e de `query` (AND entre palavras, vocabulário traduzido) e `vocabulary_notes` opcional no `outputSchema`. O `http-prod` correspondente é capturado depois do deploy. |
 | `surface-http-prod-1.12.0.json` | `--url https://medical.sidneybissoli.com/mcp` | o que o endpoint hospedado serve desde 16/09/2026 (1.12.0) — byte-idêntico ao stdio 1.12.0 |
 | `surface-stdio-1.11.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-09-13 | 33 tools. Diff para a 1.10.0, todo deliberado e no CHANGELOG: `additionalProperties: false` em todas as tools (esquemas estritos de 11/09) e `icd11_hierarchy` com `uri` e `language`, `code` opcional e descrição nova (bloco/intervalo). O baseline `http-prod` correspondente é capturado depois do deploy. |

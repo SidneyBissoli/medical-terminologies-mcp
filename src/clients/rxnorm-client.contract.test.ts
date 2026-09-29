@@ -80,9 +80,11 @@ describe('RxNormClient — contract tests against captured live fixtures', () =>
   });
 
   describe('getConcept', () => {
-    it('returns properties + status when both endpoints respond', async () => {
+    it('reads the status from /historystatus.json (live Active fixture, 161)', async () => {
+      // /rxcui/{id}/status.json is DEAD upstream (404 for valid concepts,
+      // measured 2026-09-28); the status now comes from getRxcuiHistoryStatus.
       nock(HOST).get(`${BASE}/rxcui/161/properties.json`).reply(200, fixture('properties-161.json'));
-      nock(HOST).get(`${BASE}/rxcui/161/status.json`).reply(200, { rxcuiStatus: { status: 'Active' } });
+      nock(HOST).get(`${BASE}/rxcui/161/historystatus.json`).reply(200, fixture('historystatus-161.json'));
 
       const c = await client.getConcept('161');
       expect(c).not.toBeNull();
@@ -90,15 +92,30 @@ describe('RxNormClient — contract tests against captured live fixtures', () =>
       expect(c!.name).toBe('acetaminophen');
       expect(c!.tty).toBe('IN');
       expect(c!.status).toBe('Active');
+      expect(c!.remappedTo).toEqual([]);
     });
 
-    it('returns properties without status when /status.json 404s (current upstream behavior)', async () => {
-      // Live observation 2026-05-09: /status.json returns 404 for many
-      // ingredient-level RxCUIs. The client wraps the call in try/catch
-      // and falls back to a default Active status. Pin that.
+    it('reads the remap targets from derivedConcepts.remappedConcept[] (live Remapped fixture, 105048)', async () => {
+      // 105048 is the getRxcuiHistoryStatus documentation example of a
+      // Remapped concept; properties for it are synthetic because the client
+      // needs them before it asks for the status.
+      nock(HOST)
+        .get(`${BASE}/rxcui/105048/properties.json`)
+        .reply(200, { properties: { rxcui: '105048', name: 'Amantadine 100 MG Oral Capsule [Symmetrel]', tty: 'SBD' } });
+      nock(HOST)
+        .get(`${BASE}/rxcui/105048/historystatus.json`)
+        .reply(200, fixture('historystatus-105048-remapped.json'));
+
+      const c = await client.getConcept('105048');
+      expect(c).not.toBeNull();
+      expect(c!.status).toBe('Remapped');
+      expect(c!.remappedTo).toEqual(['849389', '849394']);
+    });
+
+    it('falls back to Active when /historystatus.json fails (status is optional)', async () => {
       nock(HOST).get(`${BASE}/rxcui/161/properties.json`).reply(200, fixture('properties-161.json'));
       // A 404 is never retried (absence is the answer): one interceptor is enough.
-      nock(HOST).get(`${BASE}/rxcui/161/status.json`).reply(404, '');
+      nock(HOST).get(`${BASE}/rxcui/161/historystatus.json`).reply(404, '');
 
       const c = await client.getConcept('161');
       expect(c).not.toBeNull();
@@ -107,7 +124,21 @@ describe('RxNormClient — contract tests against captured live fixtures', () =>
       expect(c!.status).toBe('Active');
     });
 
-    it('returns null when /properties.json 404s (concept does not exist)', async () => {
+    it('returns null when /properties.json answers 200 with `{}` (the REAL not-found shape)', async () => {
+      // Live capture 2026-09-28 (src/__fixtures__/rxnorm/properties-999999999-nonexistent.json):
+      // RxNav does not 404 an unknown RxCUI — it answers 200 with an empty
+      // object. The absence test is the missing `properties` key; the status
+      // trip must not even be attempted (no interceptor registered for it,
+      // and network is disabled, so an attempt would throw).
+      nock(HOST)
+        .get(`${BASE}/rxcui/999999999/properties.json`)
+        .reply(200, fixture('properties-999999999-nonexistent.json'));
+
+      const c = await client.getConcept('999999999');
+      expect(c).toBeNull();
+    });
+
+    it('returns null when /properties.json 404s (kept in case upstream changes its mind)', async () => {
       nock(HOST).get(`${BASE}/rxcui/99999999/properties.json`).reply(404, '');
 
       const c = await client.getConcept('99999999');

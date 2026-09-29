@@ -79,7 +79,7 @@ Use this tool to:
 - Check the concept status (active, remapped, etc.)
 - View related concepts (ingredients, brands, forms)
 
-Provide an RxCUI (RxNorm Concept Unique Identifier) like "161".`,
+Provide an RxCUI (RxNorm Concept Unique Identifier) like "161" — as a string of digits or as an integer.`,
   inputSchema: buildInputSchema(RxNormConceptParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(RxNormConceptOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,

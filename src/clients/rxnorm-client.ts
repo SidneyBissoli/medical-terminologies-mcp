@@ -191,7 +191,11 @@ export class RxNormClient {
       cacheKey,
       async () => {
         try {
-          // First get properties (required)
+          // First get properties (required). An RxCUI that does not exist
+          // is NOT a 404 here: RxNav answers 200 with an empty object `{}`
+          // (measured 2026-09-28 for 999999999), so the absence test is the
+          // missing `properties` key — the 404 branch below is kept for the
+          // day upstream changes its mind.
           const propsResponse = await this.request<RxNormPropertiesResponse>(`/rxcui/${rxcui}/properties.json`);
 
           const props = propsResponse.properties;
@@ -199,11 +203,27 @@ export class RxNormClient {
             return null;
           }
 
-          // Try to get status (optional - don't fail if this errors)
-          let status: { status: string; remappedTo?: string[] } | undefined;
+          // Then the status (optional — never fail the concept over it).
+          // `/rxcui/{id}/status.json` is dead upstream: 404 for VALID
+          // concepts (161, 6809 — measured 2026-09-28), which meant every
+          // concept lookup paid one failing trip and `retrieval.requests`
+          // counted it. `/historystatus.json` is the live replacement
+          // (getRxcuiHistoryStatus): the status sits in `metaData.status`
+          // and the remap targets in `derivedConcepts.remappedConcept[]`.
+          let status: { status: string; remappedTo: string[] } | undefined;
           try {
-            const statusResponse = await this.request<RxNormStatusResponse>(`/rxcui/${rxcui}/status.json`);
-            status = statusResponse.rxcuiStatus;
+            const historyResponse = await this.request<RxNormHistoryStatusResponse>(
+              `/rxcui/${rxcui}/historystatus.json`
+            );
+            const history = historyResponse.rxcuiStatusHistory;
+            if (history?.metaData?.status) {
+              status = {
+                status: history.metaData.status,
+                remappedTo: (history.derivedConcepts?.remappedConcept ?? [])
+                  .map((c) => c.remappedRxCui)
+                  .filter((id): id is string => Boolean(id)),
+              };
+            }
           } catch {
             // Status endpoint failed, continue without it
           }
@@ -706,10 +726,21 @@ interface RxNormPropertiesResponse {
   };
 }
 
-interface RxNormStatusResponse {
-  rxcuiStatus?: {
-    status: string;
-    remappedTo?: string[];
+/** Shape of `/rxcui/{id}/historystatus.json` (getRxcuiHistoryStatus); only the keys read here. */
+interface RxNormHistoryStatusResponse {
+  rxcuiStatusHistory?: {
+    metaData?: {
+      status?: string;
+      remappedDate?: string;
+    };
+    derivedConcepts?: {
+      remappedConcept?: Array<{
+        remappedRxCui?: string;
+        remappedName?: string;
+        remappedTTY?: string;
+        remappedActive?: string;
+      }>;
+    };
   };
 }
 
