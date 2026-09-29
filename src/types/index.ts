@@ -345,13 +345,19 @@ export const RxNormSearchOutputSchema = z.object({
 
 export const RxNormConceptOutputSchema = z.object({
   rxcui: z.string(),
-  name: z.string(),
-  synonym: z.string(),
-  tty: z.string(),
-  language: z.string(),
-  suppress: z.string(),
-  umlscui: z.string(),
-  status: z.string(),
+  // An RxCUI that RxNorm does not have is an ANSWER, not an error (since
+  // 1.16.0; the siblings already say so: rxnorm_search with total_count 0,
+  // rxnorm_ingredients/classes/ndc with an empty list, atc_lookup with
+  // found:false). found=false ⇒ every concept field below is null,
+  // remapped_to is [] and related_groups is null.
+  found: z.boolean().describe('false when RxNorm has no concept with this RxCUI (the lookup answered; the fields below are null)'),
+  name: z.string().nullable(),
+  synonym: z.string().nullable(),
+  tty: z.string().nullable(),
+  language: z.string().nullable(),
+  suppress: z.string().nullable(),
+  umlscui: z.string().nullable(),
+  status: z.string().nullable(),
   remapped_to: z.array(z.string()),
   // Populated only when include_related=true; null when the caller didn't
   // ask for related concepts so the field's absence vs emptiness is

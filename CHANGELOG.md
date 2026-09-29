@@ -31,6 +31,18 @@ queriam a coisa certa.
   teste antigo só cobria o 404, que a origem não emite; ficou como cinto.
 
 ### Changed
+- **`rxnorm_concept`: RxCUI que o RxNorm não tem é RESPOSTA, não erro
+  (decisão do dono, 28/09/2026).** Era a única tool da família que virava
+  ausência em `isError: true` — `rxnorm_search` devolve `total_count: 0`,
+  `rxnorm_ingredients`/`classes`/`ndc` lista vazia, `atc_lookup` sucesso com
+  `found: false`. Agora responde sucesso com corpo explícito: texto que diz o
+  que a origem respondeu e como achar o RxCUI certo, e `structuredContent`
+  com **`found: false`**, os campos do conceito em `null`, `remapped_to: []`
+  e `related_groups: null`, com proveniência (a ida à origem aconteceu). O
+  `fetch` do Deep Research decide a ausência por `found` (como já fazia com
+  o CID-10) e devolve "not found" em vez de renderizar documento vazio. O
+  robô que enumera RxCUI inexistentes deixa de gerar erro na fonte; o que
+  ele recebe é a verdade da origem.
 - **Entrada tolerante para identificador numérico e booleano em texto — é o
   que muda o contrato publicado, daí o minor.** Medido na produção em
   28/09/2026 (35 dias): TODAS as recusas de contrato de `rxnorm_concept`
@@ -52,6 +64,9 @@ queriam a coisa certa.
   emite sobre união com transformação (medido nas quatro variantes); o
   default continua valendo no handler e a descrição o diz. Descrições de
   `rxcui` e da tool `rxnorm_concept` dizem que aceitam inteiro.
+- `outputSchema` de `rxnorm_concept`: chave obrigatória nova **`found`**
+  (boolean); `name`, `synonym`, `tty`, `language`, `suppress`, `umlscui` e
+  `status` passam a `string | null` (nulos só quando `found: false`).
   `baselines/surface-stdio-1.16.0.json` vs `1.15.0`: só isso.
 
 ## [1.15.0] - 2026-09-27

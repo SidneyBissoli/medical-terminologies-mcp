@@ -6113,11 +6113,21 @@
             },
             "type": "array"
           },
+          "found": {
+            "description": "false when RxNorm has no concept with this RxCUI (the lookup answered; the fields below are null)",
+            "type": "boolean"
+          },
           "language": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "provenance": {
             "additionalProperties": false,
@@ -6297,23 +6307,39 @@
             "type": "string"
           },
           "status": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "suppress": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "synonym": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "tty": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "umlscui": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "rxcui",
+          "found",
           "name",
           "synonym",
           "tty",

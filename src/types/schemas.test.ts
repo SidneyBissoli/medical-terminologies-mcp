@@ -728,10 +728,46 @@ describe('RxNorm output schemas — fixtures parse cleanly', () => {
     ).toBe(true);
   });
 
+  it('concept output: found=false — every concept field null, remapped_to empty (absence is an answer)', () => {
+    expect(
+      RxNormConceptOutputSchema.safeParse({
+        rxcui: '999999999',
+        found: false,
+        name: null,
+        synonym: null,
+        tty: null,
+        language: null,
+        suppress: null,
+        umlscui: null,
+        status: null,
+        remapped_to: [],
+        related_groups: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it('concept output: rejects a record without `found` (the discriminant is required)', () => {
+    expect(
+      RxNormConceptOutputSchema.safeParse({
+        rxcui: '6809',
+        name: 'metformin',
+        synonym: '',
+        tty: 'IN',
+        language: 'ENG',
+        suppress: 'N',
+        umlscui: '',
+        status: 'Active',
+        remapped_to: [],
+        related_groups: null,
+      }).success,
+    ).toBe(false);
+  });
+
   it('concept output: with related_groups null when not requested', () => {
     expect(
       RxNormConceptOutputSchema.safeParse({
         rxcui: '6809',
+        found: true,
         name: 'metformin',
         synonym: '',
         tty: 'IN',
@@ -749,6 +785,7 @@ describe('RxNorm output schemas — fixtures parse cleanly', () => {
     expect(
       RxNormConceptOutputSchema.safeParse({
         rxcui: '6809',
+        found: true,
         name: 'metformin',
         synonym: '',
         tty: 'IN',

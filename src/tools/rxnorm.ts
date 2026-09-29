@@ -361,13 +361,36 @@ async function handleRxNormConcept(args: Record<string, unknown>): Promise<CallT
     const concept = await client.getConcept(params.rxcui);
 
     if (!concept) {
-      return {
-        content: [{
-          type: 'text',
-          text: `RxCUI "${params.rxcui}" not found. Please verify the identifier is correct.`,
-        }],
-        isError: true,
+      // "Not in RxNorm" is an answer the source gave (RxNav: 200 with no
+      // properties), not a failure of this tool — so it is a SUCCESS with an
+      // explicit body, like the sibling tools, never `isError`. Until 1.15.0
+      // this was the only RxNorm tool turning absence into an error, and an
+      // automated caller enumerating unknown RxCUIs made the tool look 84%
+      // broken on the portfolio dashboard (measured 2026-09-28).
+      const structured: RxNormConceptOutput = {
+        rxcui: params.rxcui,
+        found: false,
+        name: null,
+        synonym: null,
+        tty: null,
+        language: null,
+        suppress: null,
+        umlscui: null,
+        status: null,
+        remapped_to: [],
+        related_groups: null,
       };
+      return provenancedResult({
+        text: [
+          `No RxNorm concept with RxCUI "${params.rxcui}".`,
+          '',
+          'RxNav answered the lookup with no properties for this identifier: it is not an RxCUI RxNorm has ever assigned.',
+          'Retired concepts are NOT absent — they come back with status "Remapped" or "Obsolete" and, when remapped, the surviving RxCUIs.',
+          'To find the RxCUI of a drug, search by name with `rxnorm_search` (brand or generic).',
+        ].join('\n'),
+        structured,
+        provenance: rxnormProvenance(),
+      });
     }
 
     let related: RxNormRelatedGroup[] | undefined;
@@ -377,6 +400,7 @@ async function handleRxNormConcept(args: Record<string, unknown>): Promise<CallT
 
     const structured: RxNormConceptOutput = {
       rxcui: concept.rxcui,
+      found: true,
       name: concept.name,
       synonym: concept.synonym,
       tty: concept.tty,
