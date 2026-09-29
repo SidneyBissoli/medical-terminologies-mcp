@@ -538,6 +538,10 @@ function describeDocument(kind: DocKind, key: string, s: Structured): { title: s
       return { title: `LOINC ${num} — ${str(s.long_common_name) ?? ''}`.trim(), url: urlLoinc(num) };
     }
     case 'rxnorm': {
+      // Since 1.16.0 rxnorm_concept answers an unknown RxCUI with found:false
+      // (a success), so absence is decided here — like cid10 above — and the
+      // caller reports "not found" instead of rendering an empty document.
+      if (s.found !== true) return null;
       const rxcui = str(s.rxcui) ?? key;
       return { title: `RxNorm ${rxcui} — ${str(s.name) ?? ''}`.trim(), url: urlRxNorm(rxcui) };
     }

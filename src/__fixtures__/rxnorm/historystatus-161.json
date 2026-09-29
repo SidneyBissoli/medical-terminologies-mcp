@@ -1,0 +1,24 @@
+{
+  "rxcuiStatusHistory": {
+    "metaData": {
+      "status": "Active",
+      "source": "RXNORM",
+      "releaseStartDate": "042005",
+      "releaseEndDate": "",
+      "isCurrent": "YES",
+      "activeStartDate": "042005",
+      "activeEndDate": "",
+      "remappedDate": ""
+    },
+    "attributes": {
+      "rxcui": "161",
+      "name": "acetaminophen",
+      "tty": "IN",
+      "isMultipleIngredient": "NO",
+      "isBranded": "NO"
+    },
+    "definitionalFeatures": {},
+    "pack": {},
+    "derivedConcepts": {}
+  }
+}

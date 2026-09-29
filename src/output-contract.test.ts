@@ -178,8 +178,10 @@ function mockUpstreams(): void {
       }
       if (url.includes('/ndcstatus')) return jsonResponse(fixture('rxnorm/ndcstatus.json'));
       if (url.includes('/ndcs.json')) return jsonResponse(fixture('rxnorm/ndcs-161.json'));
-      if (url.includes('/status.json')) return jsonResponse(fixture('rxnorm/status-161.json'));
+      if (url.includes('/historystatus.json')) return jsonResponse(fixture('rxnorm/historystatus-161.json'));
       if (url.includes('/properties.json')) {
+        // The REAL not-found shape of RxNav: 200 with `{}` (live capture 2026-09-28).
+        if (url.includes('/999999999/')) return jsonResponse(fixture('rxnorm/properties-999999999-nonexistent.json'));
         if (url.includes('/161/')) return jsonResponse(fixture('rxnorm/properties-161.json'));
         return jsonResponse(fixture('rxnorm/properties-6809.json'));
       }
@@ -241,6 +243,7 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['rxnorm_search', 'drug without matches', { query: 'zzzznaoexiste' }],
   ['rxnorm_concept', 'concept without include_related', { rxcui: '6809' }],
   ['rxnorm_concept', 'concept with related', { rxcui: '6809', include_related: true }],
+  ['rxnorm_concept', 'rxcui RxNorm does not have (found:false, concept fields null)', { rxcui: '999999999' }],
   ['rxnorm_ingredients', 'ingredient fan-out', { rxcui: '6809' }],
   ['rxnorm_classes', 'classes by rxcui', { rxcui: '6809' }],
   ['rxnorm_ndc', 'by rxcui (ndc argument absent)', { rxcui: '161' }],
