@@ -46,6 +46,7 @@ import {
   buildOutputSchema,
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
+  naoEncontrado,
 } from '../utils/zod-schema.js';
 import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
 
@@ -365,13 +366,9 @@ async function handleSNOMEDConcept(args: Record<string, unknown>): Promise<CallT
     const concept = await client.getConcept(params.sctid, params.language);
 
     if (!concept) {
-      return {
-        content: [{
-          type: 'text',
-          text: `SCTID "${params.sctid}" not found. Please verify the identifier is correct.${SNOMED_TOOL_DISCLAIMER}`,
-        }],
-        isError: true,
-      };
+      return naoEncontrado(
+        `SCTID "${params.sctid}" not found. Please verify the identifier is correct.${SNOMED_TOOL_DISCLAIMER}`,
+      );
     }
 
     const structured: SNOMEDConceptOutput = {

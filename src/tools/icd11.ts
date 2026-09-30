@@ -37,6 +37,7 @@ import {
   buildOutputSchema,
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
+  naoEncontrado,
 } from '../utils/zod-schema.js';
 import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
 
@@ -333,13 +334,9 @@ async function handleICD11Lookup(args: Record<string, unknown>): Promise<CallToo
     });
   } catch (error) {
     if (error instanceof ApiError && error.code === 'NOT_FOUND') {
-      return {
-        content: [{
-          type: 'text',
-          text: `Entity not found: ${args.code || args.uri}. Please verify the code is correct.`,
-        }],
-        isError: true,
-      };
+      return naoEncontrado(
+        `Entity not found: ${args.code || args.uri}. Please verify the code is correct.`,
+      );
     }
     return handleToolError(error);
   }
