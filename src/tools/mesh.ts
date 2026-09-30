@@ -37,6 +37,7 @@ import {
   buildOutputSchema,
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
+  naoEncontrado,
 } from '../utils/zod-schema.js';
 import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
 
@@ -317,13 +318,9 @@ async function handleMeSHDescriptor(args: Record<string, unknown>): Promise<Call
     const descriptor = await client.getDescriptor(params.mesh_id, params.language);
 
     if (!descriptor) {
-      return {
-        content: [{
-          type: 'text',
-          text: `MeSH Descriptor "${params.mesh_id}" not found. Please verify the ID is correct (e.g., D015242).`,
-        }],
-        isError: true,
-      };
+      return naoEncontrado(
+        `MeSH Descriptor "${params.mesh_id}" not found. Please verify the ID is correct (e.g., D015242).`,
+      );
     }
 
     const structured: MeSHDescriptorOutput = {

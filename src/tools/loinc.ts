@@ -30,6 +30,7 @@ import {
   buildOutputSchema,
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
+  naoEncontrado,
 } from '../utils/zod-schema.js';
 import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
 
@@ -297,13 +298,9 @@ async function handleLOINCDetails(args: Record<string, unknown>): Promise<CallTo
     const item = await client.getLOINCDetails(params.loinc_num);
 
     if (!item) {
-      return {
-        content: [{
-          type: 'text',
-          text: `LOINC code "${params.loinc_num}" not found. Please verify the code is correct.`,
-        }],
-        isError: true,
-      };
+      return naoEncontrado(
+        `LOINC code "${params.loinc_num}" not found. Please verify the code is correct.`,
+      );
     }
 
     const structured: LOINCDetailsOutput = loincItemToOutput(item);

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/server';
 import { ApiError } from '../types/index.js';
-import { CLASSE_DO_ERRO } from '../call-shape.js';
+import { CLASSE_DO_ERRO, type ErrorClass } from '../call-shape.js';
 
 /**
  * MCP behavioral hints applied to every tool in this server. They all read
@@ -94,10 +94,29 @@ export function handleToolError(error: unknown): CallToolResult {
     // The class travels by TYPE, off the wire (see CLASSE_DO_ERRO in
     // call-shape.ts); without one, telemetry falls back to the phrase.
     const classe = error.classe;
-    if (classe !== undefined) {
-      Object.defineProperty(result, CLASSE_DO_ERRO, { value: classe, enumerable: false });
-    }
+    if (classe !== undefined) comClasse(result, classe);
     return result;
   }
   throw error;
+}
+
+/**
+ * Error result for an answered absence: the source was asked and said the
+ * identifier does not exist. Handlers that build this message themselves
+ * (instead of letting `handleToolError` see the `NOT_FOUND`) must use this,
+ * or the class never leaves the handler.
+ *
+ * Measured in production on 2026-09-30: `icd11_lookup` with code "INVALID"
+ * got a WHO 404, but the hand-built "Entity not found: INVALID..." carried no
+ * class, the hook fell back to the phrase, and the echoed "INVALID" matched
+ * `invalid` -> `contrato`, which the panel excludes from the error rate.
+ * Any identifier the caller types can echo that word.
+ */
+export function naoEncontrado(text: string): CallToolResult {
+  return comClasse({ content: [{ type: 'text', text }], isError: true }, 'nao_encontrado');
+}
+
+function comClasse(result: CallToolResult, classe: ErrorClass): CallToolResult {
+  Object.defineProperty(result, CLASSE_DO_ERRO, { value: classe, enumerable: false });
+  return result;
 }

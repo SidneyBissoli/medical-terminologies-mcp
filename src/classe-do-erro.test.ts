@@ -18,9 +18,10 @@ import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport, McpServer } from '@modelcontextprotocol/server';
 import { registerAll } from './register.js';
 import { cache } from './utils/cache.js';
-import { handleToolError } from './utils/zod-schema.js';
+import { handleToolError, naoEncontrado } from './utils/zod-schema.js';
 import { classeAnexada } from './call-shape.js';
 import { ApiError } from './types/index.js';
+
 
 async function chamar(tool: string, args: Record<string, unknown>) {
   const classes: string[] = [];
@@ -115,5 +116,42 @@ describe('the class travels OFF the wire', () => {
     responder(async () => new Response('', { status: 429 }));
     const { result } = await chamar('rxnorm_search', BUSCA);
     expect(Object.keys(result).sort()).toEqual(['content', 'isError']);
+  });
+});
+
+/**
+ * Measured in production on 2026-09-30: `icd11_lookup {"code":"INVALID"}`
+ * reached blob7 as `contrato`. The handler builds its own "not found" result
+ * instead of letting `handleToolError` see the WHO's NOT_FOUND, so no class
+ * left it, the hook fell back to the phrase, and the echoed code matched
+ * `invalid`. The ICD-11 code is free text, so any caller can echo it.
+ * loinc_details, mesh_descriptor and snomed_concept build the same kind of
+ * result; their identifiers are regex-validated digits, so the phrase never
+ * misread them — they carry the class too, so it does not depend on that.
+ */
+describe('a hand-built "not found" is `nao_encontrado`, whatever the identifier echoes', () => {
+  it('icd11_lookup — WHO 404, through token, client, handler and hook', async () => {
+    vi.stubEnv('WHO_CLIENT_ID', 'id');
+    vi.stubEnv('WHO_CLIENT_SECRET', 'segredo');
+    responder(async (...a: unknown[]) => {
+      if (String(a[0]).includes('token')) {
+        return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response('', { status: 404 });
+    });
+    const { result, classes } = await chamar('icd11_lookup', { code: 'INVALID' });
+    expect(result.isError).toBe(true);
+    // The text the caller reads is unchanged.
+    expect(JSON.stringify(result.content)).toContain('Entity not found: INVALID');
+    expect(classes).toEqual(['nao_encontrado']);
+  });
+
+  it('the class is declared, not read from the text', () => {
+    const r = naoEncontrado('Entity not found: INVALID. Please verify the code is correct.');
+    expect(classeAnexada(r)).toBe('nao_encontrado');
+    expect(Object.keys(r).sort()).toEqual(['content', 'isError']);
   });
 });
