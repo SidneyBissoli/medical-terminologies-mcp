@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/server';
 import { ApiError } from '../types/index.js';
+import { CLASSE_DO_ERRO } from '../call-shape.js';
 
 /**
  * MCP behavioral hints applied to every tool in this server. They all read
@@ -86,10 +87,17 @@ export function handleToolError(error: unknown): CallToolResult {
     };
   }
   if (error instanceof ApiError) {
-    return {
+    const result: CallToolResult = {
       content: [{ type: 'text', text: `API error (${error.code}): ${error.message}` }],
       isError: true,
     };
+    // The class travels by TYPE, off the wire (see CLASSE_DO_ERRO in
+    // call-shape.ts); without one, telemetry falls back to the phrase.
+    const classe = error.classe;
+    if (classe !== undefined) {
+      Object.defineProperty(result, CLASSE_DO_ERRO, { value: classe, enumerable: false });
+    }
+    return result;
   }
   throw error;
 }

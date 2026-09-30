@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Telemetry of the hosted channel only: no tool, parameter, field or message
+changes, and the published surface is identical to 1.16.0.
+
+### Fixed
+
+- **Source failures were recorded as error class `outro`.** Measured on
+  2026-09-30 by running the classifier over the text `handleToolError` builds
+  ("API error (CODE): ..."): network, abort, 429 ("Rate limit exceeded"), 403
+  and 5xx with an HTML body (whose text replaces the status in
+  `extractErrorMessage`) all landed in `outro`. The typed error existed in the
+  handler's `catch`; only the text reached the hook. `ApiError` now declares
+  its class (`NOT_FOUND` → `nao_encontrado`; `RATE_LIMIT`, `AUTH_EXPIRED`,
+  and `API_ERROR` without status, 5xx or 403 → `fonte`), `handleToolError`
+  attaches it under a non-enumerable symbol key, and the `register.ts` hook
+  reads it before the phrase. A 400 and `AUTH_CONFIG_ERROR` declare nothing
+  and stay with the phrase. Same fix as bcb-br-mcp (#45), ilo-mcp-server
+  (#24), uis-mcp-server (#22) and ibge-br-mcp (#62). Gate:
+  `src/classe-do-erro.test.ts`.
+
 ## [1.16.0] - 2026-09-28
 
 Contexto: o painel do portfólio acusava `rxnorm_concept` com 84% de erro

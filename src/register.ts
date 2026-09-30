@@ -57,7 +57,7 @@ import { logger } from './utils/logger.js';
 import { recordInvocation } from './utils/stats.js';
 import { runWithFetchMeta } from './utils/fetch-meta.js';
 import { withUpstreamCalls } from './utils/upstream.js';
-import { classifyError, classifyThrown, errorText, paramNames } from './call-shape.js';
+import { classeAnexada, classifyError, classifyThrown, errorText, paramNames } from './call-shape.js';
 
 // Tool side-effect imports — each module registers its tools at load time.
 // This is now the ONLY place that needs the full list; both entry points
@@ -180,7 +180,10 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
         const forma = { params: paramNames(args), classe: '' };
         record?.('tool_call', name, forma);
         if (result.isError === true) {
-          record?.('tool_error', name, { ...forma, classe: classifyError(errorText(result)) });
+          // The class the handler attached by the error's TYPE beats the
+          // phrase; the phrase stays for errors born without one.
+          const classe = classeAnexada(result) ?? classifyError(errorText(result));
+          record?.('tool_error', name, { ...forma, classe });
         }
         return result;
       } catch (error) {

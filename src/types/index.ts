@@ -1257,4 +1257,31 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+
+  /**
+   * Telemetry class decided by the error's TYPE, not its phrase (see
+   * `CLASSE_DO_ERRO` in call-shape.ts). Measured on 2026-09-30: through the
+   * phrase, network, abort, 429 ("Rate limit exceeded"), 403 and 5xx with an
+   * HTML body (whose text replaces the status in `extractErrorMessage`) all
+   * landed in `outro`. Only what is unambiguously the source's is declared;
+   * `undefined` leaves the phrase in charge — a 400 here was never measured
+   * as the caller's fault or the source's, and `AUTH_CONFIG_ERROR` is the
+   * operator's configuration.
+   */
+  get classe(): 'nao_encontrado' | 'fonte' | undefined {
+    switch (this.code) {
+      case 'NOT_FOUND':
+        return 'nao_encontrado';
+      case 'RATE_LIMIT':
+      case 'AUTH_EXPIRED':
+        return 'fonte';
+      case 'API_ERROR': {
+        const s = this.statusCode;
+        // No status = nothing came back (timeout, network, abort).
+        return s === undefined || s >= 500 || s === 403 ? 'fonte' : undefined;
+      }
+      default:
+        return undefined;
+    }
+  }
 }

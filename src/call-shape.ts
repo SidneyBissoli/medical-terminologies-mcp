@@ -193,7 +193,50 @@ export function classifyThrown(error: unknown): ErrorClass {
   ) {
     return "defeito";
   }
+  const declarada = classeDeclarada(error);
+  if (declarada) return declarada;
   return classifyError(error instanceof Error ? error.message : String(error));
+}
+
+const CLASSES: ReadonlySet<string> = new Set<ErrorClass>(["contrato", "nao_encontrado", "fonte", "defeito", "outro"]);
+
+function ehClasse(x: unknown): x is ErrorClass {
+  return typeof x === "string" && CLASSES.has(x);
+}
+
+/**
+ * A classe com que o erro NASCEU (`ApiError.classe`), ou `undefined` quando
+ * ele não declara nenhuma — aí vale a frase, como sempre.
+ */
+export function classeDeclarada(error: unknown): ErrorClass | undefined {
+  const c = (error as { classe?: unknown } | null)?.classe;
+  return ehClasse(c) ? c : undefined;
+}
+
+/**
+ * Onde um resultado de erro leva a classe decidida pelo TIPO da exceção.
+ *
+ * Por que existe. Medido em 30/09/2026, rodando este classificador sobre o
+ * texto que `handleToolError` monta ("API error (CODE): ..."): rede ("fetch
+ * failed", "getaddrinfo ENOTFOUND", "read ECONNRESET"), abort ("request
+ * aborted"), 429 ("Rate limit exceeded"), 403 e 5xx com corpo HTML caíam em
+ * `outro` — no 5xx, `extractErrorMessage` troca o status pelo corpo, e a frase
+ * perde o único sinal que tinha. O tipo da falha (`ApiError.code` e
+ * `statusCode`) existia no `catch` e só o texto chegava ao hook.
+ *
+ * O mesmo defeito de fundo foi consertado no bcb-br-mcp (#45), no
+ * ilo-mcp-server (#24), no uis-mcp-server (#22) e no ibge-br-mcp (#62). O
+ * conserto não reescreve frase nem mexe em regex: a classe viaja AO LADO do
+ * texto, nesta chave-símbolo não enumerável, que o `JSON.stringify` não vê — o
+ * que o cliente recebe não muda. O hook do `register.ts` a lê antes da frase.
+ */
+export const CLASSE_DO_ERRO: unique symbol = Symbol.for("br.com.sidneybissoli.mcp/classe-do-erro");
+
+/** A classe anexada a um resultado de erro, ou `undefined` quando não há. */
+export function classeAnexada(result: unknown): ErrorClass | undefined {
+  if (!result || typeof result !== "object") return undefined;
+  const c = (result as { [CLASSE_DO_ERRO]?: unknown })[CLASSE_DO_ERRO];
+  return ehClasse(c) ? c : undefined;
 }
 
 /**
