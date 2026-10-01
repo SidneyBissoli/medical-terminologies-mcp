@@ -38,6 +38,7 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
   naoEncontrado,
+  falhaDaFonte,
 } from '../utils/zod-schema.js';
 import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
 
@@ -242,10 +243,9 @@ async function handleICD11Search(args: Record<string, unknown>): Promise<CallToo
     const results = await client.search(params.query, params.language, params.max_results);
 
     if (results.error) {
-      return {
-        content: [{ type: 'text', text: `Search error: ${results.errorMessage || 'Unknown error'}` }],
-        isError: true,
-      };
+      // The WHO answered 200 but flagged its own search as failed; the query
+      // already passed our schema, so the failure is the source's.
+      return falhaDaFonte(`Search error: ${results.errorMessage || 'Unknown error'}`);
     }
 
     const destEntities = results.destinationEntities ?? [];

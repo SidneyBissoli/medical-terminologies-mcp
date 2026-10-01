@@ -58,6 +58,7 @@ import { recordInvocation } from './utils/stats.js';
 import { runWithFetchMeta } from './utils/fetch-meta.js';
 import { withUpstreamCalls } from './utils/upstream.js';
 import { classeAnexada, classifyError, classifyThrown, errorText, paramNames } from './call-shape.js';
+import { comClasse } from './utils/zod-schema.js';
 
 // Tool side-effect imports — each module registers its tools at load time.
 // This is now the ONLY place that needs the full list; both entry points
@@ -195,15 +196,20 @@ export function registerAll(server: McpServer, record?: ToolUsageRecorder): void
         const forma = { params: paramNames(args), classe: classifyThrown(error) };
         record?.('tool_call', name, forma);
         record?.('tool_error', name, forma);
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `Error executing tool "${name}": ${errorMessage}`,
-            },
-          ],
-          isError: true,
-        };
+        // The class just recorded rides on the result too, so the result
+        // never leaves without one (no literal `isError` outside the helpers).
+        return comClasse(
+          {
+            content: [
+              {
+                type: 'text' as const,
+                text: `Error executing tool "${name}": ${errorMessage}`,
+              },
+            ],
+            isError: true,
+          },
+          forma.classe,
+        );
       }
     };
 

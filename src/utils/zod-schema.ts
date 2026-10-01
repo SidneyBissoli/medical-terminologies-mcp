@@ -81,10 +81,12 @@ function formatZodError(error: z.ZodError): string {
  */
 export function handleToolError(error: unknown): CallToolResult {
   if (error instanceof z.ZodError) {
-    return {
-      content: [{ type: 'text', text: `Validation error: ${formatZodError(error)}` }],
-      isError: true,
-    };
+    // Only the handlers' INPUT schemas are parsed with Zod (no upstream
+    // response goes through one), so a ZodError is the caller's argument.
+    return comClasse(
+      { content: [{ type: 'text', text: `Validation error: ${formatZodError(error)}` }], isError: true },
+      'contrato',
+    );
   }
   if (error instanceof ApiError) {
     const result: CallToolResult = {
@@ -116,7 +118,21 @@ export function naoEncontrado(text: string): CallToolResult {
   return comClasse({ content: [{ type: 'text', text }], isError: true }, 'nao_encontrado');
 }
 
-function comClasse(result: CallToolResult, classe: ErrorClass): CallToolResult {
+/**
+ * Error result for a source that answered but reported its own failure (e.g.
+ * the WHO search replying 200 with `error: true`): the data that should have
+ * come did not, and nothing the caller sent explains it.
+ */
+export function falhaDaFonte(text: string): CallToolResult {
+  return comClasse({ content: [{ type: 'text', text }], isError: true }, 'fonte');
+}
+
+/**
+ * Attaches the telemetry class to an error result, off the wire (see
+ * CLASSE_DO_ERRO in call-shape.ts). Every `isError: true` in production code
+ * goes through here — `src/sem-isError-literal.test.ts` enforces it.
+ */
+export function comClasse(result: CallToolResult, classe: ErrorClass): CallToolResult {
   Object.defineProperty(result, CLASSE_DO_ERRO, { value: classe, enumerable: false });
   return result;
 }
