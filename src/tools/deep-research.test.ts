@@ -28,6 +28,7 @@ import {
 } from './deep-research.js';
 import { getCID10Client } from '../clients/cid10-client.js';
 import { upstreamIo } from '../utils/upstream.js';
+import { classeAnexada } from '../call-shape.js';
 
 describe('canonical public URLs (what ChatGPT cites)', () => {
   it('ICD-10 browser by dotted code and chapter by roman numeral', () => {
@@ -187,11 +188,16 @@ describe('search and fetch with every live upstream unreachable', () => {
     const wire = await toolRegistry.getHandler('fetch')!({ id: 'sidra:6579' });
     expect(wire.isError).toBe(true);
     expect((wire.content[0] as { text: string }).text).toContain('Document not found');
+    // By TYPE, not by the echoed id (mcp-search 0.8.0).
+    expect(classeAnexada(wire)).toBe('nao_encontrado');
   });
 
   it('fetch of a live id whose upstream is down surfaces the lookup error', async () => {
     const wire = await toolRegistry.getHandler('fetch')!({ id: 'loinc:2339-0' });
     expect(wire.isError).toBe(true);
     expect((wire.content[0] as { text: string }).text).toContain('`fetch` failed');
+    // Measured on 2026-09-30: the rethrow dropped the lookup's class and the
+    // phrase decided. The class of the network failure now reaches the hook.
+    expect(classeAnexada(wire)).toBe('fonte');
   }, 30_000);
 });
