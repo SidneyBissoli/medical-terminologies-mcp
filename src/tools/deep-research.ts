@@ -88,6 +88,7 @@ import {
 } from '../utils/zod-schema.js';
 import { createToolLogger } from '../utils/logger.js';
 import { buildMetadata, type TerminologyMeta } from './versioning.js';
+import { classeAnexada, classifyThrown } from '../call-shape.js';
 
 const log = createToolLogger('deep-research');
 
@@ -582,7 +583,12 @@ export async function deepResearchFetch(id: string): Promise<FetchReply | null> 
   const value: unknown = kind === 'cid10Chapter' ? Number(key) : key;
   const result = await handler({ [arg]: value });
   const text = (result.content?.[0] as { text?: string } | undefined)?.text ?? '';
-  if (result.isError === true) throw new Error(text || `\`${tool}\` failed`);
+  // The class the lookup decided by TYPE rides on the exception: the package
+  // reads `error.classe` instead of re-reading the phrase (measured on
+  // 2026-09-30: a plain `new Error(text)` dropped it).
+  if (result.isError === true) {
+    throw Object.assign(new Error(text || `\`${tool}\` failed`), { classe: classeAnexada(result) });
+  }
   const structured = (result.structuredContent ?? {}) as Structured;
   const described = describeDocument(kind, key, structured);
   // A well-formed id whose entity does not exist (CID-10 code absent from
@@ -652,6 +658,7 @@ function captureDeepResearchTools(): Record<DeepResearchToolName, { tool: Tool; 
       'the terminology tools (`icd11_*`, `cid10_*`, `loinc_*`, `rxnorm_*`, `mesh_*`, `atc_*`, `map_*`, `find_equivalent`, `validate_codes`)',
     limit: DEEP_RESEARCH_LIMIT,
     annotations: READ_ONLY_TOOL_ANNOTATIONS,
+    classifyThrown,
     // `search` is multi-source (one block per source that answered, like
     // `find_equivalent`); `fetch` renders one entity from one source.
     extendOutputSchema: (schema) =>
