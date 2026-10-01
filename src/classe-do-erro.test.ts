@@ -18,7 +18,8 @@ import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport, McpServer } from '@modelcontextprotocol/server';
 import { registerAll } from './register.js';
 import { cache } from './utils/cache.js';
-import { handleToolError, naoEncontrado } from './utils/zod-schema.js';
+import { z } from 'zod';
+import { falhaDaFonte, handleToolError, naoEncontrado } from './utils/zod-schema.js';
 import { classeAnexada } from './call-shape.js';
 import { ApiError } from './types/index.js';
 
@@ -152,6 +153,57 @@ describe('a hand-built "not found" is `nao_encontrado`, whatever the identifier 
   it('the class is declared, not read from the text', () => {
     const r = naoEncontrado('Entity not found: INVALID. Please verify the code is correct.');
     expect(classeAnexada(r)).toBe('nao_encontrado');
+    expect(Object.keys(r).sort()).toEqual(['content', 'isError']);
+  });
+});
+
+/**
+ * The rest of the hand-built error results (sweep of 2026-09-30): each now
+ * declares its class instead of leaving it to the phrase.
+ */
+describe('every remaining error result declares its class', () => {
+  it('icd11_search — WHO answers 200 with `error: true` is `fonte`', async () => {
+    vi.stubEnv('WHO_CLIENT_ID', 'id');
+    vi.stubEnv('WHO_CLIENT_SECRET', 'segredo');
+    responder(async (...a: unknown[]) => {
+      if (String(a[0]).includes('token')) {
+        return new Response(JSON.stringify({ access_token: 't', expires_in: 3600 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      // An echoed query word must not decide the class either.
+      return new Response(
+        JSON.stringify({ error: true, errorMessage: 'invalid query', destinationEntities: [] }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    });
+    const { result, classes } = await chamar('icd11_search', { query: 'diabetes' });
+    expect(result.isError).toBe(true);
+    // The text the caller reads is unchanged.
+    expect(JSON.stringify(result.content)).toContain('Search error: invalid query');
+    expect(classes).toEqual(['fonte']);
+  });
+
+  it('a Zod validation error is `contrato`, by type', () => {
+    const r = handleToolError(new z.ZodError([]));
+    expect(classeAnexada(r)).toBe('contrato');
+    expect(Object.keys(r).sort()).toEqual(['content', 'isError']);
+  });
+
+  it('a bad argument through the hook is `contrato`', async () => {
+    responder(async () => {
+      throw new Error('no fetch expected');
+    });
+    const { result, classes } = await chamar('rxnorm_search', { query: 42 });
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toContain('Validation error');
+    expect(classes).toEqual(['contrato']);
+  });
+
+  it('falhaDaFonte declares `fonte`, off the wire', () => {
+    const r = falhaDaFonte('Search error: x');
+    expect(classeAnexada(r)).toBe('fonte');
     expect(Object.keys(r).sort()).toEqual(['content', 'isError']);
   });
 });
