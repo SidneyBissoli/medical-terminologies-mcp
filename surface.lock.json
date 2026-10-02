@@ -1,8 +1,8 @@
 {
   "$comentario": "Impressão digital da superfície (@sbissoli/mcp-surface). Não editar à mão: `npm run surface:lock` regrava, e só aceita superfície nova sob versão nova.",
   "declarada": {
-    "versao": "1.16.0",
-    "sha256": "91565ce7655159155856911f33044571a072bda1ceb34546311d51a2b29540f6",
+    "versao": "1.17.0",
+    "sha256": "3809c3fd9cebedfbe95e0517f0671fd66b20f5bd2dbadd1f9645d8cc5ca4b850",
     "conteudo": {
       "initialize": {
         "capabilities": {
@@ -1640,6 +1640,7 @@
           },
           "description": "Returns the full document for an id obtained from `search`, as { id, title, text, url, metadata }: `text` is the readable content (Markdown) and `url` the canonical public page to cite.\n\nCompanion of `search` in the OpenAI Deep Research contract, over the medical terminologies (CID-10 categories and chapters, ICD-11, LOINC, RxNorm, MeSH, terminology version records) catalog. Only ids returned by `search` are valid; an unknown id returns an error.\nThe terminology tools (`icd11_*`, `cid10_*`, `loinc_*`, `rxnorm_*`, `mesh_*`, `atc_*`, `map_*`, `find_equivalent`, `validate_codes`) remain the tools for data queries.\n\nBehavior: read-only and idempotent — a live GET against the public source when the document needs it.",
           "inputSchema": {
+            "additionalProperties": false,
             "properties": {
               "id": {
                 "description": "Identifier of a document returned by `search`",
@@ -7014,6 +7015,7 @@
           },
           "description": "Searches the medical terminologies (CID-10 categories and chapters, ICD-11, LOINC, RxNorm, MeSH, terminology version records) catalog and returns up to 10 matching documents as { id, title, url }, ordered by relevance (an empty list means nothing matched).\n\nThis tool exists for the OpenAI Deep Research contract: ChatGPT deep research, company knowledge and research workflows over the Responses API require exactly the tools `search` and `fetch`. Pass one of the returned ids to `fetch` to read the document.\nFor direct questions and for data (values, series, rankings) prefer the terminology tools (`icd11_*`, `cid10_*`, `loinc_*`, `rxnorm_*`, `mesh_*`, `atc_*`, `map_*`, `find_equivalent`, `validate_codes`), which return the actual data with provenance — this is a catalog index, not a data query.\n\nQuery: natural language or keywords, Portuguese or English; accents and case are ignored.\n\nBehavior: read-only and idempotent — the catalog comes from the public source and is cached in memory.",
           "inputSchema": {
+            "additionalProperties": false,
             "properties": {
               "query": {
                 "description": "Search terms, natural language or keywords (accents and case are ignored)",

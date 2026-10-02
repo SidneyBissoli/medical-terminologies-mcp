@@ -84,16 +84,17 @@ describe('MCP server protocol surface (SDK v2)', () => {
    * que vira erro pedagógico por `handleToolError` — e, ao contrário dos
    * irmãos, esse erro PASSA pela instrumentação e aparece na telemetria.
    *
-   * `search`/`fetch` ficam de fora: o contrato é da OpenAI e os esquemas vêm
-   * de `@sbissoli/mcp-search`.
+   * `search`/`fetch` entram na mesma regra desde `@sbissoli/mcp-search` 0.9.0:
+   * o contrato é da OpenAI, mas os esquemas do pacote passaram a ser
+   * `z.strictObject`, e o coletor de `deep-research.ts` os usa inteiros — tanto
+   * no JSON Schema publicado quanto no `parse` do handler. Até a 0.8.0 os dois
+   * ficavam de fora e descartavam a chave desconhecida em silêncio.
    */
   it('recusa parâmetro que não existe, em vez de descartá-lo em silêncio', async () => {
-    const DEEP_RESEARCH = ['search', 'fetch'];
     const { tools } = await client.listTools();
-    const proprias = tools.filter((t) => !DEEP_RESEARCH.includes(t.name));
 
-    expect(proprias.length).toBeGreaterThanOrEqual(31);
-    for (const t of proprias) {
+    expect(tools.length).toBeGreaterThanOrEqual(33);
+    for (const t of tools) {
       const schema = t.inputSchema as { additionalProperties?: unknown };
       expect(schema.additionalProperties, `${t.name} aceita chave desconhecida`).toBe(false);
     }
@@ -108,6 +109,18 @@ describe('MCP server protocol surface (SDK v2)', () => {
       ? r.content.map((c) => ('text' in c ? (c as { text: string }).text : '')).join(' ')
       : '';
     expect(texto).toContain('limite');
+  });
+
+  it('search/fetch também recusam chave desconhecida, nomeando-a (mcp-search 0.9.0)', async () => {
+    const r = await client.callTool({
+      name: 'search',
+      arguments: { query: 'diabetes', limit: 5 },
+    });
+    expect(r.isError).toBe(true);
+    const texto = Array.isArray(r.content)
+      ? r.content.map((c) => ('text' in c ? (c as { text: string }).text : '')).join(' ')
+      : '';
+    expect(texto).toContain('limit');
   });
 
   it('marks every tool read-only, idempotent, and open-world', async () => {
