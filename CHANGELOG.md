@@ -7,9 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Telemetry of the hosted channel and a CI lock: no tool, parameter, field or
-message changes, and the published surface is identical to 1.16.0 — now
-asserted by a test (`surface.lock.json`).
+## [1.17.0] - 2026-10-02
+
+Covers everything since 1.16.0, the last version published to npm (no
+version was numbered in between). One surface change: `search` and `fetch`
+now refuse an unknown parameter instead of dropping it in silence. The rest
+is telemetry of the hosted channel and a CI lock; no other tool, parameter,
+field or message changes.
+
+### Changed
+
+- **`search` and `fetch` refuse an unknown parameter, naming it**
+  (`@sbissoli/mcp-search` ^0.9.0). The package's `searchInputSchema` and
+  `fetchInputSchema` are now `z.strictObject`, so the two tools publish
+  `additionalProperties: false` and an extra key (`{"query": "diabetes",
+  "limit": 5}`) comes back as a validation error that names `limit`, instead
+  of being stripped while the caller believes it was applied. This closes,
+  for the OpenAI Deep Research pair, the class fixed for the other 31 tools
+  on 2026-09-11. Here the refusal goes through the handler
+  (`handleToolError`), so it is recorded in telemetry as `contrato`. Gate:
+  `src/register.test.ts` no longer exempts `search`/`fetch` from the
+  `additionalProperties: false` sweep, and a new case calls `search` with
+  `limit`.
 
 ### Added
 
@@ -42,6 +61,20 @@ asserted by a test (`surface.lock.json`).
   and stay with the phrase. Same fix as bcb-br-mcp (#45), ilo-mcp-server
   (#24), uis-mcp-server (#22) and ibge-br-mcp (#62). Gate:
   `src/classe-do-erro.test.ts`.
+- **Hand-built error results now declare their class too** (#60, #62).
+  `icd11_lookup` built its own "Entity not found: <code>" result, so a WHO
+  404 for `INVALID` was measured as `contrato` (the echoed code matched
+  `invalid`) — measured in production on 2026-09-30. `naoEncontrado` now
+  declares `nao_encontrado` (`icd11_lookup`, `loinc_details`,
+  `mesh_descriptor`, `snomed_concept`); a WHO 200 with `error: true` in
+  `icd11_search` declares `fonte`; a `ZodError` declares `contrato` by type;
+  the dispatcher's `catch` carries the class it recorded. Guard:
+  `src/sem-isError-literal.test.ts` fails on any `isError: true` literal
+  outside the helpers. Text the caller reads is unchanged.
+- **`search`/`fetch` carry the error class by type** (#61,
+  `@sbissoli/mcp-search` 0.8.0). `deepResearchFetch` rethrew `new Error(text)`,
+  dropping the class the lookup tool had decided; an unknown id is now
+  `nao_encontrado` by type and an upstream failure `fonte`.
 
 ## [1.16.0] - 2026-09-28
 
