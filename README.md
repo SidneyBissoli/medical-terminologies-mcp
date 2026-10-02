@@ -24,7 +24,7 @@ A Model Context Protocol (MCP) server providing unified access to major global m
 - **ATC** - Anatomical Therapeutic Chemical classification (WHO Collaborating Centre, served via NLM RxClass)
 - **CID-10** - Brazilian Portuguese translation of ICD-10 (DataSUS V2008, bundled)
 
-🇧🇷 [Leia em Português](README.pt-BR.md)
+🇧🇷 [Leia em Português](LEIA-ME.md)
 
 ## See it in action
 
