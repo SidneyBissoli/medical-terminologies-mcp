@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.1] - 2026-10-02
+
+Documentation and packaging only; no tool, parameter, field or message
+changes. The npm package page showed the **Portuguese** README: npm always
+packs every root `README*` file, ignoring the `files` field (a
+`!README.pt-BR.md` negation was tested and does not work), and between the
+two it picked the translation.
+
+### Fixed
+
+- **The Portuguese pair is now `LEIA-ME.md`**, outside the `README*` pattern,
+  so the tarball ships only `README.md`. It stays at the repository root, so
+  its own relative links keep working; the English README link and the
+  English/Portuguese parity test point to the new name.
+- New test `src/pacote-npm-readme.test.ts`: runs `npm pack --dry-run` and
+  requires exactly one README in the package, `README.md` (fails on the old
+  layout).
+
 ## [1.17.0] - 2026-10-02
 
 Covers everything since 1.16.0, the last version published to npm (no

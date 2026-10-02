@@ -33,7 +33,7 @@ const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leia = (f: string) => readFileSync(join(raiz, f), 'utf8');
 const existe = (f: string) => existsSync(join(raiz, f));
 
-const PT = 'README.pt-BR.md';
+const PT = 'LEIA-ME.md';
 const nomes = toolRegistry.getTools().map((t) => t.name);
 const padrao = nomes.length;
 
