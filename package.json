@@ -52,6 +52,7 @@
     "start": "node dist/index.js",
     "dev": "npm run build && node dist/index.js",
     "test": "vitest run",
+    "surface:lock": "npm run build:all && mcp-surface travar --cmd \"vitest run src/surface-lock.test.ts\" --cmd \"cd worker && npx vitest run tests/surface-lock.test.ts\"",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build",
@@ -69,6 +70,7 @@
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
     "@sbissoli/mcp-evals": "^0.1.0",
+    "@sbissoli/mcp-surface": "^0.1.1",
     "@types/node": "^26.5.1",
     "esbuild": "^0.28.2",
     "nock": "^14.0.15",

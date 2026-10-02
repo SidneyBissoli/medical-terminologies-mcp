@@ -7,8 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Telemetry of the hosted channel only: no tool, parameter, field or message
-changes, and the published surface is identical to 1.16.0.
+Telemetry of the hosted channel and a CI lock: no tool, parameter, field or
+message changes, and the published surface is identical to 1.16.0 — now
+asserted by a test (`surface.lock.json`).
+
+### Added
+
+- **Surface fingerprint: surface changed without a version bump = red build
+  and refused deploy** (`@sbissoli/mcp-surface`). `surface.lock.json` locks the
+  sha256 of `initialize` (instructions, capabilities, identity minus version)
+  + tools/resources/templates/prompts of the stdio `createServer`, measured
+  with `ENABLE_SNOMED_TOOLS` off (the published configuration), and which
+  methods answer WITHOUT A TOKEN on `/mcp` and the owner route, with
+  `API_KEY` absent and present. `worker/tests/surface-lock.test.ts` also
+  proves the server the Worker builds on its own serves the same surface.
+  `deploy-worker.yml` now runs the root and worker suites BEFORE wrangler (it
+  only type-checked) and ends with `mcp-surface verificar` against the live
+  endpoint; `publish.yml` now runs the tests before npm (it ran none).
+  Replay of the published versions in `baselines/replay-2026-10-02.md`.
+  Proposed by a reader (dev.to, 3g5m4 and 3g607); mould in bcb-br-mcp.
 
 ### Fixed
 

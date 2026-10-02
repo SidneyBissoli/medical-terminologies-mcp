@@ -43,6 +43,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Nothing ships with a red suite — including the surface lock
+      # (src/surface-lock.test.ts): a surface changed without a version bump
+      # never reaches npm or the MCP Registry.
+      - name: Tests
+        run: npm test
+
       - name: Verify build
         run: |
           echo "Checking bundle size..."

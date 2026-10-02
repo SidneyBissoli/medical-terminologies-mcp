@@ -27,6 +27,7 @@ on:
       - 'worker/**'
       - 'package.json'
       - 'package-lock.json'
+      - 'surface.lock.json'
       - '.github/workflows/deploy-worker.yml'
   workflow_dispatch:
 
@@ -52,12 +53,26 @@ jobs:
       - name: Build worker-lib bundle
         run: npm run build:worker-lib
 
+      # THE DEPLOY REFUSES TO RUN WITH A RED SUITE. Until 2026-10-02 this job
+      # only type-checked. The suite includes the surface lock
+      # (src/surface-lock.test.ts): surface changed without a version bump =
+      # red here, and wrangler below never runs.
+      - name: Tests (root) — includes the declared-surface lock
+        run: npm test
+
       - name: Install dependencies (worker)
         run: npm ci
         working-directory: worker
 
       - name: Typecheck (worker)
         run: npm run typecheck
+        working-directory: worker
+
+      # The other half of the lock (worker/tests/surface-lock.test.ts): the
+      # server the Worker builds on its own serves the locked surface, and
+      # which methods answer without a token — behaviour no listing shows.
+      - name: Tests (worker) — includes the no-token lock
+        run: npm test
         working-directory: worker
 
       - name: Deploy via Wrangler
@@ -90,3 +105,10 @@ jobs:
       # here — not silently the next time someone opens the endpoint.
       - name: Production smoke
         run: node scripts/smoke-mcp.mjs
+
+      # What went live is what was locked: declared surface served without a
+      # credential and, method by method, who answers without a token
+      # (production = API_KEY absent). The tests prove the CODE; this proves
+      # the ENDPOINT.
+      - name: Live surface = surface.lock.json
+        run: npx mcp-surface verificar https://medical.sidneybissoli.com/mcp --tool cid10_chapters --args '{}'
