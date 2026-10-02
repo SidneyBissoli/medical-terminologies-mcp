@@ -73,14 +73,17 @@ describe("surface.lock.json — borda do Worker", () => {
   });
 
   it("quem responde sem token bate com a trava, ou a versão subiu junto", async () => {
-    const v = conferirSecao(trava, "semToken", await medirBorda(), versao);
-    expect(v.ok, v.mensagem).toBe(true);
-  }, 30_000);
-
-  it("a sonda distingue as duas configurações (não mede só 200 vazio)", async () => {
     const m = await medirBorda();
-    expect(m["apiKeyAusente"]?.["POST /mcp"]?.["tools/list"]).toBe(true);
-    expect(m["apiKeyAusente"]?.["POST /mcp"]?.["tools/call"]).toBe(true);
-    expect(m["apiKeyPresente"]?.["POST /mcp"]?.["tools/list"]).toBe(false);
-  }, 30_000);
+    // Sanidade ANTES de conferir — e, no modo de escrita, antes de GRAVAR: uma
+    // sonda quebrada (tudo false, ou tudo true) não pode virar trava. Já
+    // aconteceu: com o dublê errado, `npm run surface:lock` gravou tudo false
+    // e só o teste seguinte, rodando depois da gravação, reclamou.
+    const aberta = m["apiKeyAusente"]?.["POST /mcp"];
+    const fechada = m["apiKeyPresente"]?.["POST /mcp"];
+    expect(aberta?.["tools/list"], "sonda quebrada: sem API_KEY, tools/list tem de responder").toBe(true);
+    expect(aberta?.["tools/call"], "sonda quebrada: sem API_KEY, a tool local tem de responder").toBe(true);
+    expect(fechada?.["tools/list"], "sonda quebrada: com API_KEY e sem token, tools/list não pode responder").toBe(false);
+    const v = conferirSecao(trava, "semToken", m, versao);
+    expect(v.ok, v.mensagem).toBe(true);
+  }, 60_000);
 });
