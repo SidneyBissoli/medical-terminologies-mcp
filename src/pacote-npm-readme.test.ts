@@ -24,8 +24,16 @@ describe('README no pacote do npm', () => {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    const [pacote] = JSON.parse(saida) as [{ files: Array<{ path: string }> }];
-    const readmes = pacote.files.map((f) => f.path).filter((p) => /^readme/i.test(p));
+    // O npm 12 mudou a forma de `npm pack --json`: era uma lista, virou um objeto
+    // indexado pelo nome do pacote (o senado-br-mcp quebrou no CI de publicação,
+    // que instala o `npm@latest`, em 2026-10-02). Aceitar as duas formas.
+    const json: unknown = JSON.parse(saida);
+    const lista = (Array.isArray(json) ? json : Object.values(json as object)) as Array<{
+      files?: Array<{ path: string }>;
+    }>;
+    const arquivos = lista[0]?.files;
+    if (!arquivos) throw new Error(`npm pack --json devolveu forma inesperada: ${saida.slice(0, 300)}`);
+    const readmes = arquivos.map((f) => f.path).filter((p) => /^readme/i.test(p));
     expect(readmes, 'o npm exibe um README só; com dois, escolheu o traduzido').toEqual(['README.md']);
   }, 60_000);
 });
