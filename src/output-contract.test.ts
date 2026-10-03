@@ -139,7 +139,10 @@ function mockUpstreams(): void {
     // ---- NLM Clinical Tables (LOINC) ---------------------------------
     if (url.includes('clinicaltables.nlm.nih.gov')) {
       if (url.includes('loinc_answers')) {
-        // Verified upstream behavior: this endpoint 404s in production.
+        // Live behavior (2026-10-03): 200 with the list for question codes,
+        // 404 for codes without one (and for unknown codes).
+        if (url.includes('72166-2')) return jsonResponse(fixture('nlm/loinc-answers-72166-2.json'));
+        if (url.includes('44250-9')) return jsonResponse(fixture('nlm/loinc-answers-44250-9-scored.json'));
         return jsonResponse({ error: 'not found' }, 404);
       }
       if (url.includes('loinc_form_definitions')) {
@@ -235,7 +238,9 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['loinc_search', 'search with hits', { query: 'glucose' }],
   ['loinc_search', 'search without hits', { query: 'zzzznaoexiste' }],
   ['loinc_details', 'code whose fields the source leaves null', { loinc_num: '2339-0' }],
-  ['loinc_answers', 'endpoint 404s upstream (empty list)', { loinc_num: '2339-0' }],
+  ['loinc_answers', 'valid code without an answer list (empty list)', { loinc_num: '2339-0' }],
+  ['loinc_answers', 'answer list without scores (score null)', { loinc_num: '72166-2' }],
+  ['loinc_answers', 'scored instrument (score numeric)', { loinc_num: '44250-9' }],
   ['loinc_panels', 'real panel', { loinc_num: '24331-1' }],
   ['loinc_panels', 'code that is not a panel', { loinc_num: '99999-9' }],
 

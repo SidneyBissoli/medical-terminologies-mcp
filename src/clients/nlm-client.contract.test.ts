@@ -204,34 +204,47 @@ describe('NLMClient — contract tests against captured live fixtures', () => {
   });
 
   describe('getLOINCAnswers', () => {
-    // The /loinc_answers endpoint at clinicaltables.nlm.nih.gov returns
-    // HTTP 404 in production (verified 2026-05-09 — see the marker file
-    // src/__fixtures__/nlm/loinc-answers-deprecated.json). The client
-    // catches that 404 and returns [], which the tool surfaces as "no
-    // answers available". This test pins that fallback so a future
-    // contributor doesn't accidentally turn the catch into a throw.
-    it('returns [] on 404 (current upstream behavior)', async () => {
+    // Live fixtures captured 2026-10-03. Until 1.18.2 this block replayed an
+    // INVENTED shape ({ AnswerListId, Sequence }) that matched the client's own
+    // wrong field names, so the test confirmed the defect instead of catching
+    // it: every real answer came back with an empty code and sequence 0.
+    it('parses the live shape: LA code, text, order (72166-2, smoking status)', async () => {
       nock(CLINICAL_HOST)
         .get('/loinc_answers')
-        .query({ loinc_num: '44249-1' })
-        .reply(404, '');
+        .query({ loinc_num: '72166-2' })
+        .reply(200, fixture('loinc-answers-72166-2.json'));
 
-      const answers = await client.getLOINCAnswers('44249-1');
-      expect(answers).toEqual([]);
+      const answers = await client.getLOINCAnswers('72166-2');
+      expect(answers).toHaveLength(8);
+      expect(answers[0]).toEqual({
+        answerCode: 'LA18976-3',
+        answerString: 'Current every day smoker',
+        sequence: 1,
+        score: null,
+      });
+      // No empty code and no zero sequence anywhere — the old symptom.
+      expect(answers.every((a) => /^LA\d+-\d$/.test(a.answerCode))).toBe(true);
+      expect(answers.map((a) => a.sequence)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     });
 
-    it('parses populated array shape (in case the endpoint comes back)', async () => {
+    it('keeps the score of a scored instrument (44250-9, PHQ-9 item)', async () => {
       nock(CLINICAL_HOST)
         .get('/loinc_answers')
-        .query({ loinc_num: '38208-5' })
-        .reply(200, [
-          { AnswerListId: 'LL370-5', DisplayText: 'Yes', Sequence: 1 },
-          { AnswerListId: 'LL370-5', DisplayText: 'No', Sequence: 2 },
-        ]);
+        .query({ loinc_num: '44250-9' })
+        .reply(200, fixture('loinc-answers-44250-9-scored.json'));
 
-      const answers = await client.getLOINCAnswers('38208-5');
-      expect(answers).toHaveLength(2);
-      expect(answers[0]).toEqual({ answerCode: 'LL370-5', answerString: 'Yes', sequence: 1 });
+      const answers = await client.getLOINCAnswers('44250-9');
+      expect(answers.map((a) => a.score)).toEqual([0, 1, 2, 3]);
+      expect(answers[0]).toMatchObject({ answerCode: 'LA6568-5', answerString: 'Not at all' });
+    });
+
+    it('returns [] on 404 (no answer list, or unknown code — the endpoint does not tell them apart)', async () => {
+      nock(CLINICAL_HOST)
+        .get('/loinc_answers')
+        .query({ loinc_num: '2339-0' })
+        .reply(404, '');
+
+      expect(await client.getLOINCAnswers('2339-0')).toEqual([]);
     });
   });
 
@@ -246,6 +259,22 @@ describe('NLMClient — contract tests against captured live fixtures', () => {
       expect(panel).not.toBeNull();
       expect(panel!.loincNum).toBe('24331-1');
       expect(panel!.name).toBeTruthy();
+    });
+
+    it('numbers items by form position and leaves `required` null — the live form states neither (44249-1, PHQ-9)', async () => {
+      // Captured 2026-10-03. Until 1.18.2 the client read `displayOrder` and
+      // `required`, absent from this shape: every item got sequence 0 and a
+      // made-up required:false.
+      nock(CLINICAL_HOST)
+        .get('/loinc_form_definitions')
+        .query({ loinc_num: '44249-1' })
+        .reply(200, fixture('loinc-panel-44249-1.json'));
+
+      const panel = await client.getLOINCPanel('44249-1');
+      expect(panel!.items).toHaveLength(11);
+      expect(panel!.items.map((i) => i.sequence)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+      expect(panel!.items[0]).toMatchObject({ loincNum: '44250-9', name: 'Little interest or pleasure in doing things' });
+      expect(panel!.items.every((i) => i.required === null)).toBe(true);
     });
 
     it('returns null on 404', async () => {

@@ -97,10 +97,12 @@ const loincAnswersTool: Tool = {
 
 Use this tool to:
 - Find valid response options for survey questions
-- Get answer codes for data entry validation
-- Look up standardized answer lists
+- Get answer codes (LA…) for data entry validation
+- Get the item scores of scored instruments (e.g. PHQ-9: "Not at all" = 0 … "Nearly every day" = 3)
 
-Only applicable to LOINC codes that represent questions with defined answer sets.`,
+Returns each answer with its LOINC answer code (LA…), text, display order and score (null when the list has none). A valid LOINC code without a defined answer list (e.g. a numeric lab such as 2339-0) returns an empty list; a code LOINC does not know returns a "not found" error.
+
+Only applicable to LOINC codes that represent questions with defined answer sets. For the questions of a whole questionnaire, use loinc_panels; to find a code by name, use loinc_search.`,
   inputSchema: buildInputSchema(LOINCByCodeParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(LOINCAnswersOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -205,11 +207,13 @@ function formatLOINCAnswers(loincNum: string, answers: LOINCAnswer[]): string {
   } else {
     lines.push(`Found ${answers.length} answer(s):`);
     lines.push('');
-    lines.push('| # | Code | Answer |');
-    lines.push('|---|------|--------|');
+    const scored = answers.some((a) => a.score !== null);
+    lines.push(scored ? '| # | Code | Answer | Score |' : '| # | Code | Answer |');
+    lines.push(scored ? '|---|------|--------|-------|' : '|---|------|--------|');
 
     for (const answer of answers) {
-      lines.push(`| ${answer.sequence} | ${answer.answerCode} | ${answer.answerString} |`);
+      const base = `| ${answer.sequence} | ${answer.answerCode} | ${answer.answerString} |`;
+      lines.push(scored ? `${base} ${answer.score ?? '—'} |` : base);
     }
   }
 
@@ -238,12 +242,16 @@ function formatLOINCPanel(panel: LOINCPanel | null, loincNum: string): string {
   lines.push('');
 
   if (panel.items.length > 0) {
-    lines.push('| # | LOINC | Name | Required |');
-    lines.push('|---|-------|------|----------|');
+    // `required` is null when the source does not state it; the column only
+    // appears when at least one item says yes or no.
+    const stated = panel.items.some((i) => i.required !== null);
+    lines.push(stated ? '| # | LOINC | Name | Required |' : '| # | LOINC | Name |');
+    lines.push(stated ? '|---|-------|------|----------|' : '|---|-------|------|');
 
     for (const item of panel.items) {
-      const req = item.required ? 'Yes' : 'No';
-      lines.push(`| ${item.sequence} | ${item.loincNum} | ${item.name} | ${req} |`);
+      const base = `| ${item.sequence} | ${item.loincNum} | ${item.name} |`;
+      const req = item.required === null ? '—' : item.required ? 'Yes' : 'No';
+      lines.push(stated ? `${base} ${req} |` : base);
     }
   }
 
@@ -321,12 +329,26 @@ async function handleLOINCAnswers(args: Record<string, unknown>): Promise<CallTo
     const client = getNLMClient();
     const answers = await client.getLOINCAnswers(params.loinc_num);
 
+    // The endpoint answers 404 both for "valid code without an answer list"
+    // and "no such code" (measured 2026-10-03: 2339-0 and 99999-9 alike), so an
+    // empty list is checked against the code itself before it is called
+    // "no answers" — a wrong code must not read as a valid one.
+    if (answers.length === 0) {
+      const item = await client.getLOINCDetails(params.loinc_num);
+      if (!item) {
+        return naoEncontrado(
+          `LOINC code not found: ${params.loinc_num}. Check the number, or find it by name with loinc_search.`,
+        );
+      }
+    }
+
     const structured: LOINCAnswersOutput = {
       loinc_num: params.loinc_num,
       answers: answers.map((a) => ({
         sequence: a.sequence,
         answer_code: a.answerCode,
         answer_string: a.answerString,
+        score: a.score,
       })),
     };
 

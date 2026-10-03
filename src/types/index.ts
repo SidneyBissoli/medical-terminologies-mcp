@@ -257,9 +257,13 @@ export const LOINCAnswersOutputSchema = z.object({
   loinc_num: z.string(),
   answers: z.array(
     z.object({
-      sequence: z.number().int(),
-      answer_code: z.string(),
+      sequence: z.number().int().describe('Display order in the answer list (1-based).'),
+      answer_code: z.string().describe('LOINC answer code (LA…), e.g. "LA18976-3".'),
       answer_string: z.string(),
+      score: z
+        .number()
+        .nullable()
+        .describe('Numeric score for scored instruments (PHQ-9 items: 0-3); null when the answer list carries none.'),
     }),
   ),
 });
@@ -269,10 +273,13 @@ const LOINCPanelOutputSchema = z.object({
   name: z.string(),
   items: z.array(
     z.object({
-      sequence: z.number().int(),
+      sequence: z.number().int().describe('Position in the form (1-based), i.e. display order.'),
       loinc_num: z.string(),
       name: z.string(),
-      required: z.boolean(),
+      required: z
+        .boolean()
+        .nullable()
+        .describe('Whether the item is required; null when the source form definition does not state it (the case for every panel the API serves today).'),
     }),
   ),
 });

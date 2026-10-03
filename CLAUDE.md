@@ -145,7 +145,7 @@ The NLM MeSH `/{id}.json` endpoint returns compact JSON-LD with no `@graph` wrap
 `src/tools/crosswalk.ts` registers **five** tools: three `map_*` mappings, `validate_codes`, and `find_equivalent`. Of the mappings, one is authoritative (`map_icd10_to_icd11` — Phase 13.1, shipped 2026-05-11) and two are guidance-only. `map_icd10_to_icd11` consults the bundled WHO transition tables via `ICD10ToICD11MapClient` (`src/clients/icd10-icd11-map-client.ts`) and returns the primary ICD-11 code + chapter + Foundation/Linearization URIs plus any WHO-documented alternatives; it returns `null` (not a fuzzy fallback) when the code isn't in the WHO category table. `map_loinc_to_snomed` returns guidance only (UMLS/LOINC-SNOMED license required for the actual relationships), and `map_snomed_to_icd10` returns guidance only (gated behind `ENABLE_SNOMED_TOOLS=true` — it's the 6th SNOMED tool, registered inside the `if (SNOMED_TOOLS_ENABLED)` block at the bottom of the file; real refset 447562003 planned in Phase 13.7). `find_equivalent` is a live fan-out, not a static mapping: it searches the same term across ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH (constrained by optional `target_terminologies` / `source_terminology` args, where source is subtracted from targets) and returns whatever each terminology's search surfaces — it stays registered regardless of the SNOMED flag. When adding a new crosswalk handler today, match the existing convention: if you have an authoritative table, bundle it like `icd10-to-icd11.json` and return structured mapping; if you don't, rewrite the description honestly and return explanatory text rather than throwing.
 
 ### Known upstream-degraded behavior
-`/loinc_answers` at `clinicaltables.nlm.nih.gov` returns HTTP 404 in production (verified 2026-05-09). The client catches and returns `[]`, so `loinc_answers` reports "no answers available" for every input. Pinned in a contract test so it doesn't change without notice. Real fix is tracked as PROGRESS.md Phase 14.1 — likely uses `loinc_form_definitions` for form-type LOINCs.
+`/loinc_answers` at `clinicaltables.nlm.nih.gov` returned HTTP 404 from 2026-05-09 and later came back serving `AnswerStringID` / `DisplayText` / `SequenceNo` / `Score`. The client read invented names (`AnswerListId`, `Sequence`) pinned by an equally invented fixture, so every answer shipped with an empty code and sequence 0 until 1.18.2. Today it answers 200 with the list for question codes and 404 both for codes without a list and for unknown codes; `loinc_answers` tells the two apart with a `getLOINCDetails` check. `loinc_form_definitions` (behind `loinc_panels`) states neither `required` nor `displayOrder`: items are numbered by form position and `required` is `null`. Both shapes are pinned by LIVE fixtures (`src/__fixtures__/nlm/loinc-answers-*.json`, `loinc-panel-44249-1.json`) and asserted field by field in the daily integration suite. **Lesson:** a fixture written by hand from the parser's assumptions confirms the parser; capture fixtures from the source.
 
 ### Testing layers
 
@@ -216,7 +216,12 @@ produção saíram byte-idênticos — o worker reutiliza o `registerAll` de
 capturado com SNOMED OFF (34 tools, o default de produção). Depois de mudança
 que possa mexer na superfície: `npm run build && node scripts/dump-surface.mjs
 --stdio` e diff contra o baseline vigente; toda diferença precisa ser
-deliberada e listada no CHANGELOG. Ver `baselines/README.md`.
+deliberada e listada no CHANGELOG. Ver `baselines/README.md`. **Tool nova ou
+removida exige baseline novo NO MESMO PR:** o smoke de produção deriva dele a
+contagem esperada, e `src/baseline-sync.test.ts` reprova o PR se o registro e o
+baseline mais recente divergirem. A 1.18.0 e a 1.18.1 subiram sem baseline e os
+dois deploys terminaram em falha, com o Worker no ar e a auditoria pós-deploy
+pulada.
 
 ## CI gates
 

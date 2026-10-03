@@ -254,8 +254,8 @@ Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma d
 |------------|-----------|---------|
 | `loinc_search` | Busca exames laboratoriais e observações | `query: "glucose"` |
 | `loinc_details` | Detalhes completos de um código LOINC | `loinc_num: "2339-0"` |
-| `loinc_answers` | Lista de respostas para questionários | `loinc_num: "44249-1"` |
-| `loinc_panels` | Estrutura de painel/formulário | `loinc_num: "24331-1"` |
+| `loinc_answers` | Lista de respostas de uma pergunta de questionário: código LA, texto, ordem e pontuação (itens do PHQ-9: 0-3); vazia para códigos sem lista, "não encontrado" para códigos inexistentes | `loinc_num: "44250-9"` |
+| `loinc_panels` | Estrutura de painel/formulário: itens na ordem do formulário | `loinc_num: "44249-1"` |
 
 ### Ferramentas RxNorm (5)
 

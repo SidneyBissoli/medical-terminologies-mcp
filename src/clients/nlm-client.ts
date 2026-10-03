@@ -244,10 +244,16 @@ export class NLMClient {
             return [];
           }
 
-          return response.map(item => ({
-            answerCode: item.AnswerListId || '',
-            answerString: item.DisplayText || item.AnswerStringId || '',
-            sequence: item.Sequence || 0,
+          // Field names as the endpoint serves them (captured 2026-10-03:
+          // AnswerStringID / DisplayText / SequenceNo / Score). Until 1.18.2 the
+          // client read AnswerListId / AnswerStringId / Sequence — names the
+          // response never had — so every answer came back with an empty code
+          // and sequence 0, and the score was dropped.
+          return response.map((item, index) => ({
+            answerCode: item.AnswerStringID ?? '',
+            answerString: item.DisplayText ?? '',
+            sequence: typeof item.SequenceNo === 'number' ? item.SequenceNo : index + 1,
+            score: typeof item.Score === 'number' ? item.Score : null,
           }));
         } catch (error) {
           // Return empty array if answers not available
@@ -284,11 +290,15 @@ export class NLMClient {
             return null;
           }
 
-          const panelItems = response.items.map(item => ({
+          // The form definition carries neither `required` nor `displayOrder`
+          // (captured 2026-10-03, PHQ-9 panel 44249-1): items come in display
+          // order, and whether one is required is not stated — null, never a
+          // made-up false. Until 1.18.2 every item read sequence 0, required false.
+          const panelItems = response.items.map((item, index) => ({
             loincNum: item.questionCode || '',
             name: item.question || '',
-            required: item.required === '1' || item.required === true,
-            sequence: item.displayOrder || 0,
+            required: null,
+            sequence: index + 1,
           }));
 
           return {
@@ -355,9 +365,12 @@ export interface LOINCItem {
  * LOINC answer for questionnaires
  */
 export interface LOINCAnswer {
+  /** LOINC answer code (LA…) */
   answerCode: string;
   answerString: string;
   sequence: number;
+  /** Numeric score for scored instruments (PHQ-9: 0-3); null when the list has none. */
+  score: number | null;
 }
 
 /**
@@ -375,7 +388,8 @@ export interface LOINCPanel {
 export interface LOINCPanelItem {
   loincNum: string;
   name: string;
-  required: boolean;
+  /** Not stated by the form definition the API serves — always null today. */
+  required: boolean | null;
   sequence: number;
 }
 
@@ -383,10 +397,10 @@ export interface LOINCPanelItem {
  * Raw answer response from NLM API
  */
 interface LOINCAnswersResponse extends Array<{
-  AnswerListId?: string;
+  AnswerStringID?: string;
   DisplayText?: string;
-  AnswerStringId?: string;
-  Sequence?: number;
+  SequenceNo?: number;
+  Score?: number | null;
 }> {}
 
 /**
@@ -397,8 +411,6 @@ interface LOINCFormResponse {
   items?: Array<{
     questionCode?: string;
     question?: string;
-    required?: string | boolean;
-    displayOrder?: number;
   }>;
 }
 
