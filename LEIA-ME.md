@@ -64,6 +64,32 @@ Este servidor **não** é ferramenta de decisão em assistência clínica — qu
 | **Desenvolvedor de informática clínica** | `loinc_search`, `loinc_details`, `find_equivalent` | LOINC para interoperabilidade de exames/observações; busca entre terminologias para esboçar mapeamentos novos |
 | **Educador / autor de currículo** | `mesh_descriptor`, `icd11_lookup`, `rxnorm_search` | Definições oficiais, números de árvore e tipos de termo de medicamento que você usa direto em exercícios autocorrigidos |
 
+## Para o que este servidor não serve — e o que sai da sua máquina
+
+- **Não serve para apoio à decisão clínica.** Ele devolve o que as fontes oficiais publicam. Não diagnostica, não recomenda tratamento nem dose.
+- **Não funciona offline.** ICD-11, LOINC, RxNorm, MeSH e ATC são respondidos ao vivo pelas APIs públicas da OMS e da NLM. **Todo texto que você consulta é enviado a esses serviços.** Desidentifique as listas de termos antes de rodar: nada de nome de paciente, evolução em texto livre ou número de prontuário. Dois conjuntos de dados vêm embutidos e respondem localmente, sem rede: a **CID-10** (DataSUS V2008) e as **tabelas de transição CID-10 → ICD-11 da OMS** (`map_icd10_to_icd11`).
+- **O endpoint hospedado não exige credencial.** `https://medical.sidneybissoli.com/mcp` já tem as credenciais da OMS configuradas. `WHO_CLIENT_ID`/`WHO_CLIENT_SECRET` só são necessárias quando você roda o servidor por conta própria, e só para as 5 ferramentas da ICD-11.
+- **O SNOMED CT vem desligado.** O servidor público da IHTSDO foi desativado. As ferramentas de SNOMED exigem um Snowstorm próprio e licença SNOMED própria (veja [Configuração do SNOMED CT](#configuração-do-snomed-ct-avançado)). A instalação padrão e o endpoint hospedado respondem **sem** SNOMED.
+- **A saída não está no formato OMOP.** As respostas trazem os códigos da própria fonte, não `concept_id` do OMOP, e não há navegação por `concept_ancestor`. Se o resultado precisa casar com um CDM OMOP, use um serviço de vocabulário OMOP; use este servidor para o trabalho terminológico geral.
+- **A busca é lexical, não semântica.** `find_equivalent` e as ferramentas `*_search` casam palavras, não significados (não há embeddings).
+- **Lotes grandes andam no ritmo dos limites das fontes** (veja [Limites das APIs](#limites-de-taxa-das-apis)). Milhares de termos distintos levam de minutos a dezenas de minutos.
+
+## Reprodutibilidade: qual versão respondeu
+
+Um mapeamento entre terminologias, ou uma base codificada, só faz sentido contra uma versão declarada do vocabulário. Duas coisas registram isso:
+
+- **`terminology_versions`** lista a release consultada de cada terminologia. Chame no início de um lote e guarde a saída junto com os resultados. A release da ICD-11 é **fixada** (padrão `2026-01`, alterável por `WHO_ICD11_RELEASE_ID`), então uma instalação própria é reproduzível até você trocá-la.
+- **O bloco de proveniência de toda resposta** (`structuredContent.provenance`) traz `retrieved_at` (o instante real da extração; um acerto de cache mantém o instante da busca original), a URL da fonte, a citação e a licença. O campo `data_vintage` traz a versão **quando a fonte a informa**:
+
+  | Fonte | `data_vintage` em cada resposta |
+  |-------|----------------------------------|
+  | ICD-11 | a release fixada da OMS (ex.: `2026-01`) |
+  | Tabelas CID-10 → ICD-11 | a release embutida da OMS (ex.: `2025-01`) |
+  | CID-10 | `V2008` |
+  | LOINC, RxNorm, MeSH, ATC | `null`, porque essas APIs não informam a release em cada resposta. Registre `terminology_versions` + `retrieved_at` |
+
+Registro mínimo de um lote: uma chamada a `terminology_versions` no início, mais a `provenance` de cada resultado (fonte, `data_vintage`, `retrieved_at`).
+
 ## Experimente a instância hospedada (sem instalar)
 
 Há um deploy público em Cloudflare Workers rodando em:
@@ -402,7 +428,7 @@ A nota de escopo vem do *conceito preferido* do descritor, não do campo de anot
 - **Consulta na ICD-11:** `icd11_search` com um termo clínico → escolha o resultado → `icd11_lookup` com o código para o detalhe completo, ou `icd11_hierarchy` para percorrer pais e filhos.
 - **Pipeline de medicamento:** `rxnorm_search` por nome comercial ou genérico → `rxnorm_concept` para o registro canônico → `rxnorm_ingredients` e `rxnorm_classes` para a análise seguinte.
 - **Esboço de mapeamento entre terminologias:** `find_equivalent` com um termo clínico busca em ICD-11, LOINC, RxNorm, MeSH e (quando habilitado) SNOMED numa chamada só. Use para começar um mapeamento; as ferramentas `map_*` par a par refinam.
-- **ICD-10 → ICD-11 (busca textual, não oficial):** `map_icd10_to_icd11` faz busca textual honesta contra a ICD-11 da OMS. As tabelas de transição reais da OMS estão acompanhadas na [Fase 13.1 do PROGRESS.md](./PROGRESS.md).
+- **CID-10 → ICD-11 (oficial):** `map_icd10_to_icd11` lê as tabelas de transição da OMS embutidas no servidor. Devolve o código ICD-11 principal e as alternativas documentadas pela OMS, e `null` (nunca um palpite) quando a categoria da CID-10 não está na tabela.
 
 ## Configuração do SNOMED CT (avançado)
 
