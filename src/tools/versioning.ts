@@ -96,7 +96,7 @@ export function buildMetadata(): TerminologyMeta[] {
       changelog_url: 'https://icd.who.int/browse11/Downloads/Download',
       update_cadence: 'annual',
       bundled_in_server: false,
-      notes: `Server queries WHO ICD-11 API. Default release ${whoIcd11Release}; override via WHO_ICD11_RELEASE_ID env. Latest known WHO release: 2026-01.`,
+      notes: `Server queries WHO ICD-11 API. Pinned release ${whoIcd11Release}; override via WHO_ICD11_RELEASE_ID env. The project's daily integration run asks WHO for its latest release and fails when it is newer than the pin, so the pin is bumped when WHO publishes (annual, usually Jan-Feb).`,
     },
     {
       code: 'icd10',
