@@ -49,7 +49,11 @@ Use this tool to:
 - Identify the therapeutic and pharmacological class hierarchy
 - Cross-reference drugs with their international ATC codes
 
-Returns one entry per ATC code the drug belongs to. A single-ingredient drug typically maps to one substance-level code; combination products map to multiple. ATC codes are international (WHO Collaborating Centre); this tool retrieves them via NLM RxClass.`,
+Returns one entry per ATC code the drug belongs to. A single-ingredient drug typically maps to one substance-level code; combination products map to multiple. ATC codes are international (WHO Collaborating Centre); this tool retrieves them via NLM RxClass.
+
+Input is a drug NAME (brand or generic, English/US naming as in RxNorm). A name RxNorm does not recognize, or a drug without an ATC mapping, returns an empty \`matches\` list with an explanatory note — not an error; try the generic name, or resolve the name first with rxnorm_search.
+
+Which ATC tool: start here when you have a drug name; use atc_lookup when you already have a class code (level 1-4, e.g. "A10BA") and want its name; use atc_members to list the drugs inside a class.`,
   inputSchema: buildInputSchema(ATCClassifyParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(ATCClassifyOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,

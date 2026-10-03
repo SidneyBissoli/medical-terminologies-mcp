@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-10-03
+
+Tool descriptions and documentation only; no tool, parameter, field, behavior or
+message changes. Covers everything since 1.17.1.
+
+### Changed
+
+- **Five tool descriptions rewritten** — the five lowest-rated in Glama's
+  per-tool description score (3.6–3.7 of 5): `icd11_postcoordination`,
+  `cid10_chapter`, `atc_classify`, `icd11_chapters`, `icd11_lookup`. Each now
+  says when to use a sibling tool instead, what comes back on a miss (validation
+  error, "not found" error, or an empty list — matching the handlers as they
+  are), and the size of the result. Facts that were measured, not assumed:
+  `icd11_chapters` returns 28 entries (chapters 01-26 plus sections V and X,
+  one WHO request each, partial failures surfaced per entry); CID-10 has 275
+  groups across its 22 chapters; `icd11_postcoordination` returns axis counts,
+  not the allowed values. The surface lock was regenerated accordingly.
+- **README / LEIA-ME** (#67, already on GitHub; now reaches the npm page):
+  what the server is not intended for and what leaves your machine (query
+  strings go to WHO/NLM; CID-10 and the WHO ICD-10→ICD-11 tables answer locally;
+  the hosted endpoint needs no credentials; SNOMED is off by default; not
+  OMOP-shaped), and how to record which vocabulary version answered
+  (`terminology_versions` + provenance `data_vintage`/`retrieved_at`, `null`
+  where the source exposes no release). Fixed the stale line calling
+  `map_icd10_to_icd11` "text search, not authoritative".
+
 ## [1.17.1] - 2026-10-02
 
 Documentation and packaging only; no tool, parameter, field or message
