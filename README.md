@@ -64,6 +64,32 @@ This server is **not** a clinical-care decision tool — practicing clinicians h
 | **Clinical-informatics developer** | `loinc_search`, `loinc_details`, `find_equivalent` | LOINC for lab/observation interoperability; cross-terminology search to scaffold new mappings |
 | **Educator / curriculum author** | `mesh_descriptor`, `icd11_lookup`, `rxnorm_search` | Authoritative definitions, tree numbers, and drug term-types you can drop into self-checked exercises |
 
+## What this server is not intended for — and what leaves your machine
+
+- **It is not intended for clinical decision support.** It retrieves what the official sources publish. It does not diagnose, recommend treatment or dose.
+- **It is not designed to run offline.** ICD-11, LOINC, RxNorm, MeSH and ATC are answered live by the public WHO and NLM APIs. **Every query string you send is forwarded to those services.** De-identify term lists before running them: no patient names, free-text notes or record identifiers. Two datasets are bundled and answered in-process, with no network call: **CID-10** (DataSUS V2008) and the **WHO ICD-10 → ICD-11 transition tables** (`map_icd10_to_icd11`).
+- **Credentials are not required on the hosted endpoint.** `https://medical.sidneybissoli.com/mcp` has WHO credentials configured. `WHO_CLIENT_ID`/`WHO_CLIENT_SECRET` are needed only when you run the server yourself, and only for the 5 ICD-11 tools.
+- **SNOMED CT is not enabled by default.** The public IHTSDO host was retired. The SNOMED tools need a self-hosted Snowstorm and your own SNOMED licence (see [SNOMED CT setup](#snomed-ct-setup-advanced)). The default install and the hosted endpoint answer **without** SNOMED.
+- **It is not OMOP-shaped.** Results carry the source's own codes, not OMOP `concept_id`s, and there is no `concept_ancestor` traversal. If your output has to join against an OMOP CDM, use an OMOP vocabulary service; use this server for general terminology work.
+- **Search is lexical, not semantic.** `find_equivalent` and the `*_search` tools match words, not meanings (no embeddings).
+- **Large batches are paced by the upstream rate limits** (see [API Rate Limits](#api-rate-limits)). Thousands of distinct terms take minutes to tens of minutes.
+
+## Reproducibility: which version answered
+
+A crosswalk or a coded dataset is only meaningful against a stated vocabulary version. Two things record it:
+
+- **`terminology_versions`** lists the release each terminology is queried against. Call it at the start of a batch run and keep the output with your results. The ICD-11 release is **pinned** (default `2026-01`, override with `WHO_ICD11_RELEASE_ID`), so a self-hosted run is repeatable until you change it.
+- **The provenance block on every response** (`structuredContent.provenance`) carries `retrieved_at` (the real extraction instant; a cache hit keeps the original fetch time), the source URL, the citation and the license. Its `data_vintage` field carries the version **when the source exposes one**:
+
+  | Source | `data_vintage` in each response |
+  |--------|----------------------------------|
+  | ICD-11 | the pinned WHO release (e.g. `2026-01`) |
+  | ICD-10 → ICD-11 tables | the bundled WHO release (e.g. `2025-01`) |
+  | CID-10 | `V2008` |
+  | LOINC, RxNorm, MeSH, ATC | `null`, because these APIs do not state a release per response. Record `terminology_versions` + `retrieved_at` instead |
+
+Minimal batch log: one `terminology_versions` call at the start, plus the `provenance` of each result (source, `data_vintage`, `retrieved_at`).
+
 ## Try the hosted instance (no install)
 
 A public Cloudflare Workers deployment runs at:
@@ -402,7 +428,7 @@ The scope note comes from the descriptor's *preferred concept*, not its annotati
 - **ICD-11 lookup:** `icd11_search` with a clinical term → pick the result → `icd11_lookup` with the code for full details, or `icd11_hierarchy` to walk parents/children.
 - **Drug pipeline:** `rxnorm_search` for a brand or generic name → `rxnorm_concept` for the canonical record → `rxnorm_ingredients` and `rxnorm_classes` for downstream analysis.
 - **Cross-terminology scaffolding:** `find_equivalent` with a clinical term searches ICD-11, LOINC, RxNorm, MeSH, and (when enabled) SNOMED in one call. Use it to bootstrap mappings; the pairwise `map_*` tools refine them.
-- **ICD-10 → ICD-11 (text search, not authoritative):** `map_icd10_to_icd11` does honest text search against WHO ICD-11. Real WHO transition tables are tracked in [PROGRESS.md Phase 13.1](./PROGRESS.md).
+- **ICD-10 → ICD-11 (authoritative):** `map_icd10_to_icd11` reads the bundled WHO transition tables. It returns the primary ICD-11 code plus any WHO-documented alternatives, and `null` (never a guess) when the ICD-10 category is not in the table.
 
 ## SNOMED CT setup (advanced)
 
