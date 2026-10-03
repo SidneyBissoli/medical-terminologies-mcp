@@ -70,14 +70,18 @@ Returns matching entities with codes, titles, and relevance scores.`,
 const icd11LookupTool: Tool = {
   name: 'icd11_lookup',
   title: 'ICD-11 Entity Details',
-  description: `Get detailed information about a specific ICD-11 entity by code or URI.
+  description: `Get detailed information about ONE ICD-11 entity you already have a code or URI for.
 
 Use this tool to:
 - Get the full definition of a disease
-- Retrieve coding notes and exclusions
-- Get the official title and synonyms
+- Retrieve coding notes, inclusions and exclusions
+- Get the official title and index terms (synonyms)
 
-Provide either an ICD-11 code (e.g., "BA00") or a full foundation URI. Set \`language\` for WHO's official translations (e.g. \`language: "pt"\` for official Portuguese).`,
+Provide \`code\` (e.g., "BA00") or \`uri\` (any URI a previous answer returned) — at least one is required; calling with neither returns a validation error naming both. Set \`language\` for WHO's official translations (e.g. \`language: "pt"\` for official Portuguese).
+
+Returns a single entity (no pagination). A code WHO does not know comes back as a "not found" error, never an empty record.
+
+When NOT to use: to find a code from a disease name, use icd11_search first; to walk parents/children, use icd11_hierarchy; for an ICD-10 code (like "E11"), convert it with map_icd10_to_icd11 — ICD-10 codes are not ICD-11 codes.`,
   inputSchema: buildInputSchema(ICD11LookupParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(ICD11LookupOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -102,14 +106,16 @@ Name the entity by \`code\` (a leaf code like "5A11", or a block range like "5A1
 const icd11ChaptersTool: Tool = {
   name: 'icd11_chapters',
   title: 'List ICD-11 Chapters',
-  description: `List all ICD-11 chapters (top-level categories).
+  description: `List all ICD-11 chapters (top-level categories) of the pinned WHO release.
 
 Use this tool to:
 - Get an overview of ICD-11 structure
 - Find which chapter covers a body system or condition type
-- Navigate to specific disease categories
+- Get chapter URIs to drill down with icd11_hierarchy (direction 'children')
 
-ICD-11 has 28 chapters covering all areas of medicine.`,
+Returns 28 entries in one response, no pagination — chapters 01-26 plus the supplementary sections V (functioning) and X (extension codes) — each with number, code, title and URI. Each chapter is fetched separately from WHO; if one fetch fails, that entry keeps its URI and carries an \`error\` instead of a title, and the rest still come back. Set \`language\` for WHO's official translations (e.g. \`language: "pt"\`); the result is cached, so repeated calls are cheap.
+
+When NOT to use: to find a specific disease, use icd11_search; for the Brazilian CID-10 (ICD-10) chapters, use cid10_chapters.`,
   inputSchema: buildInputSchema(ICD11ChaptersParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(ICD11ChaptersOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -118,14 +124,18 @@ ICD-11 has 28 chapters covering all areas of medicine.`,
 const icd11PostcoordinationTool: Tool = {
   name: 'icd11_postcoordination',
   title: 'ICD-11 Postcoordination Options',
-  description: `Get postcoordination information for an ICD-11 code.
+  description: `List the postcoordination axes WHO allows for one ICD-11 stem code (MMS linearization, pinned release).
+
+Postcoordination means attaching extra detail to a stem code — severity, laterality, anatomy, causing agent, etc. — to build a composite (cluster) code.
 
 Use this tool to:
-- Find available axes for building composite codes
-- Check required vs optional postcoordination
-- Understand code extension possibilities
+- See which axes a stem code accepts before building a composite code
+- Check which axes are REQUIRED vs optional
+- See whether an axis takes one or several values, and how many values it offers
 
-Postcoordination allows adding severity, laterality, anatomy, etc.`,
+Provide an ICD-11 \`code\` (e.g., "BA00"). Returns one entry per axis with \`axis_name\`, \`required\`, \`allow_multiple\` and \`value_count\` — the count of allowed values, not the values themselves. A code with no postcoordination, or one WHO does not know, returns an empty \`axes\` list (not an error), so check the code with icd11_lookup if the list is unexpectedly empty.
+
+When NOT to use: this does not build or validate a composite code, and it does not list the allowed values; to get a code from a disease name, use icd11_search.`,
   inputSchema: buildInputSchema(ICD11PostcoordinationParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(ICD11PostcoordinationOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,

@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "1.17.1",
+  "version": "1.17.2",
   "description": "Unified MCP server for global medical terminologies - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -28,7 +28,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Look up the WHO ATC (Anatomical Therapeutic Chemical) classification(s) for a drug by name.\n\nUse this tool to:\n- Find the ATC code for a medication (e.g., \"metformin\" → A10BA02)\n- Identify the therapeutic and pharmacological class hierarchy\n- Cross-reference drugs with their international ATC codes\n\nReturns one entry per ATC code the drug belongs to. A single-ingredient drug typically maps to one substance-level code; combination products map to multiple. ATC codes are international (WHO Collaborating Centre); this tool retrieves them via NLM RxClass.",
+      "description": "Look up the WHO ATC (Anatomical Therapeutic Chemical) classification(s) for a drug by name.\n\nUse this tool to:\n- Find the ATC code for a medication (e.g., \"metformin\" → A10BA02)\n- Identify the therapeutic and pharmacological class hierarchy\n- Cross-reference drugs with their international ATC codes\n\nReturns one entry per ATC code the drug belongs to. A single-ingredient drug typically maps to one substance-level code; combination products map to multiple. ATC codes are international (WHO Collaborating Centre); this tool retrieves them via NLM RxClass.\n\nInput is a drug NAME (brand or generic, English/US naming as in RxNorm). A name RxNorm does not recognize, or a drug without an ATC mapping, returns an empty `matches` list with an explanatory note — not an error; try the generic name, or resolve the name first with rxnorm_search.\n\nWhich ATC tool: start here when you have a drug name; use atc_lookup when you already have a class code (level 1-4, e.g. \"A10BA\") and want its name; use atc_members to list the drugs inside a class.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -604,7 +604,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Get one CID-10 chapter and its constituent groups (e.g., \"Chapter IX → I00-I02 Febre reumática aguda, I05-I09 Doenças reumáticas crônicas do coração, ...\").\n\nUse this tool to:\n- Drill from a chapter into its groups\n- Build hierarchical browsers\n- Find which group contains a code range\n\nProvide a chapter number (1-22).",
+      "description": "Get one CID-10 chapter and its constituent groups (e.g., \"Chapter IX → I00-I02 Febre reumática aguda, I05-I09 Doenças reumáticas crônicas do coração, ...\").\n\nUse this tool to:\n- Drill from a chapter into its groups (code ranges with Portuguese titles)\n- Build hierarchical browsers\n- Find which group contains a code range\n\nProvide the chapter number `num` as an integer 1-22 (chapter I = 1, IX = 9). Numbers outside 1-22 are rejected with a validation error. Returns the chapter (title and code range) plus ALL its groups in one response — no pagination; the 22 chapters hold 275 groups in total. Answered locally from the bundled CID-10 V2008; no network call.\n\nWhich CID-10 tool: use cid10_chapters first if you do not know the chapter number (it lists all 22 with code ranges); use cid10_lookup for one specific code and cid10_search to find codes by Portuguese text. For the international ICD-11, use icd11_chapters.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2335,7 +2335,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "List all ICD-11 chapters (top-level categories).\n\nUse this tool to:\n- Get an overview of ICD-11 structure\n- Find which chapter covers a body system or condition type\n- Navigate to specific disease categories\n\nICD-11 has 28 chapters covering all areas of medicine.",
+      "description": "List all ICD-11 chapters (top-level categories) of the pinned WHO release.\n\nUse this tool to:\n- Get an overview of ICD-11 structure\n- Find which chapter covers a body system or condition type\n- Get chapter URIs to drill down with icd11_hierarchy (direction 'children')\n\nReturns 28 entries in one response, no pagination — chapters 01-26 plus the supplementary sections V (functioning) and X (extension codes) — each with number, code, title and URI. Each chapter is fetched separately from WHO; if one fetch fails, that entry keeps its URI and carries an `error` instead of a title, and the rest still come back. Set `language` for WHO's official translations (e.g. `language: \"pt\"`); the result is cached, so repeated calls are cheap.\n\nWhen NOT to use: to find a specific disease, use icd11_search; for the Brazilian CID-10 (ICD-10) chapters, use cid10_chapters.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2782,7 +2782,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Get detailed information about a specific ICD-11 entity by code or URI.\n\nUse this tool to:\n- Get the full definition of a disease\n- Retrieve coding notes and exclusions\n- Get the official title and synonyms\n\nProvide either an ICD-11 code (e.g., \"BA00\") or a full foundation URI. Set `language` for WHO's official translations (e.g. `language: \"pt\"` for official Portuguese).",
+      "description": "Get detailed information about ONE ICD-11 entity you already have a code or URI for.\n\nUse this tool to:\n- Get the full definition of a disease\n- Retrieve coding notes, inclusions and exclusions\n- Get the official title and index terms (synonyms)\n\nProvide `code` (e.g., \"BA00\") or `uri` (any URI a previous answer returned) — at least one is required; calling with neither returns a validation error naming both. Set `language` for WHO's official translations (e.g. `language: \"pt\"` for official Portuguese).\n\nReturns a single entity (no pagination). A code WHO does not know comes back as a \"not found\" error, never an empty record.\n\nWhen NOT to use: to find a code from a disease name, use icd11_search first; to walk parents/children, use icd11_hierarchy; for an ICD-10 code (like \"E11\"), convert it with map_icd10_to_icd11 — ICD-10 codes are not ICD-11 codes.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -3088,7 +3088,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Get postcoordination information for an ICD-11 code.\n\nUse this tool to:\n- Find available axes for building composite codes\n- Check required vs optional postcoordination\n- Understand code extension possibilities\n\nPostcoordination allows adding severity, laterality, anatomy, etc.",
+      "description": "List the postcoordination axes WHO allows for one ICD-11 stem code (MMS linearization, pinned release).\n\nPostcoordination means attaching extra detail to a stem code — severity, laterality, anatomy, causing agent, etc. — to build a composite (cluster) code.\n\nUse this tool to:\n- See which axes a stem code accepts before building a composite code\n- Check which axes are REQUIRED vs optional\n- See whether an axis takes one or several values, and how many values it offers\n\nProvide an ICD-11 `code` (e.g., \"BA00\"). Returns one entry per axis with `axis_name`, `required`, `allow_multiple` and `value_count` — the count of allowed values, not the values themselves. A code with no postcoordination, or one WHO does not know, returns an empty `axes` list (not an error), so check the code with icd11_lookup if the list is unexpectedly empty.\n\nWhen NOT to use: this does not build or validate a composite code, and it does not list the allowed values; to get a code from a disease name, use icd11_search.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {

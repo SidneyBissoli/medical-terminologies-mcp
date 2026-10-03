@@ -95,11 +95,13 @@ const cid10ChapterTool: Tool = {
   description: `Get one CID-10 chapter and its constituent groups (e.g., "Chapter IX → I00-I02 Febre reumática aguda, I05-I09 Doenças reumáticas crônicas do coração, ...").
 
 Use this tool to:
-- Drill from a chapter into its groups
+- Drill from a chapter into its groups (code ranges with Portuguese titles)
 - Build hierarchical browsers
 - Find which group contains a code range
 
-Provide a chapter number (1-22).`,
+Provide the chapter number \`num\` as an integer 1-22 (chapter I = 1, IX = 9). Numbers outside 1-22 are rejected with a validation error. Returns the chapter (title and code range) plus ALL its groups in one response — no pagination; the 22 chapters hold 275 groups in total. Answered locally from the bundled CID-10 V2008; no network call.
+
+Which CID-10 tool: use cid10_chapters first if you do not know the chapter number (it lists all 22 with code ranges); use cid10_lookup for one specific code and cid10_search to find codes by Portuguese text. For the international ICD-11, use icd11_chapters.`,
   inputSchema: buildInputSchema(CID10ChapterParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(CID10ChapterDetailOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
