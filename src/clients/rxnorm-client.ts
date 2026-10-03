@@ -169,6 +169,7 @@ export class RxNormClient {
           rxcui: c.rxcui,
           rxaui: c.rxaui || '',
           name: c.name || '',
+          source: c.source || '',
           score: parseInt(c.score) || 0,
           rank: parseInt(c.rank) || 0,
         }));
@@ -591,6 +592,8 @@ export interface RxNormApproximateMatch {
   rxcui: string;
   rxaui: string;
   name: string;
+  /** Vocabulary the matched atom came from (RXNORM, VANDF, ATC…); '' when absent. */
+  source: string;
   score: number;
   rank: number;
 }
@@ -708,6 +711,7 @@ interface RxNormApproxResponse {
       rxcui: string;
       rxaui?: string;
       name?: string;
+      source?: string;
       score: string;
       rank: string;
     }>;

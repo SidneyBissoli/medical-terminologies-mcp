@@ -67,3 +67,39 @@ export function lexicalScore(term: string, title: string): number {
   const dice = (2 * overlap) / (termTokens.size + titleTokens.size);
   return Math.round(((coverage + dice) / 2) * 1000) / 1000;
 }
+
+/**
+ * Match confidence for `harmonize_terms`, derived from the same normalization
+ * and score as `find_equivalent` so the two tools never disagree:
+ * - `exact` — the title equals the term after normalization (score 1.0);
+ * - `strong` — EVERY term token is in the title and the score is ≥ 0.85
+ *   (the title adds little beyond the term: "type 2 diabetes" →
+ *   "Type 2 diabetes mellitus", 0.929);
+ * - `needs_review` — anything else, including a generic term inside a longer
+ *   title ("diabetes" → "Type 2 diabetes mellitus", 0.7) and LOINC names that
+ *   pin a specimen or method the term did not state.
+ * Why 0.85 and not 0.8 (measured live 2026-10-03): at 0.8 every one-word term
+ * made any two-word title containing it "strong" (0.833) — "Tylenol" →
+ * "Tylenol PM", a different product. A one-word term is ambiguous by nature:
+ * it is exact or it goes to a person.
+ * Lexical only: synonyms and abbreviations land in `needs_review` — the error
+ * is deliberately on the side of asking a person.
+ */
+export type MatchType = 'exact' | 'strong' | 'needs_review';
+
+export const STRONG_MATCH_MIN_SCORE = 0.85;
+
+export const MATCH_TYPE_NOTE =
+  'match_type is computed by this server from the lexical score: exact = title equals the ' +
+  'term after normalization; strong = every term word is in the title and match_score >= 0.85; ' +
+  'needs_review = anything else. Lexical only — synonyms and abbreviations fall in needs_review.';
+
+export function classifyMatch(term: string, title: string, score: number): MatchType {
+  const t = normalizeForMatch(term);
+  const c = normalizeForMatch(title);
+  if (t.length > 0 && t === c) return 'exact';
+  if (score < STRONG_MATCH_MIN_SCORE || t.length === 0) return 'needs_review';
+  const titleTokens = new Set(c.split(' '));
+  const everyTermToken = t.split(' ').every((token) => titleTokens.has(token));
+  return everyTermToken ? 'strong' : 'needs_review';
+}

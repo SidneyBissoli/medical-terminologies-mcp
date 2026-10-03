@@ -39,7 +39,7 @@ The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real co
 
 ## Features
 
-- 33 default tools (39 with SNOMED enabled): 31 terminology tools plus `search`/`fetch` for ChatGPT Deep Research
+- 34 default tools (40 with SNOMED enabled): 32 terminology tools plus `search`/`fetch` for ChatGPT Deep Research
 - 3 MCP **Prompts** that orchestrate tool calls into named workflows (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — clients render these as one-click user actions
 - 4 MCP **Resources** for in-process reference content (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — sub-millisecond reads (except `info://stats` which round-trips to the StatsCounter Durable Object on the hosted endpoint)
 - Multi-terminology support in a single server
@@ -111,7 +111,7 @@ Or install via Smithery, which proxies the same endpoint through their gateway:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-The hosted instance has WHO credentials configured, so all 33 default tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
+The hosted instance has WHO credentials configured, so all 34 default tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
 
 ## Installation
 
@@ -225,7 +225,7 @@ After your Worker is live, register the URL on Smithery:
 2. Pick the **URL** submission path (Smithery deprecated container hosting in 2024 — URL is the supported flow now).
 3. Paste `https://<your-worker>.workers.dev/mcp`. Smithery's gateway scans for compliance and proxies traffic.
 
-## Available Tools (33 by default, 39 with SNOMED enabled)
+## Available Tools (34 by default, 40 with SNOMED enabled)
 
 ### Official Portuguese (pt-BR) content
 
@@ -288,15 +288,16 @@ These are only registered when `ENABLE_SNOMED_TOOLS=true`. See [SNOMED CT setup 
 | `snomed_descriptions` | Get all descriptions | `sctid: "22298006"` |
 | `snomed_ecl` | Execute ECL queries | `ecl: "<< 73211009"` |
 
-### Crosswalk Tools (5 — `map_snomed_to_icd10` requires SNOMED)
+### Crosswalk Tools (6 — `map_snomed_to_icd10` requires SNOMED)
 
 | Tool | Description | Example |
 |------|-------------|---------|
 | `map_icd10_to_icd11` | Authoritative ICD-10 → ICD-11 mapping via bundled WHO transition tables; returns primary code + chapter + URIs and any WHO-documented alternatives | `icd10_code: "E11"` |
 | `map_snomed_to_icd10` | SNOMED CT → ICD-10 guidance (only when `ENABLE_SNOMED_TOOLS=true`) | `sctid: "73211009"` |
 | `map_loinc_to_snomed` | LOINC ↔ SNOMED guidance | `loinc_code: "2339-0"` |
-| `validate_codes` | Batch-validate up to 100 codes across ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 (and SNOMED when enabled); returns per-code valid/invalid + display name | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
+| `validate_codes` | Batch-validate up to 50 codes across ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 (and SNOMED when enabled); returns per-code valid/invalid + display name | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
 | `find_equivalent` | Ranked unified search across terminologies: server-computed `match_score`/`rank` per candidate plus cross-terminology `groups` of lexically identical titles; SNOMED branch is skipped when SNOMED tools are disabled | `term: "diabetes"` |
+| `harmonize_terms` | Batch-map up to 50 free-text terms to standard codes: diagnosis → ICD-11, drug → RxNorm (+ ATC classes), lab → LOINC. Per term: ranked candidates with `match_score` and `match_type` (`exact` / `strong` / `needs_review`), one provenance block per source. The term-first companion of `validate_codes` | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
 
 ### ATC Tools (3)
 
@@ -427,12 +428,13 @@ The scope note comes from the descriptor's *preferred concept*, not its annotati
 
 - **ICD-11 lookup:** `icd11_search` with a clinical term → pick the result → `icd11_lookup` with the code for full details, or `icd11_hierarchy` to walk parents/children.
 - **Drug pipeline:** `rxnorm_search` for a brand or generic name → `rxnorm_concept` for the canonical record → `rxnorm_ingredients` and `rxnorm_classes` for downstream analysis.
+- **Harmonize a column of free-text terms:** `terminology_versions` once at the start → `harmonize_terms` in batches of up to 50 (each term with its domain) → accept `exact`, spot-check `strong`, send `needs_review` to a person → keep each row's `provenance` with the crosswalk. Write lab terms with specimen and property ("glucose serum"): a bare "glucose" matches over a thousand LOINC codes.
 - **Cross-terminology scaffolding:** `find_equivalent` with a clinical term searches ICD-11, LOINC, RxNorm, MeSH, and (when enabled) SNOMED in one call. Use it to bootstrap mappings; the pairwise `map_*` tools refine them.
 - **ICD-10 → ICD-11 (authoritative):** `map_icd10_to_icd11` reads the bundled WHO transition tables. It returns the primary ICD-11 code plus any WHO-documented alternatives, and `null` (never a guess) when the ICD-10 category is not in the table.
 
 ## SNOMED CT setup (advanced)
 
-The 5 SNOMED tools (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) plus the SNOMED-dependent crosswalk tool (`map_snomed_to_icd10`) are **disabled by default**. With them disabled, the server registers 33 tools instead of 39; `find_equivalent` still works and skips the SNOMED branch with an explanatory note.
+The 5 SNOMED tools (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) plus the SNOMED-dependent crosswalk tool (`map_snomed_to_icd10`) are **disabled by default**. With them disabled, the server registers 34 tools instead of 40; `find_equivalent` still works and skips the SNOMED branch with an explanatory note.
 
 The reason: as of 2026-05-08, the public IHTSDO Snowstorm endpoint that this project historically called (`https://browser.ihtsdotools.org/snowstorm/snomed-ct/...`) returns HTTP 410 Gone for every path. Without a working backend, registering these tools surfaces 6 guaranteed-broken tools to every client.
 

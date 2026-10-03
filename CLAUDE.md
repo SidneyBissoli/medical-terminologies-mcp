@@ -54,7 +54,7 @@ To exercise the stdio server interactively: `npx @modelcontextprotocol/inspector
 - `WHO_CLIENT_ID` / `WHO_CLIENT_SECRET` are required only for the 5 ICD-11 tools (OAuth2 client credentials). The server will still start without them; ICD-11 tool calls throw `AUTH_CONFIG_ERROR` at first use. LOINC, RxNorm, MeSH have no auth.
 - **SNOMED is feature-flagged off by default.** `src/utils/feature-flags.ts` gates the SNOMED tools and the SNOMED branch of crosswalk behind `ENABLE_SNOMED_TOOLS=true`. The historical public IHTSDO Snowstorm endpoint (`browser.ihtsdotools.org/snowstorm/snomed-ct`) was retired and now returns HTTP 410, so operators must also set `SNOMED_BASE_URL` to a working self-hosted Snowstorm. Optional `SNOMED_LANGUAGE` is passed through as the `Accept-Language` header.
 - **ATC** is served via NLM RxClass (`rxnav.nlm.nih.gov`), same host as RxNorm proper. The `RxNormClient` exposes `getATCByDrugName` / `getATCByCode` / `getATCMembers` that share the rxnorm rate limiter, retry, cache and provenance `retrieval` collector. Note: `byId` only resolves ATC1-4 codes (1-5 chars); substance-level codes (7 chars) come back via `byDrugName` only — this is upstream behavior, surfaced in tool descriptions.
-- **CID-10 has no API auth or rate limiting** — it's served from a bundled JSON dataset (DataSUS V2008). `src/data/cid10.json` is loaded at startup; `getCID10Client()` is a singleton over it. All search/lookup happens in-process. CI verifies the bundle's source-level `toolRegistry.register` count (currently 39: 27 prior + 3 ATC + 4 CID-10 + 1 validate_codes (13.2) + 2 versioning tools (13.6) + 2 Deep Research (1.10.0)).
+- **CID-10 has no API auth or rate limiting** — it's served from a bundled JSON dataset (DataSUS V2008). `src/data/cid10.json` is loaded at startup; `getCID10Client()` is a singleton over it. All search/lookup happens in-process. CI verifies the bundle's source-level `toolRegistry.register` count (currently 40: 27 prior + 3 ATC + 4 CID-10 + 1 validate_codes (13.2) + 2 versioning tools (13.6) + 2 Deep Research (1.10.0) + 1 harmonize_terms (20.6)).
 - `LOG_LEVEL` env var controls pino verbosity (default `info`).
 
 ## Architecture
@@ -73,7 +73,7 @@ When adding a new `src/tools/*.ts`, `src/prompts/*.ts`, or `src/resources/*.ts`,
 ### Three registries: tools, prompts, resources
 `src/server-core.ts` defines three singleton registries (`toolRegistry`, `promptRegistry`, `resourceRegistry`), each holding parallel maps of definitions and handlers. Server `capabilities` declares all three: `{ tools: {}, prompts: {}, resources: {} }`.
 
-**Tools** (`src/tools/*.ts`) — every external API surface (33 default + 6 SNOMED):
+**Tools** (`src/tools/*.ts`) — every external API surface (34 default + 6 SNOMED):
 1. Defines `Tool` objects whose `inputSchema` / `outputSchema` are produced by `buildInputSchema()` / `buildOutputSchema()` from `src/utils/zod-schema.ts` (Zod → JSON Schema via `zod-to-json-schema`, with `$schema` stripped and refs inlined). Tools also set `annotations: READ_ONLY_TOOL_ANNOTATIONS` (read-only, idempotent, open-world, non-destructive).
 2. Defines async handler functions that validate args with Zod schemas from `src/types/index.ts`, call a client, and return `CallToolResult` — typically with both a human-readable `content` text *and* a `structuredContent` object matching the `outputSchema`.
 3. Calls `toolRegistry.register(...)` at module load time for each tool.
@@ -98,7 +98,7 @@ Every successful tool response carries a provenance block in three channels: `st
 LOINC License §10 compliance lives in the LOINC path: `nlm-client` requests `EXTERNAL_COPYRIGHT_NOTICE` and the tools pass it through verbatim (`external_copyright_notice`); NOTICE.md + the README license section + `info://licenses` are the consolidated notice — keep the three in sync when license facts change.
 
 ### Evals (tool-selection)
-`src/evals/` holds the `@sbissoli/mcp-evals` adoption: `catalog.ts` extracts the live catalog by running the real `registerAll` (with `registerTool` interposed to drop the `StandardSchemaWithJSON` shapes the extractor can't digest; the real advertised JSON Schemas are re-attached from `toolRegistry`), `fixtures/queries.ts` has 42 queries tagged by terminology cluster (en + pt-BR subset), and `fixtures.test.ts` validates everything offline inside `npm test`. The live run (`npx tsx src/evals/run.ts`, results in `evals/results/`) calls the Anthropic Messages API and **bills usage — never run or suggest it unless the user explicitly asks**. The 2026-08-09 round scored 100% top-1 (42/42) — tool names are settled; don't rename without new eval evidence.
+`src/evals/` holds the `@sbissoli/mcp-evals` adoption: `catalog.ts` extracts the live catalog by running the real `registerAll` (with `registerTool` interposed to drop the `StandardSchemaWithJSON` shapes the extractor can't digest; the real advertised JSON Schemas are re-attached from `toolRegistry`), `fixtures/queries.ts` has 43 queries tagged by terminology cluster (en + pt-BR subset), and `fixtures.test.ts` validates everything offline inside `npm test`. The live run (`npx tsx src/evals/run.ts`, results in `evals/results/`) calls the Anthropic Messages API and **bills usage — never run or suggest it unless the user explicitly asks**. The 2026-08-09 round scored 100% top-1 (42/42) — tool names are settled; don't rename without new eval evidence.
 
 ### Error handling — `handleToolError`
 Tool handlers wrap their body in `try { ... } catch (e) { return handleToolError(e); }` (`src/utils/zod-schema.ts`). It maps `ZodError` → validation-error result, `ApiError` → API-error result, and re-throws everything else so `server.ts`'s dispatcher logs and wraps it. For HTTP failures inside clients, `extractErrorMessage()` (`src/utils/extract-error-message.ts`) reads the `HttpError.data` body and handles the production response shapes that a naive one-liner collapses to "undefined" — including the OAuth `error_description` that the WHO token endpoint returns on 401/400.
@@ -213,7 +213,7 @@ When Phase 11.9 Stage 2 lands (Workers KV cache + DO rate limiter), the same DO 
 transplantada do bcb-br-mcp. Na captura inicial (01/09/2026, v1.9.1) stdio e
 produção saíram byte-idênticos — o worker reutiliza o `registerAll` de
 `dist/worker-lib.js`, então a única deriva possível é de deploy. O baseline é
-capturado com SNOMED OFF (33 tools, o default de produção). Depois de mudança
+capturado com SNOMED OFF (34 tools, o default de produção). Depois de mudança
 que possa mexer na superfície: `npm run build && node scripts/dump-surface.mjs
 --stdio` e diff contra o baseline vigente; toda diferença precisa ser
 deliberada e listada no CHANGELOG. Ver `baselines/README.md`.
@@ -222,7 +222,7 @@ deliberada e listada no CHANGELOG. Ver `baselines/README.md`.
 
 `.github/workflows/ci.yml` runs on every PR and gates merge on two jobs:
 
-1. `check` (Node 20 + 22): `npm run typecheck` clean; `npm test` passes (unit + contract; integration is skipped here); a source-level `toolRegistry.register` call-site count check on the bundle (currently 39) — removing or adding tools requires updating that count in CI alongside the code change.
+1. `check` (Node 20 + 22): `npm run typecheck` clean; `npm test` passes (unit + contract; integration is skipped here); a source-level `toolRegistry.register` call-site count check on the bundle (currently 40) — removing or adding tools requires updating that count in CI alongside the code change.
 2. `worker`: root install + `build:worker-lib`, then `worker/` install, typecheck and vitest suite.
 
 `.github/workflows/integration.yml` runs the live-API integration suite on a daily cron (separate from PR gates) — that's how upstream API drift surfaces.
