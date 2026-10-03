@@ -216,7 +216,12 @@ produção saíram byte-idênticos — o worker reutiliza o `registerAll` de
 capturado com SNOMED OFF (34 tools, o default de produção). Depois de mudança
 que possa mexer na superfície: `npm run build && node scripts/dump-surface.mjs
 --stdio` e diff contra o baseline vigente; toda diferença precisa ser
-deliberada e listada no CHANGELOG. Ver `baselines/README.md`.
+deliberada e listada no CHANGELOG. Ver `baselines/README.md`. **Tool nova ou
+removida exige baseline novo NO MESMO PR:** o smoke de produção deriva dele a
+contagem esperada, e `src/baseline-sync.test.ts` reprova o PR se o registro e o
+baseline mais recente divergirem. A 1.18.0 e a 1.18.1 subiram sem baseline e os
+dois deploys terminaram em falha, com o Worker no ar e a auditoria pós-deploy
+pulada.
 
 ## CI gates
 

@@ -34,6 +34,13 @@ error. Both were reading field names the NLM responses never had.
   asserts the answer fields one by one.
 - README / LEIA-ME: the `loinc_answers` example used 44249-1, a panel with no
   answer list of its own; it is now 44250-9.
+- **The 1.18.0 and 1.18.1 deploy workflows ended in failure even though the
+  Worker went live.** The production smoke derives the expected tool count from
+  the newest surface baseline, and no baseline had been captured for the new
+  tool ("expected 33, got 34"). The failed workflow also skipped the
+  post-deploy mcpscore audit. `baselines/surface-stdio-1.18.2.json` is now
+  captured, and a new offline test (`src/baseline-sync.test.ts`) fails the PR
+  whenever the registered tools and the newest baseline disagree.
 
 ## [1.18.1] - 2026-10-03
 
