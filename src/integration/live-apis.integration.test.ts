@@ -49,6 +49,19 @@ describeIntegration('Integration: live API contracts', () => {
 
   // No auth, no flag — always run when integration enabled.
 
+  // In CI the WHO block must RUN, not skip. Until 2026-10-03 the repository
+  // had no WHO_CLIENT_ID / WHO_CLIENT_SECRET secrets, so the ICD-11 block —
+  // the flagship terminology — was skipped every day while the run showed
+  // green ("11 passed | 5 skipped"). Locally, without creds, it still skips.
+  // This also catches a secret saved EMPTY (`gh secret set` without a TTY
+  // stores "" silently): empty reads as absent and fails here.
+  it.runIf(process.env.CI === 'true')('CI has WHO credentials, so the ICD-11 block runs', () => {
+    expect(
+      HAS_WHO_CREDS,
+      'WHO_CLIENT_ID / WHO_CLIENT_SECRET missing or empty in the repository secrets — the ICD-11 block would be skipped',
+    ).toBe(true);
+  });
+
   describe('NLM Clinical Tables (LOINC)', () => {
     it('LOINC search for "glucose" returns at least one result with a populated long name', async () => {
       const r = await getNLMClient().searchLOINC('glucose', 5);
@@ -175,6 +188,18 @@ describeIntegration('Integration: live API contracts', () => {
       expect(Array.isArray(r.destinationEntities)).toBe(true);
       expect(r.destinationEntities.length).toBeGreaterThan(0);
       expect(r.destinationEntities[0].title.length).toBeGreaterThan(0);
+    });
+
+    // harmonize_terms (1.18.1) ranks with `theCode` and the synonyms WHO
+    // reports as matched (`matchingPVs[].label`); a shape change there would
+    // silently demote the right code. "hypertension" → BA00.Z via the
+    // synonym "hypertension NOS" (measured 2026-10-03).
+    it('search exposes theCode and matchingPVs labels (what harmonize_terms ranks on)', async () => {
+      const r = await getWHOClient().search('hypertension', 'en', 10);
+      const essential = r.destinationEntities.find((e) => e.theCode === 'BA00.Z');
+      expect(essential, 'BA00.Z (Essential hypertension) not among the top 10 for "hypertension"').toBeDefined();
+      const labels = (essential!.matchingPVs ?? []).map((pv) => pv.label.toLowerCase());
+      expect(labels).toContain('hypertension nos');
     });
 
     it('lookup of code "5A11" returns an entity', async () => {
