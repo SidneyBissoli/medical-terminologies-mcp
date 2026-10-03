@@ -19,7 +19,9 @@
  *    array to flat compact JSON-LD; client returned empty data for
  *    weeks before this work caught it.
  *  - 2026-05-09: NLM `/loinc_answers` started returning HTTP 404;
- *    `loinc_answers` tool silently degraded to empty.
+ *    `loinc_answers` tool silently degraded to empty. It came back later
+ *    with AnswerStringID/SequenceNo/Score, which the client never read
+ *    (empty codes, sequence 0) until 1.18.2 — now asserted field by field.
  *  - 2026-05-09: WHO ICD-11 `lookup` by URI duplicated the `/icd`
  *    prefix (existing code bug, not upstream drift, but caught by
  *    the same exploration).
@@ -61,6 +63,24 @@ describeIntegration('Integration: live API contracts', () => {
       expect(item).not.toBeNull();
       expect(item!.LOINC_NUM).toBe('2339-0');
       expect(item!.LONG_COMMON_NAME.toLowerCase()).toContain('glucose');
+    });
+
+    // The endpoint 404'd in May 2026, came back with field names the client
+    // did not read, and nothing noticed for months (fixed in 1.18.2). This
+    // asserts the FIELDS, not just "non-empty": empty codes were the symptom.
+    it('LOINC answers for 72166-2 come back with LA codes, order and text', async () => {
+      const answers = await getNLMClient().getLOINCAnswers('72166-2');
+      expect(answers.length).toBeGreaterThan(0);
+      for (const a of answers) {
+        expect(a.answerCode).toMatch(/^LA\d+-\d$/);
+        expect(a.sequence).toBeGreaterThan(0);
+        expect(a.answerString.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('LOINC answers for 44250-9 (PHQ-9 item) keep the numeric scores', async () => {
+      const answers = await getNLMClient().getLOINCAnswers('44250-9');
+      expect(answers.map((a) => a.score)).toEqual([0, 1, 2, 3]);
     });
   });
 

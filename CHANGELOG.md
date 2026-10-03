@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.2] - 2026-10-03
+
+Fixes wrong data that `loinc_answers` and `loinc_panels` returned without any
+error. Both were reading field names the NLM responses never had.
+
+### Fixed
+
+- **`loinc_answers` returned every answer with an empty `answer_code` and
+  `sequence: 0`.** The endpoint, back after its 2026-05 outage, serves
+  `AnswerStringID` / `DisplayText` / `SequenceNo` / `Score`; the client read
+  `AnswerListId` / `AnswerStringId` / `Sequence`. Answers now carry the LOINC
+  answer code (LA…) and their real order, and a new nullable **`score`**
+  (PHQ-9 items: "Not at all" = 0 … "Nearly every day" = 3).
+- **`loinc_answers` no longer reads an unknown code as "no answers".** The
+  endpoint answers 404 both for a valid code without an answer list and for a
+  code that does not exist; an empty list is now checked against the code, and
+  an unknown one returns a "not found" error.
+- **`loinc_panels` numbered every item 0 and marked it `required: false`.** The
+  form definition states neither field. Items are now numbered by form position
+  (display order), and `required` is `null` ("not stated") instead of an
+  invented `false`. The schema field is now nullable.
+- Why tests did not catch it: the contract test replayed a hand-written answer
+  fixture that used the client's own wrong field names. It is replaced by
+  fixtures captured from the live API, and the daily integration suite now
+  asserts the answer fields one by one.
+- README / LEIA-ME: the `loinc_answers` example used 44249-1, a panel with no
+  answer list of its own; it is now 44250-9.
+
 ## [1.18.1] - 2026-10-03
 
 Fixes `harmonize_terms` for diagnoses, found by testing 1.18.0 live on the

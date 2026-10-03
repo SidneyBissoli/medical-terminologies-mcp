@@ -1,8 +1,8 @@
 {
   "$comentario": "Impressão digital da superfície (@sbissoli/mcp-surface). Não editar à mão: `npm run surface:lock` regrava, e só aceita superfície nova sob versão nova.",
   "declarada": {
-    "versao": "1.18.1",
-    "sha256": "bcfba865117c3874d047cf1567abffaf6ceff4559b6a0dba9fb372ca72d720a6",
+    "versao": "1.18.2",
+    "sha256": "5b5d98c7778312ddf6292b2f8d2be506df05a4d6cf56d3728055d947cc719944",
     "conteudo": {
       "initialize": {
         "capabilities": {
@@ -4058,7 +4058,7 @@
             "openWorldHint": true,
             "readOnlyHint": true
           },
-          "description": "Get the list of valid answers for a LOINC questionnaire item.\n\nUse this tool to:\n- Find valid response options for survey questions\n- Get answer codes for data entry validation\n- Look up standardized answer lists\n\nOnly applicable to LOINC codes that represent questions with defined answer sets.",
+          "description": "Get the list of valid answers for a LOINC questionnaire item.\n\nUse this tool to:\n- Find valid response options for survey questions\n- Get answer codes (LA…) for data entry validation\n- Get the item scores of scored instruments (e.g. PHQ-9: \"Not at all\" = 0 … \"Nearly every day\" = 3)\n\nReturns each answer with its LOINC answer code (LA…), text, display order and score (null when the list has none). A valid LOINC code without a defined answer list (e.g. a numeric lab such as 2339-0) returns an empty list; a code LOINC does not know returns a \"not found\" error.\n\nOnly applicable to LOINC codes that represent questions with defined answer sets. For the questions of a whole questionnaire, use loinc_panels; to find a code by name, use loinc_search.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -4082,12 +4082,21 @@
                   "additionalProperties": false,
                   "properties": {
                     "answer_code": {
+                      "description": "LOINC answer code (LA…), e.g. \"LA18976-3\".",
                       "type": "string"
                     },
                     "answer_string": {
                       "type": "string"
                     },
+                    "score": {
+                      "description": "Numeric score for scored instruments (PHQ-9 items: 0-3); null when the answer list carries none.",
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
                     "sequence": {
+                      "description": "Display order in the answer list (1-based).",
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
@@ -4096,7 +4105,8 @@
                   "required": [
                     "sequence",
                     "answer_code",
-                    "answer_string"
+                    "answer_string",
+                    "score"
                   ],
                   "type": "object"
                 },
@@ -4496,9 +4506,14 @@
                               "type": "string"
                             },
                             "required": {
-                              "type": "boolean"
+                              "description": "Whether the item is required; null when the source form definition does not state it (the case for every panel the API serves today).",
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
                             },
                             "sequence": {
+                              "description": "Position in the form (1-based), i.e. display order.",
                               "maximum": 9007199254740991,
                               "minimum": -9007199254740991,
                               "type": "integer"

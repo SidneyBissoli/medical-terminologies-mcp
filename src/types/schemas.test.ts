@@ -434,13 +434,19 @@ describe('LOINC output schemas — fixtures parse cleanly', () => {
   it('answers output: list of answers', () => {
     expect(
       LOINCAnswersOutputSchema.safeParse({
-        loinc_num: '44249-1',
+        loinc_num: '44250-9',
         answers: [
-          { sequence: 1, answer_code: 'LA6568-5', answer_string: 'Not at all' },
-          { sequence: 2, answer_code: 'LA6569-3', answer_string: 'Several days' },
+          { sequence: 1, answer_code: 'LA6568-5', answer_string: 'Not at all', score: 0 },
+          { sequence: 2, answer_code: 'LA6569-3', answer_string: 'Several days', score: 1 },
         ],
       }).success,
     ).toBe(true);
+  });
+
+  it('answers output: an unscored list carries score null, and score is required', () => {
+    const answer = { sequence: 1, answer_code: 'LA18976-3', answer_string: 'Current every day smoker' };
+    expect(LOINCAnswersOutputSchema.safeParse({ loinc_num: '72166-2', answers: [{ ...answer, score: null }] }).success).toBe(true);
+    expect(LOINCAnswersOutputSchema.safeParse({ loinc_num: '72166-2', answers: [answer] }).success).toBe(false);
   });
 
   it('answers output: empty answer list still valid', () => {
@@ -459,6 +465,8 @@ describe('LOINC output schemas — fixtures parse cleanly', () => {
           items: [
             { sequence: 1, loinc_num: '2093-3', name: 'Cholesterol', required: true },
             { sequence: 2, loinc_num: '2571-8', name: 'Triglyceride', required: true },
+            // The live form definition does not state it (1.18.2): null is valid.
+            { sequence: 3, loinc_num: '2085-9', name: 'HDL Cholesterol', required: null },
           ],
         },
       }).success,

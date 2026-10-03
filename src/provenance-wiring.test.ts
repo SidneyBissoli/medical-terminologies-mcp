@@ -85,7 +85,7 @@ vi.mock('./clients/nlm-client.js', async (importOriginal) => ({
   getNLMClient: () => ({
     searchLOINC: async () => ({ totalCount: 1, items: [loincItem] }),
     getLOINCDetails: async () => loincItem,
-    getLOINCAnswers: async () => [{ sequence: 1, answerCode: 'LA1', answerString: 'Yes' }],
+    getLOINCAnswers: async () => [{ sequence: 1, answerCode: 'LA1', answerString: 'Yes', score: null }],
     getLOINCPanel: async () => ({
       loincNum: '24331-1',
       name: 'Lipid panel',

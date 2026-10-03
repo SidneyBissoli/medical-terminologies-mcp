@@ -254,8 +254,8 @@ If a source has no official translation for an entry, you get the source languag
 |------|-------------|---------|
 | `loinc_search` | Search lab tests and observations | `query: "glucose"` |
 | `loinc_details` | Get full LOINC code details | `loinc_num: "2339-0"` |
-| `loinc_answers` | Get answer list for surveys | `loinc_num: "44249-1"` |
-| `loinc_panels` | Get panel/form structure | `loinc_num: "24331-1"` |
+| `loinc_answers` | Answer list of a questionnaire item: LA code, text, order and score (PHQ-9 items: 0-3); empty for codes without a list, "not found" for unknown codes | `loinc_num: "44250-9"` |
+| `loinc_panels` | Panel/form structure: member items in form order | `loinc_num: "44249-1"` |
 
 ### RxNorm Tools (5)
 
