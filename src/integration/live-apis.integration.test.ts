@@ -182,6 +182,41 @@ describeIntegration('Integration: live API contracts', () => {
   // WHO needs OAuth creds — set WHO_CLIENT_ID and WHO_CLIENT_SECRET to run.
 
   (HAS_WHO_CREDS ? describe : describe.skip)('WHO ICD-11 (requires creds)', () => {
+    // Diagnostic first: when the token request fails, say WHY (the OAuth
+    // `error` / `error_description`) and describe the credentials WITHOUT
+    // revealing them — length and stray whitespace, the usual paste mistakes.
+    // Added 2026-10-03, when two pasted pairs both drew a bare HTTP 400.
+    it('the WHO token endpoint accepts the credentials', async () => {
+      const id = process.env.WHO_CLIENT_ID ?? '';
+      const secret = process.env.WHO_CLIENT_SECRET ?? '';
+      const shape = (v: string) =>
+        `length ${v.length}${v !== v.trim() ? ', LEADING/TRAILING WHITESPACE' : ''}${/^["']|["']$/.test(v) ? ', QUOTES' : ''}${v.includes('=') ? ', contains "="' : ''}`;
+      const res = await fetch('https://icdaccessmanagement.who.int/connect/token', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: id,
+          client_secret: secret,
+          grant_type: 'client_credentials',
+          scope: 'icdapi_access',
+        }).toString(),
+      });
+      let reason = '';
+      if (!res.ok) {
+        const body = await res.text();
+        try {
+          const j = JSON.parse(body) as { error?: string; error_description?: string };
+          reason = `${j.error ?? '?'}${j.error_description ? ` — ${j.error_description}` : ''}`;
+        } catch {
+          reason = body.slice(0, 200);
+        }
+      }
+      expect(
+        res.ok,
+        `WHO token endpoint said HTTP ${res.status}: ${reason}. WHO_CLIENT_ID: ${shape(id)}; WHO_CLIENT_SECRET: ${shape(secret)}.`,
+      ).toBe(true);
+    });
+
     it('OAuth handshake succeeds and search returns destinationEntities', async () => {
       const c = new WHOClient();
       const r = await c.search('diabetes', 'en', 3);
