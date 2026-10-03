@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "1.18.0",
+  "version": "1.18.1",
   "description": "Unified MCP server for global medical terminologies - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -2335,7 +2335,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Map a LIST of free-text clinical terms to standard codes in one call, with ranked candidates and a confidence label for each — the building block of a reviewable crosswalk.\n\nUse this tool to:\n- Harmonize a column of diagnoses, drugs or lab names from a dataset to ICD-11 / RxNorm (+ ATC) / LOINC\n- Triage which terms map cleanly (exact / strong) and which need a person (needs_review)\n- Build a crosswalk you can audit: every row keeps its candidates, scores and sources\n\nGive each term its `domain`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to 50 terms per call — a longer list is refused with a validation error: split it into batches of 50. Repeated term+domain pairs are looked up once. `max_candidates` keeps 1-5 per term (default 3).\n\nEvery candidate carries `match_score` (lexical, 0-1, the find_equivalent formula) and `match_type`: exact = same words after normalization; strong = every term word is in the title and score ≥ 0.85; needs_review = anything else. A one-word term is exact or needs_review, never strong (\"Tylenol\" vs \"Tylenol PM\" is a different product). Synonyms, abbreviations (\"MI\", \"HbA1c\") and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named \"Deprecated\". Lab names are ambiguous without specimen and property: \"glucose\" matches over a thousand LOINC codes, so write \"glucose serum\" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status \"error\".\n\nTerms are searched in English and sent to the WHO and NLM APIs — de-identify the list first. For Brazilian Portuguese diagnoses use cid10_search; to check codes you already have, use validate_codes; for one term across every terminology, use find_equivalent. Record the vocabulary versions with the provenance blocks (one per source) and terminology_versions.",
+      "description": "Map a LIST of free-text clinical terms to standard codes in one call, with ranked candidates and a confidence label for each — the building block of a reviewable crosswalk.\n\nUse this tool to:\n- Harmonize a column of diagnoses, drugs or lab names from a dataset to ICD-11 / RxNorm (+ ATC) / LOINC\n- Triage which terms map cleanly (exact / strong) and which need a person (needs_review)\n- Build a crosswalk you can audit: every row keeps its candidates, scores and sources\n\nGive each term its `domain`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to 50 terms per call — a longer list is refused with a validation error: split it into batches of 50. Repeated term+domain pairs are looked up once. `max_candidates` keeps 1-5 per term (default 3).\n\nEvery candidate carries `match_score` (lexical, 0-1, the find_equivalent formula) and `match_type`: exact = same words after normalization; strong = every term word is in the title (or the matched synonym) and score ≥ 0.85; needs_review = anything else. A one-word term is exact or needs_review, never strong (\"Tylenol\" vs \"Tylenol PM\" is a different product). Synonyms, abbreviations (\"MI\", \"HbA1c\") and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named \"Deprecated\". For diagnoses, a candidate is also scored against the synonyms WHO matched (e.g. \"hypertension NOS\" for Essential hypertension), reported in `matched_label`; postcoordinated clusters (codes with \"/\" or \"&\") are left out — build those with icd11_postcoordination. Lab names are ambiguous without specimen and property: \"glucose\" matches over a thousand LOINC codes, so write \"glucose serum\" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status \"error\".\n\nTerms are searched in English and sent to the WHO and NLM APIs — de-identify the list first. For Brazilian Portuguese diagnoses use cid10_search; to check codes you already have, use validate_codes; for one term across every terminology, use find_equivalent. Record the vocabulary versions with the provenance blocks (one per source) and terminology_versions.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2608,19 +2608,26 @@
                         "type": "string"
                       },
                       "match_score": {
-                        "description": "Lexical similarity to the term, 0-1 (same formula as find_equivalent).",
+                        "description": "Lexical similarity to the term, 0-1 (same formula as find_equivalent), against the title or the best synonym the source matched.",
                         "maximum": 1,
                         "minimum": 0,
                         "type": "number"
                       },
                       "match_type": {
-                        "description": "Computed by this server from the lexical score: exact = title equals the term after normalization; strong = every term word is in the title and match_score >= 0.85; needs_review = anything else.",
+                        "description": "Computed by this server from the lexical score: exact = title equals the term after normalization; strong = every term word is in the title (or the matched synonym) and match_score >= 0.85; needs_review = anything else.",
                         "enum": [
                           "exact",
                           "strong",
                           "needs_review"
                         ],
                         "type": "string"
+                      },
+                      "matched_label": {
+                        "description": "The synonym that produced the score when it beat the title (ICD-11 only, e.g. \"hypertension NOS\" for BA00.Z); null when the title scored best.",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "title": {
                         "type": "string"
@@ -2638,7 +2645,8 @@
                       "title",
                       "uri",
                       "match_score",
-                      "match_type"
+                      "match_type",
+                      "matched_label"
                     ],
                     "type": "object"
                   },
@@ -2668,7 +2676,7 @@
                 "match_type": {
                   "anyOf": [
                     {
-                      "description": "Computed by this server from the lexical score: exact = title equals the term after normalization; strong = every term word is in the title and match_score >= 0.85; needs_review = anything else.",
+                      "description": "Computed by this server from the lexical score: exact = title equals the term after normalization; strong = every term word is in the title (or the matched synonym) and match_score >= 0.85; needs_review = anything else.",
                       "enum": [
                         "exact",
                         "strong",

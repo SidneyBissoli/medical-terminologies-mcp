@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-10-03
+
+Fixes `harmonize_terms` for diagnoses, found by testing 1.18.0 live on the
+hosted endpoint (ICD-11 needs WHO credentials, so it could not run locally).
+
+### Fixed
+
+- **ICD-11 candidates are scored against the synonyms WHO matched, not only
+  the title.** WHO ranks "Essential hypertension, unspecified" (BA00.Z) first
+  for "hypertension" because the synonym "hypertension NOS" matches; scoring
+  the title alone demoted it below "Ocular hypertension". Each candidate now
+  takes the best of its title and the labels WHO reports as matched. The
+  winning synonym is shown in the new nullable field `matched_label`.
+- **Postcoordinated clusters are left out of ICD-11 candidates** (codes with
+  "/" or "&"). "acute myocardial infarction" had returned `BA41.Z&XY6K`
+  (periprocedural MI, a more specific concept) labeled `strong`, and
+  "type 2 diabetes" had returned "Diabetic polyneuropathy [Type 2 diabetes
+  mellitus]". A free-text term names a stem code; clusters are built with
+  `icd11_postcoordination`.
+
 ## [1.18.0] - 2026-10-03
 
 One new tool; nothing existing changes shape. 34 tools by default (40 with
