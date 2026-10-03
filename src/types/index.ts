@@ -992,7 +992,7 @@ export const HarmonizeTermsParamsSchema = z.object({
 export const HarmonizeMatchTypeEnum = z
   .enum(['exact', 'strong', 'needs_review'])
   .describe(
-    'Computed by this server from the lexical score: exact = title equals the term after normalization; strong = every term word is in the title and match_score >= 0.85; needs_review = anything else.',
+    'Computed by this server from the lexical score: exact = title equals the term after normalization; strong = every term word is in the title (or the matched synonym) and match_score >= 0.85; needs_review = anything else.',
   );
 
 const HarmonizeCandidateSchema = z.object({
@@ -1000,8 +1000,12 @@ const HarmonizeCandidateSchema = z.object({
   title: z.string(),
   // ICD-11 license invariant: codes and titles travel with their URIs.
   uri: z.string().nullable().describe('Entity URI when the terminology exposes one (ICD-11); null otherwise.'),
-  match_score: z.number().min(0).max(1).describe('Lexical similarity to the term, 0-1 (same formula as find_equivalent).'),
+  match_score: z.number().min(0).max(1).describe('Lexical similarity to the term, 0-1 (same formula as find_equivalent), against the title or the best synonym the source matched.'),
   match_type: HarmonizeMatchTypeEnum,
+  matched_label: z
+    .string()
+    .nullable()
+    .describe('The synonym that produced the score when it beat the title (ICD-11 only, e.g. "hypertension NOS" for BA00.Z); null when the title scored best.'),
 });
 
 const HarmonizeATCSchema = z.object({

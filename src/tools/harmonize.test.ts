@@ -24,12 +24,32 @@ vi.mock('../clients/who-client.js', async (importOriginal) => ({
     search: async (term: string) => {
       calls.who++;
       if (term.includes('nothing')) return { destinationEntities: [] };
+      if (term === 'hypertension') {
+        // Live shape (2026-10-03): WHO's top hit matched through a SYNONYM;
+        // the title alone scores below "Ocular hypertension".
+        return {
+          destinationEntities: [
+            {
+              id: 'http://id.who.int/icd/release/11/2026-01/mms/761947693/unspecified',
+              theCode: 'BA00.Z',
+              title: 'Essential hypertension, unspecified',
+              matchingPVs: [{ propertyId: 'Synonym', label: 'hypertension NOS', score: 1 }],
+            },
+            { id: 'http://id.who.int/icd/release/11/2026-01/mms/535283437', theCode: '9C61.01', title: 'Ocular hypertension', matchingPVs: [] },
+            // Postcoordinated cluster — must be dropped.
+            { id: 'x', theCode: 'BA01/BD1Z', title: 'Hypertensive heart disease with heart failure', matchingPVs: [] },
+          ],
+        };
+      }
       return {
         destinationEntities: [
           // Foundation-only hit: no theCode — must be dropped.
           { id: 'http://id.who.int/icd/entity/1', title: 'Diabetes mellitus' },
           { id: 'http://id.who.int/icd/release/11/2026-01/mms/2', theCode: '5A11', title: 'Type 2 diabetes mellitus' },
           { id: 'http://id.who.int/icd/release/11/2026-01/mms/3', theCode: '5A14', title: 'Diabetes mellitus, type unspecified' },
+          // Postcoordinated cluster (live: "type 2 diabetes" brought this) — dropped.
+          { id: 'y', theCode: '8C03.0/5A11', title: 'Diabetic polyneuropathy [Type 2 diabetes mellitus]' },
+          { id: 'z', theCode: 'BA41.Z&XY6K', title: 'Acute periprocedural myocardial infarction' },
         ],
       };
     },
@@ -149,7 +169,7 @@ describe('harmonize_terms', () => {
 
     const dx = out.results[0];
     expect(dx.terminology).toBe('icd11');
-    expect(dx.candidates.map((c) => c.code)).toEqual(['5A11', '5A14']); // codeless foundation hit dropped
+    expect(dx.candidates.map((c) => c.code)).toEqual(['5A11', '5A14']); // codeless foundation hit + clusters dropped
     expect(dx.match_type).toBe('exact');
     expect(dx.candidates[0].uri).toContain('/mms/2');
     expect(dx.atc).toBeNull();
@@ -163,6 +183,16 @@ describe('harmonize_terms', () => {
     expect(lab.match_type).toBe('needs_review'); // LOINC names pin a specimen
     expect(lab.candidates.map((c) => c.code)).toEqual(['2339-0', '2345-7']); // deprecated + score-0 dropped
     expect(out.counts).toEqual({ exact: 2, strong: 0, needs_review: 1, no_candidates: 0, error: 0 });
+  });
+
+  it('scores ICD-11 against the synonyms WHO matched and reports the winning label', async () => {
+    const out = await harmonize({ terms: [{ term: 'hypertension', domain: 'diagnosis' }] });
+    const [first, second] = out.results[0].candidates;
+    // Title alone: 0.75 (BA00.Z) < 0.833 (Ocular). Synonym "hypertension NOS": 0.833, and the
+    // tie keeps WHO's order — BA00.Z first, as WHO ranked it.
+    expect(first).toMatchObject({ code: 'BA00.Z', match_score: 0.833, matched_label: 'hypertension NOS', match_type: 'needs_review' });
+    expect(second).toMatchObject({ code: '9C61.01', matched_label: null });
+    expect(out.results[0].candidates.map((c) => c.code)).not.toContain('BA01/BD1Z');
   });
 
   it('caps candidates per term with max_candidates', async () => {

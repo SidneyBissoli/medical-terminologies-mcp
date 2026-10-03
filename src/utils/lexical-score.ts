@@ -91,7 +91,7 @@ export const STRONG_MATCH_MIN_SCORE = 0.85;
 
 export const MATCH_TYPE_NOTE =
   'match_type is computed by this server from the lexical score: exact = title equals the ' +
-  'term after normalization; strong = every term word is in the title and match_score >= 0.85; ' +
+  'term after normalization; strong = every term word is in the title (or the matched synonym) and match_score >= 0.85; ' +
   'needs_review = anything else. Lexical only — synonyms and abbreviations fall in needs_review.';
 
 export function classifyMatch(term: string, title: string, score: number): MatchType {
