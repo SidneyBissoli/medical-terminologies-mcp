@@ -39,7 +39,7 @@ As respostas vêm de fontes oficiais (OMS, NLM, NIH, DataSUS) — códigos e map
 
 ## Funcionalidades
 
-- 33 ferramentas por padrão (39 com o SNOMED habilitado): 31 ferramentas de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
+- 34 ferramentas por padrão (40 com o SNOMED habilitado): 32 ferramentas de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
 - 3 **Prompts** MCP que orquestram chamadas de ferramenta em fluxos nomeados (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — os clientes exibem isso como ação de um clique para o usuário
 - 4 **Recursos** MCP de conteúdo de referência em processo (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — leitura em menos de um milissegundo (exceto `info://stats`, que vai até o Durable Object StatsCounter no endpoint hospedado)
 - Várias terminologias num servidor só
@@ -111,7 +111,7 @@ Ou instale pelo Smithery, que faz proxy do mesmo endpoint pelo gateway deles:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-A instância hospedada já tem as credenciais da OMS configuradas, então todas as 33 ferramentas padrão funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
+A instância hospedada já tem as credenciais da OMS configuradas, então todas as 34 ferramentas padrão funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
 
 ## Instalação
 
@@ -225,7 +225,7 @@ Depois que o seu Worker estiver no ar, registre a URL no Smithery:
 2. Escolha o caminho de submissão por **URL** (o Smithery descontinuou a hospedagem em contêiner em 2024 — URL é o fluxo suportado hoje).
 3. Cole `https://<seu-worker>.workers.dev/mcp`. O gateway do Smithery varre a conformidade e faz proxy do tráfego.
 
-## Ferramentas disponíveis (33 por padrão, 39 com o SNOMED habilitado)
+## Ferramentas disponíveis (34 por padrão, 40 com o SNOMED habilitado)
 
 ### Conteúdo oficial em português (pt-BR)
 
@@ -288,15 +288,16 @@ Só são registradas com `ENABLE_SNOMED_TOOLS=true`. Veja [Configuração do SNO
 | `snomed_descriptions` | Todas as descrições | `sctid: "22298006"` |
 | `snomed_ecl` | Executa consultas ECL | `ecl: "<< 73211009"` |
 
-### Ferramentas de mapeamento entre terminologias (5 — `map_snomed_to_icd10` exige SNOMED)
+### Ferramentas de mapeamento entre terminologias (6 — `map_snomed_to_icd10` exige SNOMED)
 
 | Ferramenta | Descrição | Exemplo |
 |------------|-----------|---------|
 | `map_icd10_to_icd11` | Mapeamento oficial ICD-10 → ICD-11 pelas tabelas de transição da OMS embutidas; devolve código primário + capítulo + URIs e as alternativas documentadas pela OMS | `icd10_code: "E11"` |
 | `map_snomed_to_icd10` | Orientação SNOMED CT → ICD-10 (só com `ENABLE_SNOMED_TOOLS=true`) | `sctid: "73211009"` |
 | `map_loinc_to_snomed` | Orientação LOINC ↔ SNOMED | `loinc_code: "2339-0"` |
-| `validate_codes` | Valida em lote até 100 códigos em ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 (e SNOMED quando habilitado); devolve válido/inválido + nome de exibição por código | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
+| `validate_codes` | Valida em lote até 50 códigos em ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 (e SNOMED quando habilitado); devolve válido/inválido + nome de exibição por código | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
 | `find_equivalent` | Busca unificada e ranqueada entre terminologias: `match_score`/`rank` calculados no servidor por candidato, mais `groups` de títulos lexicalmente idênticos entre terminologias; o ramo do SNOMED é pulado quando as ferramentas SNOMED estão desligadas | `term: "diabetes"` |
+| `harmonize_terms` | Mapeia em lote até 50 termos em texto livre para códigos padrão: diagnóstico → ICD-11, medicamento → RxNorm (+ classes ATC), exame → LOINC. Por termo: candidatos ranqueados com `match_score` e `match_type` (`exact` / `strong` / `needs_review`), um bloco de proveniência por fonte. É o par do `validate_codes` que parte do termo, não do código | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
 
 ### Ferramentas ATC (3)
 
@@ -427,12 +428,13 @@ A nota de escopo vem do *conceito preferido* do descritor, não do campo de anot
 
 - **Consulta na ICD-11:** `icd11_search` com um termo clínico → escolha o resultado → `icd11_lookup` com o código para o detalhe completo, ou `icd11_hierarchy` para percorrer pais e filhos.
 - **Pipeline de medicamento:** `rxnorm_search` por nome comercial ou genérico → `rxnorm_concept` para o registro canônico → `rxnorm_ingredients` e `rxnorm_classes` para a análise seguinte.
+- **Harmonizar uma coluna de termos em texto livre:** `terminology_versions` uma vez no início → `harmonize_terms` em lotes de até 50 (cada termo com o seu domínio) → aceite os `exact`, confira por amostra os `strong`, mande os `needs_review` para uma pessoa → guarde a `provenance` de cada linha junto com o mapeamento. Os termos vão em inglês. Escreva exames com amostra e propriedade ("glucose serum"): "glucose" sozinho casa com mais de mil códigos LOINC.
 - **Esboço de mapeamento entre terminologias:** `find_equivalent` com um termo clínico busca em ICD-11, LOINC, RxNorm, MeSH e (quando habilitado) SNOMED numa chamada só. Use para começar um mapeamento; as ferramentas `map_*` par a par refinam.
 - **CID-10 → ICD-11 (oficial):** `map_icd10_to_icd11` lê as tabelas de transição da OMS embutidas no servidor. Devolve o código ICD-11 principal e as alternativas documentadas pela OMS, e `null` (nunca um palpite) quando a categoria da CID-10 não está na tabela.
 
 ## Configuração do SNOMED CT (avançado)
 
-As 5 ferramentas SNOMED (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) mais a ferramenta de mapeamento que depende do SNOMED (`map_snomed_to_icd10`) vêm **desligadas por padrão**. Com elas desligadas o servidor registra 33 ferramentas em vez de 39; o `find_equivalent` continua funcionando e pula o ramo do SNOMED com uma nota explicativa.
+As 5 ferramentas SNOMED (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) mais a ferramenta de mapeamento que depende do SNOMED (`map_snomed_to_icd10`) vêm **desligadas por padrão**. Com elas desligadas o servidor registra 34 ferramentas em vez de 40; o `find_equivalent` continua funcionando e pula o ramo do SNOMED com uma nota explicativa.
 
 O motivo: desde 2026-05-08 o endpoint Snowstorm público do IHTSDO que este projeto historicamente chamava (`https://browser.ihtsdotools.org/snowstorm/snomed-ct/...`) devolve HTTP 410 Gone em todos os caminhos. Sem um backend que funcione, registrar essas ferramentas entregaria a todo cliente 6 ferramentas garantidamente quebradas.
 

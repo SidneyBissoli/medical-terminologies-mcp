@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-03
+
+One new tool; nothing existing changes shape. 34 tools by default (40 with
+SNOMED enabled).
+
+### Added
+
+- **`harmonize_terms`** — batch-maps up to 50 free-text terms to standard codes
+  in one call: `diagnosis` → ICD-11, `drug` → RxNorm (plus the ATC classes
+  RxClass returns for the term), `lab` → LOINC. Per term: the best candidates
+  (`max_candidates`, default 3) with `match_score` (the `find_equivalent`
+  lexical formula) and `match_type` — `exact` (same words after
+  normalization), `strong` (every term word in the title and score ≥ 0.85) or
+  `needs_review`; per-row `status` (`matched` / `no_candidates` / `error`);
+  `counts` by label; one provenance block per source; a `ranking` field that
+  declares the method. More than 50 terms is refused with the instruction to
+  split; repeated term+domain pairs are looked up once; one failed lookup only
+  marks its own row. It is the term-first companion of `validate_codes`, built
+  from the Scripps AI-enablement recipe "Harmonize free-text clinical terms to
+  standard codes", which notes nobody had assembled it.
+- Decisions measured live against RxNav and Clinical Tables before release:
+  - drugs use RxNav `approximateTerm`, not `/drugs.json` (for "metformin" the
+    latter returns 134 products, combinations first, and no ingredient);
+  - candidates that share no word with the term are dropped ("metfromin" had
+    returned "merbromin", an antiseptic);
+  - LOINC names starting "Deprecated" are dropped (Clinical Tables leaves
+    STATUS empty);
+  - `strong` needs a score of 0.85, not 0.8: at 0.8 "Tylenol" → "Tylenol PM",
+    a different product, was labeled strong. A one-word term is now exact or
+    needs_review.
+
+### Fixed
+
+- README / LEIA-ME said `validate_codes` takes up to 100 codes; the schema has
+  always capped it at 50.
+
 ## [1.17.2] - 2026-10-03
 
 Tool descriptions and documentation only; no tool, parameter, field, behavior or

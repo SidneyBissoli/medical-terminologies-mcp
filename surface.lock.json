@@ -1,8 +1,8 @@
 {
   "$comentario": "Impressão digital da superfície (@sbissoli/mcp-surface). Não editar à mão: `npm run surface:lock` regrava, e só aceita superfície nova sob versão nova.",
   "declarada": {
-    "versao": "1.17.1",
-    "sha256": "99e176902c1cf593718813013564b530da78faabada5133f5db02b914d55475e",
+    "versao": "1.18.0",
+    "sha256": "90b7ed30b0db280dfec449b4f17e860cc12024a4bc233fd5bfef7ede68c45b9a",
     "conteudo": {
       "initialize": {
         "capabilities": {
@@ -2423,6 +2423,423 @@
             "type": "object"
           },
           "title": "Find Equivalents Across Terminologies"
+        },
+        {
+          "annotations": {
+            "destructiveHint": false,
+            "idempotentHint": true,
+            "openWorldHint": true,
+            "readOnlyHint": true
+          },
+          "description": "Map a LIST of free-text clinical terms to standard codes in one call, with ranked candidates and a confidence label for each — the building block of a reviewable crosswalk.\n\nUse this tool to:\n- Harmonize a column of diagnoses, drugs or lab names from a dataset to ICD-11 / RxNorm (+ ATC) / LOINC\n- Triage which terms map cleanly (exact / strong) and which need a person (needs_review)\n- Build a crosswalk you can audit: every row keeps its candidates, scores and sources\n\nGive each term its `domain`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to 50 terms per call — a longer list is refused with a validation error: split it into batches of 50. Repeated term+domain pairs are looked up once. `max_candidates` keeps 1-5 per term (default 3).\n\nEvery candidate carries `match_score` (lexical, 0-1, the find_equivalent formula) and `match_type`: exact = same words after normalization; strong = every term word is in the title and score ≥ 0.85; needs_review = anything else. A one-word term is exact or needs_review, never strong (\"Tylenol\" vs \"Tylenol PM\" is a different product). Synonyms, abbreviations (\"MI\", \"HbA1c\") and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named \"Deprecated\". Lab names are ambiguous without specimen and property: \"glucose\" matches over a thousand LOINC codes, so write \"glucose serum\" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status \"error\".\n\nTerms are searched in English and sent to the WHO and NLM APIs — de-identify the list first. For Brazilian Portuguese diagnoses use cid10_search; to check codes you already have, use validate_codes; for one term across every terminology, use find_equivalent. Record the vocabulary versions with the provenance blocks (one per source) and terminology_versions.",
+          "inputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "max_candidates": {
+                "description": "Candidates kept per term, best first (1-5, default 3).",
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "terms": {
+                "description": "Terms to harmonize, each with its domain. Up to 50 per call; repeated term+domain pairs are looked up once.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "domain": {
+                      "description": "What the term names. diagnosis → ICD-11 (WHO); drug → RxNorm ingredient/product concepts plus ATC classes; lab → LOINC.",
+                      "enum": [
+                        "diagnosis",
+                        "drug",
+                        "lab"
+                      ],
+                      "type": "string"
+                    },
+                    "term": {
+                      "description": "Free-text term as it appears in your data (English), e.g. \"type 2 diabetes\", \"metformin\", \"hemoglobin a1c\".",
+                      "maxLength": 200,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "term",
+                    "domain"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 50,
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "terms"
+            ],
+            "type": "object"
+          },
+          "name": "harmonize_terms",
+          "outputSchema": {
+            "additionalProperties": false,
+            "properties": {
+              "attribution": {
+                "description": "Canonical source URLs of this response (attribution list)",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "counts": {
+                "additionalProperties": false,
+                "properties": {
+                  "error": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  },
+                  "exact": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  },
+                  "needs_review": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  },
+                  "no_candidates": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  },
+                  "strong": {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "exact",
+                  "strong",
+                  "needs_review",
+                  "no_candidates",
+                  "error"
+                ],
+                "type": "object"
+              },
+              "provenance": {
+                "description": "One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "Bloco de proveniência (contrato v1.1): fonte, URL, competência, extração, diagnóstico de origem, citação e licença",
+                  "properties": {
+                    "citation": {
+                      "description": "Ready-to-use citation/attribution string",
+                      "type": "string"
+                    },
+                    "data_vintage": {
+                      "description": "Version/release of the data as exposed by the source; null when not exposed",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "license": {
+                      "description": "License / legal regime of the data",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "retrieval": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "anomalies": {
+                              "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "count": {
+                                    "description": "Ocorrências desta classe na chamada",
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "kind": {
+                                    "description": "Classe da anomalia (vocabulário fechado do contrato)",
+                                    "enum": [
+                                      "timeout",
+                                      "network",
+                                      "http_4xx",
+                                      "http_5xx",
+                                      "rate_limited",
+                                      "malformed_body"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "count"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "attempts": {
+                              "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "requests": {
+                              "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "unstable": {
+                              "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "requests",
+                            "attempts",
+                            "anomalies",
+                            "unstable"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                    },
+                    "retrieved_at": {
+                      "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                      "type": "string"
+                    },
+                    "source": {
+                      "description": "Official upstream source of this data",
+                      "type": "string"
+                    },
+                    "source_url": {
+                      "description": "Canonical URL of the source (API base or dataset release)",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "source",
+                    "source_url",
+                    "data_vintage",
+                    "retrieved_at",
+                    "retrieval",
+                    "citation",
+                    "license"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "ranking": {
+                "additionalProperties": false,
+                "properties": {
+                  "method": {
+                    "const": "lexical",
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "method",
+                  "note"
+                ],
+                "type": "object"
+              },
+              "results": {
+                "description": "One entry per submitted term, in request order.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "atc": {
+                      "anyOf": [
+                        {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "atc_code": {
+                                "type": "string"
+                              },
+                              "atc_name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "atc_code",
+                              "atc_name"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Drug terms only: ATC classes NLM RxClass returns for the term (empty when none); null for other domains or when the ATC lookup failed."
+                    },
+                    "candidates": {
+                      "description": "Best first (match_score descending, then upstream order).",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "code": {
+                            "description": "Code in the target terminology (ICD-11 code, RxCUI, or LOINC number).",
+                            "type": "string"
+                          },
+                          "match_score": {
+                            "description": "Lexical similarity to the term, 0-1 (same formula as find_equivalent).",
+                            "maximum": 1,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          "match_type": {
+                            "description": "Computed by this server from the lexical score: exact = title equals the term after normalization; strong = every term word is in the title and match_score >= 0.85; needs_review = anything else.",
+                            "enum": [
+                              "exact",
+                              "strong",
+                              "needs_review"
+                            ],
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "uri": {
+                            "description": "Entity URI when the terminology exposes one (ICD-11); null otherwise.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "title",
+                          "uri",
+                          "match_score",
+                          "match_type"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "domain": {
+                      "description": "What the term names. diagnosis → ICD-11 (WHO); drug → RxNorm ingredient/product concepts plus ATC classes; lab → LOINC.",
+                      "enum": [
+                        "diagnosis",
+                        "drug",
+                        "lab"
+                      ],
+                      "type": "string"
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "index": {
+                      "description": "Position of the term in the request (0-based).",
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "match_type": {
+                      "anyOf": [
+                        {
+                          "description": "Computed by this server from the lexical score: exact = title equals the term after normalization; strong = every term word is in the title and match_score >= 0.85; needs_review = anything else.",
+                          "enum": [
+                            "exact",
+                            "strong",
+                            "needs_review"
+                          ],
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "match_type of the best candidate; null when there is none."
+                    },
+                    "status": {
+                      "description": "matched = at least one candidate; no_candidates = the source answered with nothing; error = the lookup failed (see error).",
+                      "enum": [
+                        "matched",
+                        "no_candidates",
+                        "error"
+                      ],
+                      "type": "string"
+                    },
+                    "term": {
+                      "type": "string"
+                    },
+                    "terminology": {
+                      "description": "Terminology searched for this domain.",
+                      "enum": [
+                        "icd11",
+                        "rxnorm",
+                        "loinc"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "index",
+                    "term",
+                    "domain",
+                    "terminology",
+                    "status",
+                    "match_type",
+                    "candidates",
+                    "atc",
+                    "error"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "total": {
+                "description": "Terms submitted.",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "unique_lookups": {
+                "description": "Distinct term+domain pairs actually looked up.",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "total",
+              "unique_lookups",
+              "counts",
+              "results",
+              "ranking",
+              "provenance",
+              "attribution"
+            ],
+            "type": "object"
+          },
+          "title": "Harmonize Free-Text Terms to Standard Codes"
         },
         {
           "annotations": {

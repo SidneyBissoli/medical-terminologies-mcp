@@ -264,6 +264,12 @@ export const FIXTURES: EvalFixture[] = [
     expectedTools: ['find_equivalent'],
     note: 'pt-BR phrasing of the cross-terminology ask still routes to find_equivalent (which searches upstreams in English).',
   },
+  {
+    id: 'xw-10',
+    query: 'I have a column of free-text diagnoses and drug names from a study dataset ("type 2 diabetes", "metformin", "hypertension", "atorvastatin"). Map each to a standard code and flag the ones a person should review.',
+    expectedTools: ['harmonize_terms'],
+    note: 'Batch of free-text TERMS (not codes) with a review flag → harmonize_terms (1.18.0); validate_codes starts from codes, find_equivalent from one term.',
+  },
   // ── versioning — release metadata ────────────────────────────────────────
   {
     id: 'ver-01',

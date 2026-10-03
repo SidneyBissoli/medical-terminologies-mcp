@@ -261,6 +261,21 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['validate_codes', 'invalid code (title/active null)', { codes: [{ code: 'ZZZZ', terminology: 'icd10' }] }],
   ['find_equivalent', 'fan-out without source_terminology (echo null)', { term: 'glucose', target_terminologies: ['loinc', 'rxnorm'] }],
   ['find_equivalent', 'fan-out with source_terminology', { term: 'glucose', source_terminology: 'loinc', target_terminologies: ['rxnorm', 'mesh'] }],
+  ['harmonize_terms', 'one term per domain (atc array on drug, null elsewhere; uri null off ICD-11)', {
+    terms: [
+      { term: 'type 2 diabetes mellitus', domain: 'diagnosis' },
+      { term: 'metformin', domain: 'drug' },
+      { term: 'glucose', domain: 'lab' },
+    ],
+  }],
+  ['harmonize_terms', 'terms without candidates (match_type null, empty candidates) + duplicate', {
+    terms: [
+      { term: 'zzzznaoexiste', domain: 'lab' },
+      { term: 'zzzznaoexiste', domain: 'lab' },
+      { term: 'zzzznaoexiste', domain: 'drug' },
+    ],
+    max_candidates: 1,
+  }],
 
   ['atc_classify', 'drug with ATC codes', { drug_name: 'metformin' }],
   ['atc_classify', 'drug without ATC codes', { drug_name: 'zzzznaoexiste' }],
@@ -344,7 +359,7 @@ describe('structuredContent obeys the advertised outputSchema', () => {
     for (const tool of toolRegistry.getTools()) {
       expect(tool.outputSchema, `${tool.name} has no outputSchema`).toBeDefined();
     }
-    expect(toolRegistry.getTools()).toHaveLength(33);
+    expect(toolRegistry.getTools()).toHaveLength(34);
   });
 
   it('every registered tool is covered by at least one case', () => {

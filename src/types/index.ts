@@ -950,6 +950,107 @@ export type ValidateCodesOutput = z.infer<typeof ValidateCodesOutputSchema>;
 export type ValidateCodesResult = z.infer<typeof ValidateCodesResultSchema>;
 
 // ============================================================================
+// harmonize_terms (Phase 20.6) — free-text terms → ranked candidates
+//
+// The TERM-first companion of validate_codes (which is CODE-first). Shape
+// follows the Scripps "harmonize free-text clinical terms" recipe: top
+// candidates per term, a match_type per candidate, one provenance block per
+// source. match_score/match_type are server-derived (src/utils/lexical-score.ts).
+// ============================================================================
+
+export const HARMONIZE_MAX_TERMS = 50;
+
+export const HarmonizeDomainEnum = z
+  .enum(['diagnosis', 'drug', 'lab'])
+  .describe(
+    'What the term names. diagnosis → ICD-11 (WHO); drug → RxNorm ingredient/product concepts plus ATC classes; lab → LOINC.',
+  );
+
+const HarmonizeTermItemSchema = z.object({
+  term: z.string().trim().min(1).max(200).describe('Free-text term as it appears in your data (English), e.g. "type 2 diabetes", "metformin", "hemoglobin a1c".'),
+  domain: HarmonizeDomainEnum,
+}).strict();
+
+export const HarmonizeTermsParamsSchema = z.object({
+  terms: z
+    .array(HarmonizeTermItemSchema)
+    .min(1, 'At least one term is required.')
+    .max(
+      HARMONIZE_MAX_TERMS,
+      `Maximum ${HARMONIZE_MAX_TERMS} terms per call (upstream rate limits). Split the list into batches of ${HARMONIZE_MAX_TERMS} and call once per batch.`,
+    )
+    .describe(`Terms to harmonize, each with its domain. Up to ${HARMONIZE_MAX_TERMS} per call; repeated term+domain pairs are looked up once.`),
+  max_candidates: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .optional()
+    .describe('Candidates kept per term, best first (1-5, default 3).'),
+}).strict();
+
+export const HarmonizeMatchTypeEnum = z
+  .enum(['exact', 'strong', 'needs_review'])
+  .describe(
+    'Computed by this server from the lexical score: exact = title equals the term after normalization; strong = every term word is in the title and match_score >= 0.85; needs_review = anything else.',
+  );
+
+const HarmonizeCandidateSchema = z.object({
+  code: z.string().describe('Code in the target terminology (ICD-11 code, RxCUI, or LOINC number).'),
+  title: z.string(),
+  // ICD-11 license invariant: codes and titles travel with their URIs.
+  uri: z.string().nullable().describe('Entity URI when the terminology exposes one (ICD-11); null otherwise.'),
+  match_score: z.number().min(0).max(1).describe('Lexical similarity to the term, 0-1 (same formula as find_equivalent).'),
+  match_type: HarmonizeMatchTypeEnum,
+});
+
+const HarmonizeATCSchema = z.object({
+  atc_code: z.string(),
+  atc_name: z.string(),
+});
+
+const HarmonizeResultSchema = z.object({
+  index: z.number().int().min(0).describe('Position of the term in the request (0-based).'),
+  term: z.string(),
+  domain: HarmonizeDomainEnum,
+  terminology: z.enum(['icd11', 'rxnorm', 'loinc']).describe('Terminology searched for this domain.'),
+  status: z
+    .enum(['matched', 'no_candidates', 'error'])
+    .describe('matched = at least one candidate; no_candidates = the source answered with nothing; error = the lookup failed (see error).'),
+  match_type: HarmonizeMatchTypeEnum.nullable().describe('match_type of the best candidate; null when there is none.'),
+  candidates: z.array(HarmonizeCandidateSchema).describe('Best first (match_score descending, then upstream order).'),
+  atc: z
+    .array(HarmonizeATCSchema)
+    .nullable()
+    .describe('Drug terms only: ATC classes NLM RxClass returns for the term (empty when none); null for other domains or when the ATC lookup failed.'),
+  error: z.string().nullable(),
+});
+
+export const HarmonizeTermsOutputSchema = z.object({
+  total: z.number().int().describe('Terms submitted.'),
+  unique_lookups: z.number().int().describe('Distinct term+domain pairs actually looked up.'),
+  counts: z.object({
+    exact: z.number().int(),
+    strong: z.number().int(),
+    needs_review: z.number().int(),
+    no_candidates: z.number().int(),
+    error: z.number().int(),
+  }),
+  results: z.array(HarmonizeResultSchema).describe('One entry per submitted term, in request order.'),
+  // Same self-description as find_equivalent: match_score and match_type are
+  // computed here, not upstream relevance (the concise provenance block does
+  // not carry `derived`, so the method travels in the payload).
+  ranking: z.object({
+    method: z.literal('lexical'),
+    note: z.string(),
+  }),
+});
+
+export type HarmonizeTermsOutput = z.infer<typeof HarmonizeTermsOutputSchema>;
+export type HarmonizeResult = z.infer<typeof HarmonizeResultSchema>;
+export type HarmonizeDomain = z.infer<typeof HarmonizeDomainEnum>;
+
+// ============================================================================
 // terminology_versions + terminology_diff params + outputs
 // ============================================================================
 
