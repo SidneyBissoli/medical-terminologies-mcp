@@ -137,22 +137,62 @@ from the MCP Registry; it requires a manual submission via GitHub issue at
 
 Before tagging:
 
-1. Bump the version in **four places** that don't auto-sync:
-   - `package.json` → `version`
-   - `server.json` → top-level `version`
-   - `server.json` → `packages[0].version` (stdio transport)
-   - `server.json` → `packages[1].version` (streamable-http transport)
-     — the publish workflow's `jq` only touches `packages[0]`, so this
-     entry drifts silently if you skip it (it sat frozen at `1.2.1`
-     from when the transport was added until `1.4.1` realigned it).
-2. Add a `## [X.Y.Z] - YYYY-MM-DD` block to `CHANGELOG.md` between
+1. **Bump the version with `npm version <patch|minor|major> --no-git-tag-version`.**
+   The `version` hook (`scripts/sync-version.mjs`) mirrors it into `server.json`
+   (top level and every `packages[].version`) and `lhm.plugin.json`, and stages
+   them. Do not edit those by hand, and do not let npm create a local tag — the
+   tag comes from `gh release create`.
+2. **If the surface changed** (a tool, parameter, description or schema):
+   - `npm run surface:lock` — regenerates `surface.lock.json`; it only accepts a
+     new surface under a new version;
+   - `npm run manifest:lhm` — regenerates the LobeHub manifest;
+   - **a tool added or removed needs a new baseline in the same PR:**
+     `npm run build && node scripts/dump-surface.mjs --stdio >
+     baselines/surface-stdio-<version>.json`, plus a row in
+     `baselines/README.md`. The production smoke derives the expected tool count
+     from the newest baseline; 1.18.0 and 1.18.1 shipped without one and both
+     deploy workflows failed with the Worker live. `src/baseline-sync.test.ts`
+     now fails the PR first.
+3. Add a `## [X.Y.Z] - YYYY-MM-DD` block to `CHANGELOG.md` between
    `## [Unreleased]` and the previous release.
-3. Verify locally:
+4. Verify locally:
    `npm run typecheck && npm test && npm run build:all`.
-4. Commit as `chore(release): X.Y.Z — <summary>`, then
-   `git push origin main`.
-5. `gh release create vX.Y.Z --target main --title "Release vX.Y.Z"
-   --notes "..."` — this fires the publish workflow.
+5. Open a PR, wait for CI, squash-merge, then
+   `gh release create vX.Y.Z --target main --title "..." --notes-file <notes>` —
+   this fires the publish workflow. Afterwards confirm the deploy workflow ended
+   green and the post-deploy `mcpscore` audit ran (it is skipped when the deploy
+   fails).
+
+### Annual ICD-11 release bump
+
+WHO publishes a new ICD-11 MMS release about once a year (usually January or
+February). The server pins one release in `WHO_ICD11_DEFAULT_RELEASE`
+(`src/clients/who-client.ts`); every ICD-11 call, the `data_vintage` of every
+ICD-11 provenance block and `terminology_versions` derive from it.
+
+**You learn about a new release from the daily integration run**, not from a
+calendar: the case *"the pinned ICD-11 release is the latest WHO publishes"*
+asks WHO for its latest release and fails with the new id. To bump:
+
+1. Set `WHO_ICD11_DEFAULT_RELEASE` to the new id (e.g. `'2027-01'`). It is the
+   single copy — `src/provenance.ts` and `src/tools/versioning.ts` import it.
+2. Run the live suite against the new release:
+   `INTEGRATION_TESTS=1 WHO_CLIENT_ID=… WHO_CLIENT_SECRET=… npm test -- src/integration/`
+   (or dispatch the *Integration tests (live APIs)* workflow on your branch).
+   Watch especially the chapter count, `5A11` lookup, and the search shape
+   (`theCode`, `matchingPVs`) that `harmonize_terms` ranks on.
+3. Spot-check codes the release may have moved: run `harmonize_terms` and
+   `icd11_lookup` on a few common diagnoses and compare with the previous
+   release. WHO's release notes:
+   https://icd.who.int/browse11/Downloads/Download
+4. The WHO ICD-10 → ICD-11 transition tables (`src/data/icd10-to-icd11.json`)
+   are a separate, bundled dataset with their own release; regenerate them with
+   `scripts/build-icd10-to-icd11-dataset.mjs` only when WHO publishes new tables.
+5. Ship it as a minor release (the data clients see changes): CHANGELOG entry
+   naming both releases, then the normal steps above.
+
+Operators can pin a different release without a code change via the
+`WHO_ICD11_RELEASE_ID` environment variable.
 
 ### `server.json` constraints worth memorizing
 

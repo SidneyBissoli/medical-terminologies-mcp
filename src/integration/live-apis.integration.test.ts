@@ -32,7 +32,7 @@ import { getNLMClient } from '../clients/nlm-client.js';
 import { getRxNormClient } from '../clients/rxnorm-client.js';
 import { getMeSHClient } from '../clients/mesh-client.js';
 import { getCID10Client } from '../clients/cid10-client.js';
-import { getWHOClient, WHOClient } from '../clients/who-client.js';
+import { getWHOClient, WHOClient, WHO_ICD11_DEFAULT_RELEASE } from '../clients/who-client.js';
 import { getSNOMEDClient, SNOMEDClient } from '../clients/snomed-client.js';
 import { cache } from '../utils/cache.js';
 
@@ -235,6 +235,51 @@ describeIntegration('Integration: live API contracts', () => {
       expect(essential, 'BA00.Z (Essential hypertension) not among the top 10 for "hypertension"').toBeDefined();
       const labels = (essential!.matchingPVs ?? []).map((pv) => pv.label.toLowerCase());
       expect(labels).toContain('hypertension nos');
+    });
+
+    // PROGRESS.md 14.3 — the annual ICD-11 release bump, as a MEASUREMENT
+    // instead of a calendar reminder. WHO publishes a new MMS release about
+    // once a year (Jan/Feb). The server pins one (WHO_ICD11_DEFAULT_RELEASE);
+    // nothing else would notice a newer one, and the pin would quietly age.
+    // This asks WHO itself which release is the latest and fails, with the
+    // procedure, when it differs from the pin. See CONTRIBUTING.md →
+    // "Annual ICD-11 release bump".
+    it('the pinned ICD-11 release is the latest WHO publishes', async () => {
+      const tokenRes = await fetch('https://icdaccessmanagement.who.int/connect/token', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: process.env.WHO_CLIENT_ID ?? '',
+          client_secret: process.env.WHO_CLIENT_SECRET ?? '',
+          grant_type: 'client_credentials',
+          scope: 'icdapi_access',
+        }).toString(),
+      });
+      expect(tokenRes.ok, `token: HTTP ${tokenRes.status}`).toBe(true);
+      const { access_token } = (await tokenRes.json()) as { access_token: string };
+
+      // The linearization root WITHOUT a release lists every release and names
+      // the latest one.
+      const res = await fetch('https://id.who.int/icd/release/11/mms', {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          Accept: 'application/json',
+          'Accept-Language': 'en',
+          'API-Version': 'v2',
+        },
+      });
+      expect(res.ok, `release list: HTTP ${res.status}`).toBe(true);
+      const body = (await res.json()) as { latestRelease?: string; release?: string[] };
+      const idOf = (uri: string) => uri.match(/\/release\/11\/([^/]+)\/mms/)?.[1];
+      const latest = body.latestRelease ? idOf(body.latestRelease) : undefined;
+      expect(
+        latest,
+        `WHO release list changed shape (keys: ${Object.keys(body).join(', ')}) — the watch cannot read the latest release`,
+      ).toBeTruthy();
+      expect(
+        latest,
+        `WHO published ICD-11 release ${latest}; this server pins ${WHO_ICD11_DEFAULT_RELEASE}. Follow CONTRIBUTING.md → "Annual ICD-11 release bump".`,
+      ).toBe(WHO_ICD11_DEFAULT_RELEASE);
     });
 
     it('lookup of code "5A11" returns an entity', async () => {
