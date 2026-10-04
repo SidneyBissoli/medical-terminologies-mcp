@@ -10,6 +10,7 @@ descrições 12× menores em produção). Nenhum teste unitário pega essa class
 
 | Arquivo | Como foi capturado | O que representa |
 |:--|:--|:--|
+| `surface-stdio-2.0.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-10-03 | 33 tools. **Mudança que quebra clientes (2.0.0):** saem as 5 `snomed_*` (eram opcionais), `map_snomed_to_icd10` e `map_loinc_to_snomed`; o valor `snomed` sai de `find_equivalent` (`target_terminologies`, `source_terminology`), `validate_codes`, `terminology_versions` e `terminology_diff`; as instruções do handshake passam a dizer que o SNOMED não é servido. |
 | `surface-stdio-1.18.2.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-10-03 | 34 tools. Diff para a 1.16.0, deliberado e no CHANGELOG (1.17.0 a 1.18.2): `harmonize_terms` nova (1.18.0, `matched_label` na 1.18.1); descrições de 5 tools reescritas (1.17.2); `loinc_answers` ganha `score` e `loinc_panels.required` vira `boolean | null` (1.18.2). **Capturado atrasado:** as releases 1.18.0 e 1.18.1 subiram sem ele, e o smoke de produção (que deriva a contagem do baseline mais recente) reprovou os dois deploys — o Worker estava no ar, mas o workflow terminou em falha e a auditoria pós-deploy foi pulada. Desde então `src/baseline-sync.test.ts` reprova o PR antes. |
 | `surface-http-prod-1.16.0.json` | `--url https://medical.sidneybissoli.com/mcp`, 2026-09-29 (deploy 8dc7a65e) | o que o endpoint hospedado serve desde 29/09/2026 (1.16.0) — byte-idêntico ao stdio 1.16.0 |
 | `surface-stdio-1.16.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-09-28 | 33 tools. Diff para a 1.15.0, deliberado e no CHANGELOG: `rxcui` vira `anyOf` [string, integer] em `rxnorm_concept`, `rxnorm_ingredients`, `rxnorm_classes` e `rxnorm_ndc`; `rxnorm_concept.include_related` vira `anyOf` [boolean, "true"/"false"] e perde `default`; descrições; `outputSchema` de `rxnorm_concept` ganha `found` obrigatório e sete campos do conceito viram `string | null` (ausência é resposta, não `isError`). O `http-prod` correspondente é capturado depois do deploy. |
@@ -30,9 +31,9 @@ estava recém-deployada (1.9.1, 31/08). As divergências possíveis aqui são de
 DEPLOY (fonte à frente da produção), não de definição dupla como era no bcb
 pré-fundação — por isso o script não tem modo `--source`.
 
-Atenção ao flag: com `ENABLE_SNOMED_TOOLS=true` o stdio sobe a 37 tools. O
-baseline é capturado no DEFAULT (31) de propósito — é o que produção serve e o
-que um consumidor npm recebe sem configurar nada.
+Até a 1.18.x havia o flag `ENABLE_SNOMED_TOOLS` (com ele, mais 6 tools), e o
+baseline era capturado no DEFAULT de propósito. Desde a 2.0.0, com o SNOMED
+aposentado, há uma superfície só.
 
 ## Como usar no gate
 

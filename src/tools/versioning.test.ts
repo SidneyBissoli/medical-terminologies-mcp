@@ -16,15 +16,15 @@ describe('terminology_versions', () => {
     expect(handler).toBeDefined();
   });
 
-  it('returns all 8 terminologies when no filter is set', async () => {
+  it('returns all 7 terminologies when no filter is set', async () => {
     const result = await handler!({});
     const parsed = TerminologyVersionsOutputSchema.parse(result.structuredContent);
-    expect(parsed.total).toBe(8);
-    expect(parsed.terminologies).toHaveLength(8);
+    expect(parsed.total).toBe(7);
+    expect(parsed.terminologies).toHaveLength(7);
 
     const codes = parsed.terminologies.map((t) => t.code).sort();
     expect(codes).toEqual(
-      ['atc', 'cid10', 'icd10', 'icd11', 'loinc', 'mesh', 'rxnorm', 'snomed'],
+      ['atc', 'cid10', 'icd10', 'icd11', 'loinc', 'mesh', 'rxnorm'],
     );
   });
 
@@ -132,13 +132,17 @@ describe('terminology_diff', () => {
 
   it('echoes from_version and to_version in the response', async () => {
     const result = await handler!({
-      terminology: 'snomed',
-      from_version: '2024-07-01',
-      to_version: '2025-01-31',
+      terminology: 'loinc',
+      from_version: '2.80',
+      to_version: '2.81',
     });
     const parsed = TerminologyDiffOutputSchema.parse(result.structuredContent);
-    expect(parsed.from_version).toBe('2024-07-01');
-    expect(parsed.to_version).toBe('2025-01-31');
+    expect(parsed.from_version).toBe('2.80');
+    expect(parsed.to_version).toBe('2.81');
+  });
+
+  it('2.0.0: rejects "snomed" (retired) like any unknown terminology', async () => {
+    await expect(handler!({ terminology: 'snomed' })).resolves.toMatchObject({ isError: true });
   });
 
   it('rejects unknown terminology values via the schema', async () => {

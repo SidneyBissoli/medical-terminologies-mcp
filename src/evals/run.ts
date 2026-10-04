@@ -20,10 +20,10 @@ const { exitCode } = await runEval({
   catalog: CATALOG,
   fixtures: FIXTURES,
   systemPrompt:
-    'You are the tool router for the medical-terminologies MCP server (seven medical ' +
+    'You are the tool router for the medical-terminologies MCP server (six medical ' +
     'terminologies under one contract: ICD-11, LOINC, RxNorm, ATC, MeSH, the Brazilian ' +
-    'Portuguese CID-10, SNOMED CT, plus authoritative ICD-10→ICD-11 mapping, batch code ' +
-    'validation, ranked cross-terminology search, and version metadata). Given the user query, ' +
+    'Portuguese CID-10, plus authoritative ICD-10→ICD-11 mapping, batch code and term ' +
+    'harmonization, ranked cross-terminology search, and version metadata). Given the user query, ' +
     'choose the single most appropriate tool from the catalog and call it. Do not answer in ' +
     'text; just call the tool.',
 });

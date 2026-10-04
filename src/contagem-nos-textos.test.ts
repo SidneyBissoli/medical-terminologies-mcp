@@ -3,25 +3,20 @@
  * superfície real do servidor — e o texto em português, quando existir, cita as
  * mesmas ferramentas que o texto em inglês.
  *
- * POR QUE ESTE ARQUIVO EXISTE. A superfície padrão deste servidor é de 31
- * tools; 37 só com `ENABLE_SNOMED_TOOLS=true`. O `README.md` e o `package.json`
- * dizem as duas coisas, e certo. O `server.json` dizia **37** seco, sem a
- * ressalva — e ficou assim até 2026-08-31. É o arquivo de maior alcance do
- * repositório: é o que o MCP Registry publica e o que os diretórios copiam.
- * Nada quebrou e nenhum teste reprovou, porque contagem em prosa não tem quem
- * a confira.
+ * POR QUE ESTE ARQUIVO EXISTE. O `server.json` disse **37** seco até
+ * 2026-08-31, quando a superfície padrão era de 31 — é o arquivo de maior
+ * alcance do repositório (o que o MCP Registry publica e os diretórios
+ * copiam). Nada quebrou e nenhum teste reprovou, porque contagem em prosa não
+ * tem quem a confira. A mesma classe apareceu no portfólio inteiro no mesmo dia
+ * (a landing do ibge dizia 22 com 21; o README traduzido do bcb dizia 8 com 15).
  *
- * A mesma classe apareceu no portfólio inteiro no mesmo dia (a landing do ibge
- * dizia 22 com 21; o README traduzido do bcb dizia 8 com 15 e listava 9).
- *
- * O teste NÃO pode ser "todo número igual ao total": aqui há três contagens
- * legítimas e diferentes — a padrão, a com SNOMED, e as por terminologia
- * ("5 tools" do ICD-11). Cada uma é conferida contra a sua própria fonte, e as
- * duas primeiras são derivadas do registro real, montado duas vezes com a flag
- * nos dois estados ([[verificacao-deriva-da-fonte]]).
+ * Até a 1.18.x havia DUAS superfícies (padrão e com SNOMED) e este teste
+ * conferia as duas. Com o SNOMED aposentado na 2.0.0 há uma só, derivada do
+ * registro real ([[verificacao-deriva-da-fonte]]). Contagens por terminologia
+ * ("5 tools" do ICD-11) não são conferidas aqui.
  */
 
-import { describe, expect, it, beforeAll, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -35,68 +30,39 @@ const existe = (f: string) => existsSync(join(raiz, f));
 
 const PT = 'LEIA-ME.md';
 const nomes = toolRegistry.getTools().map((t) => t.name);
-const padrao = nomes.length;
+const total = nomes.length;
 
-/** Superfície com a flag ligada — montada num grafo de módulos limpo. */
-let comSnomed = 0;
-
-beforeAll(async () => {
-  const anterior = process.env.ENABLE_SNOMED_TOOLS;
-  process.env.ENABLE_SNOMED_TOOLS = 'true';
-  vi.resetModules();
-  try {
-    const core = (await import('./server-core.js')) as typeof import('./server-core.js');
-    await import('./register.js');
-    comSnomed = core.toolRegistry.getTools().length;
-  } finally {
-    if (anterior === undefined) delete process.env.ENABLE_SNOMED_TOOLS;
-    else process.env.ENABLE_SNOMED_TOOLS = anterior;
-    vi.resetModules();
-  }
-});
+/** A primeira contagem "N tools" do texto, ou falha dizendo onde faltou. */
+function contagem(texto: string, arquivo: string, padrao = /(\d+)\s+tools/i): number {
+  const m = texto.match(padrao);
+  expect(m, `${arquivo} não diz quantas tools o servidor tem`).not.toBeNull();
+  return Number(m![1]);
+}
 
 describe('contagem de ferramentas nos textos públicos', () => {
-  it('o registro real é a fonte das duas contagens', () => {
-    expect(padrao).toBeGreaterThan(0);
-    expect(comSnomed, 'a flag ENABLE_SNOMED_TOOLS não acrescentou tool nenhuma').toBeGreaterThan(
-      padrao
-    );
+  it('o registro real tem ferramentas e nenhuma SNOMED (aposentado na 2.0.0)', () => {
+    expect(total).toBeGreaterThan(0);
+    expect(nomes.filter((n) => /snomed/i.test(n)), 'tool SNOMED de volta ao registro').toEqual([]);
   });
 
-  it('a descrição do server.json anuncia a superfície PADRÃO', () => {
-    // É o arquivo que o MCP Registry publica: o número aqui é o que o usuário
-    // vê antes de instalar, e o que ele instala é o padrão, sem a flag.
+  it('a descrição do server.json anuncia a superfície real', () => {
     const { description } = JSON.parse(leia('server.json')) as { description: string };
-    const m = description.match(/(\d+)\s+tools/i);
-    expect(m, 'server.json não diz quantas tools o servidor tem').not.toBeNull();
-    expect(
-      Number(m![1]),
-      `server.json anuncia "${m![0]}"; a superfície padrão tem ${padrao} (${comSnomed} com SNOMED)`
-    ).toBe(padrao);
+    expect(contagem(description, 'server.json')).toBe(total);
   });
 
-  it('o package.json anuncia as duas superfícies, e as duas certas', () => {
+  it('o package.json anuncia a superfície real', () => {
     const { description } = JSON.parse(leia('package.json')) as { description: string };
-    const m = description.match(/(\d+)\s+tools by default\s*\((\d+)\s+with SNOMED/i);
-    expect(m, 'package.json não declara "N tools by default (M with SNOMED…)"').not.toBeNull();
-    expect(Number(m![1]), 'contagem padrão no package.json').toBe(padrao);
-    expect(Number(m![2]), 'contagem com SNOMED no package.json').toBe(comSnomed);
+    expect(contagem(description, 'package.json')).toBe(total);
   });
 
-  it('a landing do Worker anuncia a superfície PADRÃO', () => {
-    // `worker/src/config.ts` é o texto da página inicial do endpoint hospedado
-    // (o que um humano lê antes de conectar); ficou fora deste teste até a
-    // 1.10.0 e era o único ponto cego com contagem em prosa.
-    const m = leia('worker/src/config.ts').match(/(\d+)\s+tools/i);
-    expect(m, 'worker/src/config.ts não diz quantas tools o servidor tem').not.toBeNull();
-    expect(Number(m![1]), 'contagem na landing do Worker').toBe(padrao);
+  it('a landing do Worker anuncia a superfície real', () => {
+    // `worker/src/config.ts` é o texto da página inicial do endpoint hospedado.
+    expect(contagem(leia('worker/src/config.ts'), 'worker/src/config.ts')).toBe(total);
   });
 
-  it('o README explica a diferença entre as duas com os números certos', () => {
-    const m = leia('README.md').match(/registers\s+(\d+)\s+tools\s+instead of\s+(\d+)/i);
-    expect(m, 'README.md não explica a superfície gated').not.toBeNull();
-    expect(Number(m![1]), 'contagem padrão no README').toBe(padrao);
-    expect(Number(m![2]), 'contagem com SNOMED no README').toBe(comSnomed);
+  it('o título "Available Tools (N)" do README e o do LEIA-ME batem com o registro', () => {
+    expect(contagem(leia('README.md'), 'README.md', /## Available Tools \((\d+)\)/)).toBe(total);
+    expect(contagem(leia(PT), PT, /## Ferramentas disponíveis \((\d+)\)/)).toBe(total);
   });
 });
 

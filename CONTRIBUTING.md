@@ -1,9 +1,9 @@
 # Contributing
 
 Thanks for considering a contribution. This project ships an MCP server
-for seven medical terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC,
-CID-10, SNOMED CT) — most served via public APIs, CID-10 from a
-bundled DataSUS dataset, SNOMED gated behind a feature flag. Most
+for six medical terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC,
+CID-10) — most served via public APIs, CID-10 from a bundled
+DataSUS dataset. Most
 contributions land in one of three buckets:
 
 - **Tool changes** — adding or refining tools under `src/tools/*.ts`
@@ -19,11 +19,9 @@ contributions land in one of three buckets:
 
 Project-specific notes that aren't obvious from the README:
 
-- **SNOMED tools are off by default** because the historical public
-  IHTSDO Snowstorm endpoint was retired (returns HTTP 410). Contributors
-  who want to exercise SNOMED code paths need a self-hosted Snowstorm
-  and `ENABLE_SNOMED_TOOLS=true SNOMED_BASE_URL=<your-instance>`. See
-  the README's "SNOMED CT setup (advanced)".
+- **SNOMED CT was retired in 2.0.0** (see the README's "SNOMED CT
+  (retired in 2.0.0)"). Don't reintroduce it without the maintainer's
+  decision.
 - **Schemas are the source of truth.** Zod input/output schemas live
   in `src/types/index.ts`. The MCP `inputSchema` and `outputSchema`
   surfaces are *derived* from those Zod definitions via
@@ -70,7 +68,7 @@ npx @modelcontextprotocol/inspector node dist/index.js
 
 1. `npm run typecheck` clean (CI gates on this).
 2. `npm test` passes (CI gates on this).
-3. `npm run build` succeeds and the bundle still has 39
+3. `npm run build` succeeds and the bundle still has 33
    `toolRegistry.register` source-level call sites (CI gates on this
    count to catch accidental tool removal).
 4. If you added a tool with `outputSchema`, add a fixture to
@@ -104,8 +102,8 @@ upstream API drift surfaces close to when it happens.
 
 When adding a new HTTP-backed feature, capture a live fixture into
 `src/__fixtures__/<api>/` and write a contract test pinning the parser
-against it. WHO + SNOMED tests use inline mocks because their public
-hosts don't ship test creds.
+against it. WHO tests use inline mocks because its public host doesn't
+ship test creds.
 
 ## Reporting issues
 

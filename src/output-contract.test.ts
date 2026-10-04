@@ -261,7 +261,6 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
 
   ['map_icd10_to_icd11', 'code in the WHO table', { icd10_code: 'E11' }],
   ['map_icd10_to_icd11', 'code absent from the table (null mapping)', { icd10_code: 'ZZZ' }],
-  ['map_loinc_to_snomed', 'guidance only (null everywhere)', { loinc_code: '2339-0' }],
   ['validate_codes', 'bundled branches', { codes: [{ code: 'E11', terminology: 'icd10' }, { code: 'A00', terminology: 'cid10' }] }],
   ['validate_codes', 'invalid code (title/active null)', { codes: [{ code: 'ZZZZ', terminology: 'icd10' }] }],
   ['find_equivalent', 'fan-out without source_terminology (echo null)', { term: 'glucose', target_terminologies: ['loinc', 'rxnorm'] }],
@@ -364,7 +363,7 @@ describe('structuredContent obeys the advertised outputSchema', () => {
     for (const tool of toolRegistry.getTools()) {
       expect(tool.outputSchema, `${tool.name} has no outputSchema`).toBeDefined();
     }
-    expect(toolRegistry.getTools()).toHaveLength(34);
+    expect(toolRegistry.getTools()).toHaveLength(33);
   });
 
   it('every registered tool is covered by at least one case', () => {

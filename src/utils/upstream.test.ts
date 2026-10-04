@@ -55,7 +55,6 @@ describe('retryUpstream — the policy (the package says the class, this server 
     expect(UPSTREAM_POLICY.timeoutMs[CACHE_PREFIX.LOINC]).toBe(30_000);
     expect(UPSTREAM_POLICY.timeoutMs[CACHE_PREFIX.RXNORM]).toBe(30_000);
     expect(UPSTREAM_POLICY.timeoutMs[CACHE_PREFIX.MESH]).toBe(30_000);
-    expect(UPSTREAM_POLICY.timeoutMs[CACHE_PREFIX.SNOMED]).toBe(60_000);
     expect(UPSTREAM_POLICY.timeoutMs[CACHE_PREFIX.TOKEN]).toBe(15_000);
     expect(UPSTREAM_POLICY.retries).toBe(2);
   });

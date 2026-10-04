@@ -218,9 +218,9 @@ export const FIXTURES: EvalFixture[] = [
   },
   {
     id: 'xw-02',
-    query: 'How do I map LOINC 2339-0 to SNOMED CT?',
-    expectedTools: ['map_loinc_to_snomed'],
-    note: 'LOINC→SNOMED has a dedicated (guidance) tool.',
+    query: 'Are these codes still valid? 5A11 (icd11) and E11 (icd10).',
+    expectedTools: ['validate_codes'],
+    note: 'Replaces the LOINC→SNOMED query retired with SNOMED CT in 2.0.0; a short mixed-code validity check.',
   },
   {
     id: 'xw-03',
@@ -236,7 +236,7 @@ export const FIXTURES: EvalFixture[] = [
   },
   {
     id: 'xw-05',
-    query: 'I already have the SNOMED concept for asthma; what are the matching codes in the other terminologies?',
+    query: 'I already have the MeSH descriptor for asthma; what are the matching codes in the other terminologies?',
     expectedTools: ['find_equivalent'],
     note: 'Source known, equivalents wanted elsewhere → find_equivalent with source_terminology.',
   },

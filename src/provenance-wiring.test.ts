@@ -1,7 +1,7 @@
 /**
- * Provenance release gate (contract v1.0): every DEFAULT tool (34 — the
- * 6 SNOMED-gated ones have their own env-gated twin in
- * provenance-wiring-snomed.test.ts) must attach the provenance channel on
+ * Provenance release gate (contract v1.0): every tool (33; the SNOMED
+ * tools and their env-gated twin of this file were retired in 2.0.0) must
+ * attach the provenance channel on
  * its success path:
  *   - isError falsy;
  *   - structuredContent.provenance present (concise block, or array of
@@ -205,7 +205,6 @@ const casos: Caso[] = [
   { nome: 'cid10_chapter', args: { num: 4 }, sourceContains: 'DataSUS' },
   // crosswalk
   { nome: 'map_icd10_to_icd11', args: { icd10_code: 'E10' }, sourceContains: 'transition tables' },
-  { nome: 'map_loinc_to_snomed', args: { loinc_code: '2339-0' }, sourceContains: 'Clinical Tables' },
   {
     nome: 'validate_codes',
     args: { codes: [{ code: 'E10', terminology: 'icd10' }, { code: 'A00', terminology: 'cid10' }] },
@@ -213,7 +212,7 @@ const casos: Caso[] = [
     sourceContains: 'transition tables',
   },
   {
-    // SNOMED flag off in tests → 4 sources answer (icd11/loinc/rxnorm/mesh).
+    // 4 sources answer (icd11/loinc/rxnorm/mesh).
     nome: 'find_equivalent',
     args: { term: 'diabetes' },
     multi: 4,
@@ -237,7 +236,7 @@ const casos: Caso[] = [
   { nome: 'terminology_versions', args: {}, sourceContains: 'server-maintained' },
   { nome: 'terminology_diff', args: { terminology: 'icd10' }, sourceContains: 'transition tables' },
   // deep-research — `search` is multi-source like find_equivalent (DataSUS,
-  // WHO, LOINC, RxNav, MeSH, server metadata — SNOMED off, ATC not a source);
+  // WHO, LOINC, RxNav, MeSH, server metadata — ATC not a source);
   // `fetch` carries the block of the lookup tool that rendered the document.
   { nome: 'search', args: { query: 'diabetes' }, multi: 6, sourceContains: 'DataSUS' },
   { nome: 'fetch', args: { id: 'cid10:E10' }, sourceContains: 'DataSUS' },
@@ -258,10 +257,10 @@ async function executar(nome: string, args: Record<string, unknown>): Promise<Ca
   return handler!(args);
 }
 
-describe('provenance — wiring across the 34 default tools (release gate)', () => {
-  it('covers exactly the 34 default tools', () => {
-    expect(toolRegistry.getTools()).toHaveLength(34);
-    expect(new Set(casos.map((c) => c.nome)).size).toBe(34);
+describe('provenance — wiring across the 33 default tools (release gate)', () => {
+  it('covers exactly the 33 default tools', () => {
+    expect(toolRegistry.getTools()).toHaveLength(33);
+    expect(new Set(casos.map((c) => c.nome)).size).toBe(33);
     const registered = new Set(toolRegistry.getTools().map((t) => t.name));
     for (const caso of casos) expect(registered.has(caso.nome), caso.nome).toBe(true);
   });

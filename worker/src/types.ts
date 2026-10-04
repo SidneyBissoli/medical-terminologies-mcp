@@ -45,8 +45,5 @@ export interface Env {
   WHO_CLIENT_ID?: string;
   WHO_CLIENT_SECRET?: string;
   WHO_ICD11_RELEASE_ID?: string;
-  ENABLE_SNOMED_TOOLS?: string;
-  SNOMED_BASE_URL?: string;
-  SNOMED_LANGUAGE?: string;
   LOG_LEVEL?: string;
 }

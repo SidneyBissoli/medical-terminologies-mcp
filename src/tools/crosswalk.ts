@@ -2,9 +2,13 @@
  * Crosswalk Tools for Medical Terminologies MCP Server
  *
  * - map_icd10_to_icd11: Map ICD-10 codes to ICD-11
- * - map_snomed_to_icd10: Map SNOMED CT to ICD-10
- * - map_loinc_to_snomed: Map LOINC to SNOMED CT
+ * - validate_codes: Batch-validate codes across terminologies
  * - find_equivalent: Search for equivalent terms across terminologies
+ *
+ * SNOMED CT was retired in 2.0.0 (PROGRESS.md 15.2): the public Snowstorm
+ * hosts are gone, the tools were off by default with zero measured use, and
+ * the half-present terminology confused every third-party catalog. With it
+ * went map_snomed_to_icd10 and map_loinc_to_snomed (guidance-only).
  *
  * Note: Some mappings may not be freely available. Tools return explanatory
  * messages when mappings are unavailable.
@@ -16,7 +20,6 @@
 import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import { getWHOClient } from '../clients/who-client.js';
-import { getSNOMEDClient, SNOMED_DISCLAIMER } from '../clients/snomed-client.js';
 import { getNLMClient } from '../clients/nlm-client.js';
 import { getRxNormClient } from '../clients/rxnorm-client.js';
 import { getMeSHClient } from '../clients/mesh-client.js';
@@ -27,12 +30,6 @@ import {
   MapICD10ToICD11ParamsSchema,
   MapICD10ToICD11OutputSchema,
   MapICD10ToICD11Output,
-  MapSNOMEDToICD10ParamsSchema,
-  MapSNOMEDToICD10OutputSchema,
-  MapSNOMEDToICD10Output,
-  MapLOINCToSNOMEDParamsSchema,
-  MapLOINCToSNOMEDOutputSchema,
-  MapLOINCToSNOMEDOutput,
   FindEquivalentParamsSchema,
   FindEquivalentOutputSchema,
   FindEquivalentOutput,
@@ -48,7 +45,6 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
-import { SNOMED_TOOLS_ENABLED, SNOMED_DISABLED_NOTE } from '../utils/feature-flags.js';
 import { lexicalScore, normalizeForMatch, RANKING_METHOD_NOTE } from '../utils/lexical-score.js';
 import {
   medicalProvenance,
@@ -71,7 +67,6 @@ const SOURCE_BY_TERMINOLOGY: Record<ValidateCodesTerminology, MedicalSourceKey> 
   rxnorm: 'NLM_RXNAV',
   mesh: 'NLM_MESH',
   atc: 'NLM_RXCLASS_ATC',
-  snomed: 'SNOMED_SNOWSTORM',
 };
 
 /** Transition-tables block with the live bundled-dataset version attached. */
@@ -111,39 +106,6 @@ Returns "no mapping" when the code isn't in the WHO category-level table — tha
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
 };
 
-const mapSNOMEDToICD10Tool: Tool = {
-  name: 'map_snomed_to_icd10',
-  title: 'Map SNOMED CT to ICD-10 (Guidance)',
-  description: `Map a SNOMED CT concept to ICD-10.
-
-Use this tool to:
-- Find ICD-10 codes for a SNOMED CT concept
-- Support billing and reporting from clinical data
-- Cross-reference between clinical and classification systems
-
-Provide a SNOMED CT ID like "73211009" (Diabetes mellitus).
-
-⚠️ SNOMED CT content requires IHTSDO license for production use.`,
-  inputSchema: buildInputSchema(MapSNOMEDToICD10ParamsSchema),
-  outputSchema: buildOutputSchema(withProvenance(MapSNOMEDToICD10OutputSchema)),
-  annotations: READ_ONLY_TOOL_ANNOTATIONS,
-};
-
-const mapLOINCToSNOMEDTool: Tool = {
-  name: 'map_loinc_to_snomed',
-  title: 'Map LOINC to SNOMED CT (Guidance)',
-  description: `This tool looks up a LOINC code in NLM Clinical Tables and returns guidance on where to obtain a LOINC → SNOMED CT mapping. It does not perform the mapping.
-
-Direct LOINC → SNOMED CT mappings are not freely available via API. UMLS Metathesaurus contains the relationships but requires an individual UMLS Terminology Services license; the LOINC SNOMED CT Expression Association is published by Regenstrief Institute as part of the LOINC release and requires authenticated download from loinc.org under the LOINC license.
-
-For programmatic LOINC → SNOMED mapping, use UMLS or the LOINC Expression Association files. For interactive lookup, use the SNOMED CT browser available to your organization or the Regenstrief RELMA desktop tool.
-
-Provide a LOINC code like "2339-0" (Glucose) or "718-7" (Hemoglobin).`,
-  inputSchema: buildInputSchema(MapLOINCToSNOMEDParamsSchema),
-  outputSchema: buildOutputSchema(withProvenance(MapLOINCToSNOMEDOutputSchema)),
-  annotations: READ_ONLY_TOOL_ANNOTATIONS,
-};
-
 const validateCodesTool: Tool = {
   name: 'validate_codes',
   title: 'Validate Medical Codes',
@@ -151,13 +113,13 @@ const validateCodesTool: Tool = {
 
 For each input \`{ code, terminology }\`, returns:
 - **valid**: whether the code exists in the source terminology.
-- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; SNOMED and LOINC return a real boolean).
+- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; LOINC returns a real boolean).
 - **title**: the official label/name when available.
 - **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.
 - **source**: human-readable provenance of the validation (terminology + release/version).
-- **error**: non-null only when validation couldn't be performed (network error, SNOMED feature flag off, etc.). \`valid: false\` + \`error: null\` means "code not found"; \`valid: false\` + \`error: set\` means "couldn't validate".
+- **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). \`valid: false\` + \`error: null\` means "code not found"; \`valid: false\` + \`error: set\` means "couldn't validate".
 
-Terminology is **required per code** — auto-detection isn't supported because category codes like "A00" exist in both ICD-10 and CID-10. Accepted values: \`icd11\`, \`icd10\`, \`snomed\`, \`loinc\`, \`rxnorm\`, \`mesh\`, \`atc\`, \`cid10\`.
+Terminology is **required per code** — auto-detection isn't supported because category codes like "A00" exist in both ICD-10 and CID-10. Accepted values: \`icd11\`, \`icd10\`, \`loinc\`, \`rxnorm\`, \`mesh\`, \`atc\`, \`cid10\`.
 
 Hard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).`,
   inputSchema: buildInputSchema(ValidateCodesParamsSchema),
@@ -175,7 +137,7 @@ Use this tool to:
 - Compare how terminologies represent a concept
 - Support terminology mapping and data integration
 
-Searches across: ICD-11, SNOMED CT, LOINC, RxNorm, and MeSH. Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. \`limit\` caps candidates per terminology (default 5, max 10).
+Searches across: ICD-11, LOINC, RxNorm, and MeSH. Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. \`limit\` caps candidates per terminology (default 5, max 10).
 
 Every candidate carries \`match_score\` (lexical similarity to the search term, 0-1) and \`rank\` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in \`groups\` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).
 
@@ -273,213 +235,6 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
       text: lines.join('\n'),
       structured,
       provenance: transitionTablesProvenance(),
-    });
-  } catch (error) {
-    return handleToolError(error);
-  }
-}
-
-const SNOMED_TO_ICD10_GUIDANCE =
-  'Direct SNOMED CT → ICD-10 mapping is not freely available via API. The pointers below are the authoritative sources; each requires a license, extension, or upstream access (the SNOMED Complex Map refset 447562003 itself will become queryable here in Phase 13.7).';
-
-const SNOMED_TO_ICD10_SOURCES = [
-  {
-    name: 'SNOMED Complex Map refset',
-    description:
-      'Reference Set ID: 447562003 (ICD-10 Complex Map). Authoritative SNOMED → ICD-10 mapping with mapGroup / mapPriority / mapRule / mapAdvice semantics. Requires an IHTSDO license and a Snowstorm (or equivalent FHIR terminology server) instance.',
-    url: null,
-  },
-  {
-    name: 'NLM UMLS Metathesaurus',
-    description:
-      'Cross-terminology graph including SNOMED ↔ ICD-10 relationships. Requires a free UMLS Terminology Services (UTS) account with annual renewal.',
-    url: 'https://uts.nlm.nih.gov/uts/',
-  },
-  {
-    name: 'National extensions',
-    description:
-      'Country-specific SNOMED → ICD-10 maps (US: SNOMED CT → ICD-10-CM via NLM; UK: NHS SNOMED-ICD-10; AU: NCTS).',
-    url: null,
-  },
-];
-
-async function handleMapSNOMEDToICD10(args: Record<string, unknown>): Promise<CallToolResult> {
-  try {
-    const params = MapSNOMEDToICD10ParamsSchema.parse(args);
-    const client = getSNOMEDClient();
-    const concept = await client.getConcept(params.sctid);
-
-    const structured: MapSNOMEDToICD10Output = {
-      sctid: params.sctid,
-      preferred_term: concept?.pt ?? null,
-      status: 'guidance-only',
-      guidance: SNOMED_TO_ICD10_GUIDANCE,
-      authoritative_sources: SNOMED_TO_ICD10_SOURCES,
-    };
-
-    const lines: string[] = [];
-    lines.push(`# SNOMED CT to ICD-10 Mapping`);
-    lines.push('');
-    lines.push(`**SNOMED CT ID:** ${params.sctid}`);
-
-    if (concept) {
-      lines.push(`**Preferred Term:** ${concept.pt}`);
-    }
-    lines.push('');
-
-    lines.push('## Mapping Information');
-    lines.push('');
-    lines.push('SNOMED CT to ICD-10 mappings are available through:');
-    lines.push('');
-    lines.push('1. **SNOMED International Map Sets**');
-    lines.push('   - Reference Set ID: 447562003 (ICD-10 Complex Map)');
-    lines.push('   - Available via Snowstorm API with appropriate license');
-    lines.push('');
-    lines.push('2. **National Extensions**');
-    lines.push('   - US: SNOMED CT to ICD-10-CM maps via NLM');
-    lines.push('   - UK: NHS SNOMED-ICD-10 maps');
-    lines.push('');
-
-    if (concept) {
-      lines.push('## Suggested Approach');
-      lines.push('');
-      lines.push(`For "${concept.pt}", consider:`);
-      lines.push('');
-      lines.push('1. Search ICD-10 for similar terms');
-      lines.push('2. Use the SNOMED hierarchy to find mappable ancestors');
-      lines.push('3. Consult official mapping tables from your national authority');
-    }
-
-    lines.push('');
-    lines.push('---');
-    lines.push(SNOMED_DISCLAIMER);
-
-    return provenancedResult({
-      text: lines.join('\n'),
-      structured,
-      provenance: medicalProvenance('SNOMED_SNOWSTORM'),
-    });
-  } catch (error) {
-    if (error instanceof ApiError && (error.message.includes('ETIMEDOUT') || error.message.includes('timeout'))) {
-      const sctid = String((args as { sctid?: unknown }).sctid ?? '');
-      const fallback: MapSNOMEDToICD10Output = {
-        sctid,
-        preferred_term: null,
-        status: 'upstream-unavailable',
-        guidance:
-          'SNOMED upstream did not respond. The pointers below are the authoritative SNOMED → ICD-10 sources you can use offline or via your own SNOMED-licensed infrastructure.',
-        authoritative_sources: SNOMED_TO_ICD10_SOURCES,
-      };
-      // Upstream did not answer — the guidance text is server content.
-      return provenancedResult({
-        text: `# SNOMED CT to ICD-10 Mapping\n\n**SNOMED CT ID:** ${sctid}\n\n⚠️ Unable to connect to SNOMED CT server.\n\nSNOMED CT to ICD-10 mappings are available through:\n\n1. **SNOMED International** - Reference Set 447562003\n2. **NLM UMLS** - Requires license\n3. **National Health Services** - Country-specific maps\n\n---\n${SNOMED_DISCLAIMER}`,
-        structured: fallback,
-        provenance: medicalProvenance('SERVER_METADATA'),
-      });
-    }
-    return handleToolError(error);
-  }
-}
-
-const LOINC_TO_SNOMED_GUIDANCE =
-  'Direct LOINC → SNOMED CT mapping is not freely available via API. The pointers below are the authoritative sources; each requires either a license (UMLS UTS account or LOINC license) or local processing of release files.';
-
-const LOINC_TO_SNOMED_SOURCES = [
-  {
-    name: 'NLM UMLS Metathesaurus',
-    description:
-      'Cross-terminology graph including LOINC ↔ SNOMED CT relationships. Free UTS license with annual renewal.',
-    url: 'https://uts.nlm.nih.gov/uts/',
-  },
-  {
-    name: 'LOINC SNOMED CT Expression Association',
-    description:
-      'Published by Regenstrief Institute as part of each LOINC release. RF2 files with expression-level mappings; requires acceptance of the LOINC license (free for most uses).',
-    url: 'https://loinc.org/downloads/',
-  },
-  {
-    name: 'Regenstrief RELMA',
-    description:
-      'Free desktop application that bundles the LOINC release including the Expression Association files. Useful for interactive single-code lookups.',
-    url: 'https://loinc.org/relma/',
-  },
-];
-
-async function handleMapLOINCToSNOMED(args: Record<string, unknown>): Promise<CallToolResult> {
-  try {
-    const params = MapLOINCToSNOMEDParamsSchema.parse(args);
-    const client = getNLMClient();
-    const details = await client.getLOINCDetails(params.loinc_code);
-
-    const structured: MapLOINCToSNOMEDOutput = {
-      loinc_code: params.loinc_code,
-      loinc_details: details
-        ? {
-            code: params.loinc_code,
-            long_common_name: details.LONG_COMMON_NAME || null,
-            component: details.COMPONENT || null,
-            system: details.SYSTEM || null,
-            property: details.PROPERTY || null,
-          }
-        : null,
-      status: 'guidance-only',
-      guidance: LOINC_TO_SNOMED_GUIDANCE,
-      mapping_sources: LOINC_TO_SNOMED_SOURCES,
-    };
-
-    const lines: string[] = [];
-    lines.push(`# LOINC code ${params.loinc_code} → SNOMED CT mapping guidance`);
-    lines.push('');
-    lines.push(
-      'This output is a LOINC lookup plus guidance on where to obtain the LOINC → SNOMED CT mapping. The mapping itself is not performed here — direct LOINC → SNOMED CT mappings are not freely available via API.',
-    );
-    lines.push('');
-
-    lines.push('## LOINC code details');
-    lines.push('');
-    if (details) {
-      lines.push(`- **Code:** ${params.loinc_code}`);
-      lines.push(`- **Long Common Name:** ${details.LONG_COMMON_NAME || '—'}`);
-      lines.push(`- **Component:** ${details.COMPONENT || '—'}`);
-      if (details.SYSTEM) {
-        lines.push(`- **System:** ${details.SYSTEM}`);
-      }
-      if (details.PROPERTY) {
-        lines.push(`- **Property:** ${details.PROPERTY}`);
-      }
-    } else {
-      lines.push(`- **Code:** ${params.loinc_code}`);
-      lines.push('- _The code was not found in NLM Clinical Tables. Verify the LOINC number; the format is "XXXXX-X" (e.g., "2339-0")._');
-    }
-    lines.push('');
-
-    lines.push('## Mapping availability');
-    lines.push('');
-    lines.push('The two authoritative LOINC → SNOMED CT mapping sources both require licenses or authenticated downloads:');
-    lines.push('');
-    lines.push('1. **UMLS Metathesaurus** — contains LOINC ↔ SNOMED relationships in a queryable graph. Requires an individual UMLS Terminology Services (UTS) license, free for most uses but with annual renewal. Apply at https://uts.nlm.nih.gov/uts/.');
-    lines.push('2. **LOINC SNOMED CT Expression Association** — published by Regenstrief Institute as part of each LOINC release; contains expression-level mappings as RF2 files. Requires acceptance of the LOINC license at https://loinc.org/downloads/. License is free for most uses.');
-    lines.push('3. **Regenstrief RELMA** — free desktop application that bundles the LOINC release including the Expression Association files. Download at https://loinc.org/relma/.');
-    lines.push('');
-
-    lines.push('## Recommended workflow');
-    lines.push('');
-    if (details && details.COMPONENT) {
-      lines.push(`1. Confirm the LOINC code's component (\`${details.COMPONENT}\`)${details.SYSTEM ? ` and system (\`${details.SYSTEM}\`)` : ''} from the details above.`);
-    } else {
-      lines.push("1. Verify the LOINC code first (use the `loinc_details` tool if needed) so you have the component, system, and method to match against.");
-    }
-    lines.push('2. For a single lookup, search the SNOMED CT browser available to your organization for the component name; verify the candidate matches the LOINC system, property, and method.');
-    lines.push('3. For programmatic mapping or batch work, obtain the LOINC SNOMED CT Expression Association file (option 2 above) or UMLS access (option 1) and process locally.');
-    lines.push('');
-
-    lines.push('---');
-    lines.push('This tool calls NLM Clinical Tables for LOINC details. It does not call SNOMED.');
-
-    return provenancedResult({
-      text: lines.join('\n'),
-      structured,
-      provenance: medicalProvenance('CLINICALTABLES_LOINC'),
     });
   } catch (error) {
     return handleToolError(error);
@@ -669,34 +424,6 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           error: null,
         };
       }
-
-      case 'snomed': {
-        const source = 'SNOMED CT (Snowstorm)';
-        if (!SNOMED_TOOLS_ENABLED) {
-          return errorResult(item, source, SNOMED_DISABLED_NOTE);
-        }
-        const cli = getSNOMEDClient();
-        try {
-          const concept = await cli.getConcept(item.code);
-          if (!concept) return notFoundResult(item, source);
-          return {
-            code: item.code,
-            terminology: 'snomed',
-            valid: true,
-            // SNOMED is the one terminology with first-class active/inactive.
-            active: concept.active,
-            title: concept.pt,
-            replaced_by: null,
-            source,
-            error: null,
-          };
-        } catch (err) {
-          if (err instanceof ApiError && err.code === 'NOT_FOUND') {
-            return notFoundResult(item, source);
-          }
-          throw err;
-        }
-      }
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -741,11 +468,6 @@ async function handleValidateCodes(args: Record<string, unknown>): Promise<CallT
       );
     }
 
-    if (results.some((r) => r.terminology === 'snomed' && r.valid)) {
-      lines.push('');
-      lines.push('---');
-      lines.push(SNOMED_DISCLAIMER);
-    }
 
     const structured: ValidateCodesOutput = {
       total: results.length,
@@ -777,13 +499,12 @@ async function handleValidateCodes(args: Record<string, unknown>): Promise<CallT
   }
 }
 
-const ALL_TERMINOLOGIES = ['icd11', 'snomed', 'loinc', 'rxnorm', 'mesh'] as const;
+const ALL_TERMINOLOGIES = ['icd11', 'loinc', 'rxnorm', 'mesh'] as const;
 
 type TerminologyKey = (typeof ALL_TERMINOLOGIES)[number];
 
 const TERMINOLOGY_LABELS: Record<TerminologyKey, string> = {
   icd11: 'ICD-11',
-  snomed: 'SNOMED CT',
   loinc: 'LOINC',
   rxnorm: 'RxNorm',
   mesh: 'MeSH',
@@ -860,27 +581,6 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
           }
         })(),
       );
-    }
-
-    if (targets.includes('snomed')) {
-      if (!SNOMED_TOOLS_ENABLED) {
-        raw.snomed = fail(SNOMED_DISABLED_NOTE);
-      } else {
-        searches.push(
-          (async () => {
-            try {
-              const client = getSNOMEDClient();
-              const snomedResults = await client.searchConcepts(term, true, limit);
-              raw.snomed = ok(
-                snomedResults.map((r) => ({ code: r.conceptId, title: r.pt, uri: null })),
-              );
-            } catch (e) {
-              const errMsg = e instanceof Error ? e.message : 'Error';
-              raw.snomed = fail(errMsg.includes('ETIMEDOUT') ? 'Server unavailable' : errMsg);
-            }
-          })(),
-        );
-      }
     }
 
     if (targets.includes('loinc')) {
@@ -1078,10 +778,6 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
     lines.push('');
     lines.push(`_${RANKING_METHOD_NOTE}_`);
 
-    if (targets.includes('snomed') && SNOMED_TOOLS_ENABLED) {
-      lines.push('');
-      lines.push(SNOMED_DISCLAIMER);
-    }
 
     const structured: FindEquivalentOutput = {
       term,
@@ -1121,13 +817,5 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
 // ============================================================================
 
 toolRegistry.register(mapICD10ToICD11Tool, handleMapICD10ToICD11);
-toolRegistry.register(mapLOINCToSNOMEDTool, handleMapLOINCToSNOMED);
 toolRegistry.register(validateCodesTool, handleValidateCodes);
 toolRegistry.register(findEquivalentTool, handleFindEquivalent);
-
-// map_snomed_to_icd10 only works against a live Snowstorm; it's gated
-// alongside the snomed_* tools. find_equivalent stays registered and
-// reports SNOMED as unavailable when the flag is off.
-if (SNOMED_TOOLS_ENABLED) {
-  toolRegistry.register(mapSNOMEDToICD10Tool, handleMapSNOMEDToICD10);
-}

@@ -10,7 +10,7 @@
  * the Worker bindings on `globalThis.__MCP_ENV` at first request, and this
  * helper checks that first before falling back to `process.env`.
  *
- * Callers (who-client.ts, snomed-client.ts) just use `getEnv('KEY')` instead
+ * Callers (who-client.ts) just use `getEnv('KEY')` instead
  * of `process.env.KEY`. No-op overhead on Node; correctness fix on Workers.
  */
 

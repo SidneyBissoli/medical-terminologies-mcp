@@ -17,7 +17,6 @@
 Um servidor Model Context Protocol (MCP) que dá acesso unificado às grandes terminologias médicas do mundo:
 
 - **ICD-11** — Classificação Internacional de Doenças (OMS)
-- **SNOMED CT** — Systematized Nomenclature of Medicine *(opcional; exige Snowstorm auto-hospedado)*
 - **LOINC** — Logical Observation Identifiers Names and Codes
 - **RxNorm** — nomes normalizados de medicamentos clínicos (NIH)
 - **MeSH** — Medical Subject Headings (NLM)
@@ -39,7 +38,7 @@ As respostas vêm de fontes oficiais (OMS, NLM, NIH, DataSUS) — códigos e map
 
 ## Funcionalidades
 
-- 34 ferramentas por padrão (40 com o SNOMED habilitado): 32 ferramentas de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
+- 33 ferramentas: 31 de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
 - 3 **Prompts** MCP que orquestram chamadas de ferramenta em fluxos nomeados (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — os clientes exibem isso como ação de um clique para o usuário
 - 4 **Recursos** MCP de conteúdo de referência em processo (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — leitura em menos de um milissegundo (exceto `info://stats`, que vai até o Durable Object StatsCounter no endpoint hospedado)
 - Várias terminologias num servidor só
@@ -69,7 +68,7 @@ Este servidor **não** é ferramenta de decisão em assistência clínica — qu
 - **Não serve para apoio à decisão clínica.** Ele devolve o que as fontes oficiais publicam. Não diagnostica, não recomenda tratamento nem dose.
 - **Não funciona offline.** ICD-11, LOINC, RxNorm, MeSH e ATC são respondidos ao vivo pelas APIs públicas da OMS e da NLM. **Todo texto que você consulta é enviado a esses serviços.** Desidentifique as listas de termos antes de rodar: nada de nome de paciente, evolução em texto livre ou número de prontuário. Dois conjuntos de dados vêm embutidos e respondem localmente, sem rede: a **CID-10** (DataSUS V2008) e as **tabelas de transição CID-10 → ICD-11 da OMS** (`map_icd10_to_icd11`).
 - **O endpoint hospedado não exige credencial.** `https://medical.sidneybissoli.com/mcp` já tem as credenciais da OMS configuradas. `WHO_CLIENT_ID`/`WHO_CLIENT_SECRET` só são necessárias quando você roda o servidor por conta própria, e só para as 5 ferramentas da ICD-11.
-- **O SNOMED CT vem desligado.** O servidor público da IHTSDO foi desativado. As ferramentas de SNOMED exigem um Snowstorm próprio e licença SNOMED própria (veja [Configuração do SNOMED CT](#configuração-do-snomed-ct-avançado)). A instalação padrão e o endpoint hospedado respondem **sem** SNOMED.
+- **O SNOMED CT não é servido.** Foi aposentado na 2.0.0: não sobrou servidor Snowstorm público, o conteúdo do SNOMED exige licença por país, e as ferramentas desligadas por padrão confundiam todo catálogo que descrevia este servidor. Veja [SNOMED CT (aposentado na 2.0.0)](#snomed-ct-aposentado-na-200).
 - **A saída não está no formato OMOP.** As respostas trazem os códigos da própria fonte, não `concept_id` do OMOP, e não há navegação por `concept_ancestor`. Se o resultado precisa casar com um CDM OMOP, use um serviço de vocabulário OMOP; use este servidor para o trabalho terminológico geral.
 - **A busca é lexical, não semântica.** `find_equivalent` e as ferramentas `*_search` casam palavras, não significados (não há embeddings).
 - **Lotes grandes andam no ritmo dos limites das fontes** (veja [Limites das APIs](#limites-de-taxa-das-apis)). Milhares de termos distintos levam de minutos a dezenas de minutos.
@@ -111,7 +110,7 @@ Ou instale pelo Smithery, que faz proxy do mesmo endpoint pelo gateway deles:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-A instância hospedada já tem as credenciais da OMS configuradas, então todas as 34 ferramentas padrão funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
+A instância hospedada já tem as credenciais da OMS configuradas, então todas as 33 ferramentas funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
 
 ## Instalação
 
@@ -158,14 +157,11 @@ Acrescente ao arquivo de configuração do Claude Desktop:
 | `WHO_CLIENT_ID` | Sim¹ | Client ID da API ICD da OMS |
 | `WHO_CLIENT_SECRET` | Sim¹ | Client Secret da API ICD da OMS |
 | `WHO_ICD11_RELEASE_ID` | Não | Release da ICD-11 a consultar (ex.: `2025-01`, `2026-01`). Padrão `2026-01`. |
-| `ENABLE_SNOMED_TOOLS` | Não² | Defina como `true` para registrar as 6 ferramentas que dependem do SNOMED. Desligado por padrão. |
-| `SNOMED_BASE_URL` | Não² | URL base de uma instância Snowstorm, ex.: `https://meu-snowstorm.exemplo.com/snowstorm/snomed-ct`. |
-| `SNOMED_LANGUAGE` | Não² | Tag(s) `Accept-Language` para as respostas do SNOMED, ex.: `pt`, `pt-BR`, `es`. Padrão `en`. Valores de tag única passam adiante de forma confiável; valores compostos com pesos q (ex.: `pt-BR,en;q=0.8`) dependem de como a sua instância Snowstorm trata o `Accept-Language` — a semântica de fallback pode variar. Teste contra o seu deploy específico se for depender de fallback ponderado. |
 | `LOG_LEVEL` | Não | Nível de log do pino (`debug`, `info`, `warn`, `error`, `fatal`). Padrão `info`. |
 
 ¹ Obrigatória para as ferramentas de ICD-11. Credenciais em: https://icd.who.int/icdapi.
 
-² Veja [Configuração do SNOMED CT (avançado)](#configuração-do-snomed-ct-avançado) abaixo. LOINC, RxNorm e MeSH não precisam de configuração nenhuma.
+LOINC, RxNorm, MeSH, ATC e CID-10 não precisam de configuração.
 
 ### Transporte HTTP (hospedado)
 
@@ -195,7 +191,7 @@ O deep research do ChatGPT (e o company knowledge, e os fluxos de pesquisa da AP
 https://medical.sidneybissoli.com/mcp
 ```
 
-`search` ranqueia a consulta na CID-10 embutida (categorias, subcategorias, capítulos), nos registros de versão das terminologias e numa busca ao vivo em ICD-11, LOINC, RxNorm e MeSH (a mesma que o `find_equivalent` faz; fonte que falha é pulada) e devolve `{ id, title, url }`; `fetch` renderiza o documento pela ferramenta de consulta da própria terminologia (`cid10_lookup`, `icd11_lookup`, `loinc_details`, `rxnorm_concept`, `mesh_descriptor`, `terminology_versions`) como Markdown legível com a página pública canônica (navegadores ICD da OMS, loinc.org, RxNav, MeSH Browser), que é o que o ChatGPT cita. As duas carregam o mesmo bloco de proveniência das demais ferramentas — `search` com um bloco por fonte que respondeu, como o `find_equivalent`. O SNOMED fica fora do acervo (o navegador público foi desativado, então não há página a citar). No modo desenvolvedor do ChatGPT (Settings → Security and login → Developer mode) qualquer ferramenta pode ser chamada — as ferramentas de terminologia continuam sendo as certas para dados.
+`search` ranqueia a consulta na CID-10 embutida (categorias, subcategorias, capítulos), nos registros de versão das terminologias e numa busca ao vivo em ICD-11, LOINC, RxNorm e MeSH (a mesma que o `find_equivalent` faz; fonte que falha é pulada) e devolve `{ id, title, url }`; `fetch` renderiza o documento pela ferramenta de consulta da própria terminologia (`cid10_lookup`, `icd11_lookup`, `loinc_details`, `rxnorm_concept`, `mesh_descriptor`, `terminology_versions`) como Markdown legível com a página pública canônica (navegadores ICD da OMS, loinc.org, RxNav, MeSH Browser), que é o que o ChatGPT cita. As duas carregam o mesmo bloco de proveniência das demais ferramentas — `search` com um bloco por fonte que respondeu, como o `find_equivalent`. No modo desenvolvedor do ChatGPT (Settings → Security and login → Developer mode) qualquer ferramenta pode ser chamada — as ferramentas de terminologia continuam sendo as certas para dados.
 
 ### Hospedado em Cloudflare Workers (primário)
 
@@ -225,7 +221,7 @@ Depois que o seu Worker estiver no ar, registre a URL no Smithery:
 2. Escolha o caminho de submissão por **URL** (o Smithery descontinuou a hospedagem em contêiner em 2024 — URL é o fluxo suportado hoje).
 3. Cole `https://<seu-worker>.workers.dev/mcp`. O gateway do Smithery varre a conformidade e faz proxy do tráfego.
 
-## Ferramentas disponíveis (34 por padrão, 40 com o SNOMED habilitado)
+## Ferramentas disponíveis (33)
 
 ### Conteúdo oficial em português (pt-BR)
 
@@ -234,7 +230,6 @@ O servidor nunca traduz conteúdo terminológico por máquina — mas várias fo
 - **A CID-10 é nativamente em português**: `cid10_search` / `cid10_lookup` / `cid10_chapter(s)` servem o conjunto DataSUS V2008 (a CID-10 que o SUS usa operacionalmente).
 - **ICD-11 em português oficial**: passe `language: "pt"` para `icd11_search` / `icd11_lookup` e busque e leia os rótulos da linearização oficial pt-BR da OMS.
 - **MeSH**: passe `language: "pt"` para `mesh_search` / `mesh_descriptor` e peça as traduções oficiais da NLM onde elas existem.
-- **SNOMED CT** (quando habilitado): `language` pede as descrições carregadas na sua edição do Snowstorm (por exemplo, o refset pt-BR de uma extensão nacional).
 
 Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma de origem — nunca uma tradução de máquina.
 
@@ -276,27 +271,13 @@ Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma d
 | `mesh_tree` | Posição na hierarquia de árvore | `mesh_id: "D006973"` |
 | `mesh_qualifiers` | Qualificadores permitidos | `mesh_id: "D006973"` |
 
-### Ferramentas SNOMED CT (5, desligadas por padrão)
-
-Só são registradas com `ENABLE_SNOMED_TOOLS=true`. Veja [Configuração do SNOMED CT (avançado)](#configuração-do-snomed-ct-avançado).
-
-| Ferramenta | Descrição | Exemplo |
-|------------|-----------|---------|
-| `snomed_search` | Busca conceitos por termo | `query: "myocardial infarction"` |
-| `snomed_concept` | Detalhes do conceito por SCTID | `sctid: "22298006"` |
-| `snomed_hierarchy` | Conceitos pai/filho | `sctid: "22298006"` |
-| `snomed_descriptions` | Todas as descrições | `sctid: "22298006"` |
-| `snomed_ecl` | Executa consultas ECL | `ecl: "<< 73211009"` |
-
-### Ferramentas de mapeamento entre terminologias (6 — `map_snomed_to_icd10` exige SNOMED)
+### Ferramentas de mapeamento entre terminologias (4)
 
 | Ferramenta | Descrição | Exemplo |
 |------------|-----------|---------|
 | `map_icd10_to_icd11` | Mapeamento oficial ICD-10 → ICD-11 pelas tabelas de transição da OMS embutidas; devolve código primário + capítulo + URIs e as alternativas documentadas pela OMS | `icd10_code: "E11"` |
-| `map_snomed_to_icd10` | Orientação SNOMED CT → ICD-10 (só com `ENABLE_SNOMED_TOOLS=true`) | `sctid: "73211009"` |
-| `map_loinc_to_snomed` | Orientação LOINC ↔ SNOMED | `loinc_code: "2339-0"` |
-| `validate_codes` | Valida em lote até 50 códigos em ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 (e SNOMED quando habilitado); devolve válido/inválido + nome de exibição por código | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
-| `find_equivalent` | Busca unificada e ranqueada entre terminologias: `match_score`/`rank` calculados no servidor por candidato, mais `groups` de títulos lexicalmente idênticos entre terminologias; o ramo do SNOMED é pulado quando as ferramentas SNOMED estão desligadas | `term: "diabetes"` |
+| `validate_codes` | Valida em lote até 50 códigos em ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10; devolve válido/inválido + nome de exibição por código | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
+| `find_equivalent` | Busca unificada e ranqueada entre terminologias: `match_score`/`rank` calculados no servidor por candidato, mais `groups` de títulos lexicalmente idênticos entre terminologias | `term: "diabetes"` |
 | `harmonize_terms` | Mapeia em lote até 50 termos em texto livre para códigos padrão: diagnóstico → ICD-11, medicamento → RxNorm (+ classes ATC), exame → LOINC. Por termo: candidatos ranqueados com `match_score` e `match_type` (`exact` / `strong` / `needs_review`), um bloco de proveniência por fonte. É o par do `validate_codes` que parte do termo, não do código | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
 
 ### Ferramentas ATC (3)
@@ -429,46 +410,16 @@ A nota de escopo vem do *conceito preferido* do descritor, não do campo de anot
 - **Consulta na ICD-11:** `icd11_search` com um termo clínico → escolha o resultado → `icd11_lookup` com o código para o detalhe completo, ou `icd11_hierarchy` para percorrer pais e filhos.
 - **Pipeline de medicamento:** `rxnorm_search` por nome comercial ou genérico → `rxnorm_concept` para o registro canônico → `rxnorm_ingredients` e `rxnorm_classes` para a análise seguinte.
 - **Harmonizar uma coluna de termos em texto livre:** `terminology_versions` uma vez no início → `harmonize_terms` em lotes de até 50 (cada termo com o seu domínio) → aceite os `exact`, confira por amostra os `strong`, mande os `needs_review` para uma pessoa → guarde a `provenance` de cada linha junto com o mapeamento. Os termos vão em inglês. Escreva exames com amostra e propriedade ("glucose serum"): "glucose" sozinho casa com mais de mil códigos LOINC.
-- **Esboço de mapeamento entre terminologias:** `find_equivalent` com um termo clínico busca em ICD-11, LOINC, RxNorm, MeSH e (quando habilitado) SNOMED numa chamada só. Use para começar um mapeamento; as ferramentas `map_*` par a par refinam.
+- **Esboço de mapeamento entre terminologias:** `find_equivalent` com um termo clínico busca em ICD-11, LOINC, RxNorm e MeSH numa chamada só. Use para começar um mapeamento; as ferramentas `map_*` par a par refinam.
 - **CID-10 → ICD-11 (oficial):** `map_icd10_to_icd11` lê as tabelas de transição da OMS embutidas no servidor. Devolve o código ICD-11 principal e as alternativas documentadas pela OMS, e `null` (nunca um palpite) quando a categoria da CID-10 não está na tabela.
 
-## Configuração do SNOMED CT (avançado)
+## SNOMED CT (aposentado na 2.0.0)
 
-As 5 ferramentas SNOMED (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) mais a ferramenta de mapeamento que depende do SNOMED (`map_snomed_to_icd10`) vêm **desligadas por padrão**. Com elas desligadas o servidor registra 34 ferramentas em vez de 40; o `find_equivalent` continua funcionando e pula o ramo do SNOMED com uma nota explicativa.
+Até a 1.18.x este servidor tinha cinco ferramentas de SNOMED CT (`snomed_search`, `snomed_concept`, `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl`) mais a `map_snomed_to_icd10`, todas desligadas por padrão atrás do `ENABLE_SNOMED_TOOLS`, e a `map_loinc_to_snomed` (só orientação). A versão 2.0.0 removeu as sete, o cliente Snowstorm e o flag, e `snomed` deixou de ser valor aceito em `find_equivalent`, `validate_codes`, `terminology_versions` e `terminology_diff` (uma chamada que o cite recebe erro de validação listando os valores aceitos).
 
-O motivo: desde 2026-05-08 o endpoint Snowstorm público do IHTSDO que este projeto historicamente chamava (`https://browser.ihtsdotools.org/snowstorm/snomed-ct/...`) devolve HTTP 410 Gone em todos os caminhos. Sem um backend que funcione, registrar essas ferramentas entregaria a todo cliente 6 ferramentas garantidamente quebradas.
+Por quê: o servidor Snowstorm público da IHTSDO responde HTTP 410 desde 2026-05; o conteúdo do SNOMED CT exige licença que depende do país de quem usa; o uso medido era zero; e a terminologia "meio presente" confundia todo catálogo de terceiros que descrevia este servidor.
 
-Para habilitar as ferramentas SNOMED:
-
-1. **Confirme a sua licença de SNOMED CT.** O uso do SNOMED CT exige licença da SNOMED International (IHTSDO). Quem reside em país membro costuma tê-la pelo centro nacional de release; quem não é membro pode obter uma licença de Afiliado. Veja https://www.snomed.org/snomed-ct/get-snomed.
-
-2. **Rode uma instância Snowstorm.** A SNOMED International publica o Snowstorm como código aberto ([IHTSDO/snowstorm](https://github.com/IHTSDO/snowstorm)) e como imagem Docker ([`snomedinternational/snowstorm`](https://hub.docker.com/r/snomedinternational/snowstorm)). Auto-hospedar exige importar um arquivo de release RF2 (fornecido a quem tem licença).
-
-3. **Configure este servidor:**
-
-   ```json
-   {
-     "mcpServers": {
-       "medical-terminologies": {
-         "command": "npx",
-         "args": ["-y", "medical-terminologies-mcp"],
-         "env": {
-           "WHO_CLIENT_ID": "...",
-           "WHO_CLIENT_SECRET": "...",
-           "ENABLE_SNOMED_TOOLS": "true",
-           "SNOMED_BASE_URL": "https://meu-snowstorm.exemplo.com/snowstorm/snomed-ct",
-           "SNOMED_LANGUAGE": "en"
-         }
-       }
-     }
-   }
-   ```
-
-   O `SNOMED_BASE_URL` deve apontar para a base sob a qual o Snowstorm expõe `/MAIN/concepts` e os endpoints relacionados. O `SNOMED_LANGUAGE` aceita tags `Accept-Language` padrão (ex.: `pt`, `es`, `pt-BR,en;q=0.8`) — o Snowstorm devolve termos localizados quando o branch os tem, e cai para o inglês caso contrário.
-
-4. **Reinicie o cliente MCP** para que o servidor leia as variáveis de ambiente.
-
-Se você definir `ENABLE_SNOMED_TOOLS=true` sem configurar um Snowstorm que funcione, as ferramentas SNOMED serão registradas mas toda chamada falhará na camada de rede.
+Se você precisa de SNOMED CT: o [`pacharanero/sct`](https://github.com/pacharanero/sct) serve localmente a partir da sua própria release licenciada, e servidores de terminologia FHIR (por exemplo `tx.fhir.org`, servidor público de testes da HL7; Ontoserver da CSIRO) expõem `$lookup`/`$expand` — sob a sua própria licença SNOMED.
 
 ## Licenças das terminologias
 
@@ -495,14 +446,6 @@ Conversão de formato (TSV → JSON, conteúdo inalterado) das tabelas que a OMS
 ### CID-10 V2008 (DataSUS / CBCD, embutida)
 
 © Organização Mundial da Saúde; tradução para o português do Brasil © CBCD / Faculdade de Saúde Pública da USP; arquivos eletrônicos publicados pelo DataSUS (Ministério da Saúde do Brasil). Permissão DataSUS/CBCD: desenvolvedores podem usar os arquivos **com o devido crédito e sem custo** — este servidor os serve de graça e com crédito em toda resposta. Não estão sob a licença MIT deste projeto.
-
-### SNOMED CT
-
-O uso do SNOMED CT exige licença da IHTSDO (SNOMED International). As ferramentas SNOMED deste servidor vêm desligadas por padrão e só são habilitadas por operadores com licença válida e instância Snowstorm própria — veja [Configuração do SNOMED CT (avançado)](#configuração-do-snomed-ct-avançado).
-
-- Países membros têm licença nacional
-- Há licença de Afiliado para os demais (o Brasil não é país membro)
-- Mais informação: https://www.snomed.org/get-snomed
 
 ### LOINC
 
@@ -534,7 +477,6 @@ Este servidor aplica limite de taxa para respeitar os provedores das APIs:
 | WHO ICD-11 | 5 requisições/segundo |
 | NLM (LOINC, MeSH) | 10 requisições/segundo |
 | RxNorm | 20 requisições/segundo |
-| SNOMED CT (Snowstorm) | 10 requisições/segundo |
 
 ## Desenvolvimento
 
@@ -586,7 +528,6 @@ Atenção: embora este software seja MIT, as terminologias médicas acessadas po
 - [OMS](https://www.who.int/) pela API da ICD-11
 - [Regenstrief Institute](https://loinc.org/) pelo LOINC
 - [U.S. National Library of Medicine](https://www.nlm.nih.gov/) pelo RxNorm e pelo MeSH
-- [SNOMED International](https://www.snomed.org/) pelo SNOMED CT
 - [Anthropic](https://www.anthropic.com/) pelo Model Context Protocol
 
 ## Suporte

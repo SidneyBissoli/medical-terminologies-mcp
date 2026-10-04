@@ -51,10 +51,7 @@ jobs:
         env:
           INTEGRATION_TESTS: '1'
           # WHO_CLIENT_ID / WHO_CLIENT_SECRET are read by the test file
-          # if present; absence makes WHO tests skip cleanly.
+          # if present. In CI their absence FAILS the run (a case in the
+          # test file), so the ICD-11 block can never skip silently again.
           WHO_CLIENT_ID: ${{ secrets.WHO_CLIENT_ID }}
           WHO_CLIENT_SECRET: ${{ secrets.WHO_CLIENT_SECRET }}
-          # SNOMED self-hosted Snowstorm — typically not configured for
-          # public CI, so SNOMED tests will skip.
-          ENABLE_SNOMED_TOOLS: ${{ vars.ENABLE_SNOMED_TOOLS }}
-          SNOMED_BASE_URL: ${{ vars.SNOMED_BASE_URL }}

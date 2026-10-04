@@ -4,11 +4,12 @@ import {
   ICD11LookupParamsSchema,
   ICD11SearchParamsSchema,
   LOINCByCodeParamsSchema,
-  SNOMEDBySctidParamsSchema,
   MeSHByIdParamsSchema,
   RxNormConceptParamsSchema,
   RxNormNDCParamsSchema,
   FindEquivalentParamsSchema,
+  ValidateCodesParamsSchema,
+  TerminologyVersionsParamsSchema,
   ATCByCodeParamsSchema,
   ATCMembersParamsSchema,
   CID10LookupParamsSchema,
@@ -27,11 +28,6 @@ import {
   MeSHDescriptorOutputSchema,
   MeSHTreeOutputSchema,
   MeSHQualifiersOutputSchema,
-  SNOMEDSearchOutputSchema,
-  SNOMEDConceptOutputSchema,
-  SNOMEDHierarchyOutputSchema,
-  SNOMEDDescriptionsOutputSchema,
-  SNOMEDECLOutputSchema,
   RxNormSearchOutputSchema,
   RxNormConceptOutputSchema,
   RxNormIngredientsOutputSchema,
@@ -39,8 +35,6 @@ import {
   RxNormNDCOutputSchema,
   FindEquivalentOutputSchema,
   MapICD10ToICD11OutputSchema,
-  MapSNOMEDToICD10OutputSchema,
-  MapLOINCToSNOMEDOutputSchema,
   ATCClassifyOutputSchema,
   ATCLookupOutputSchema,
   ATCMembersOutputSchema,
@@ -64,20 +58,6 @@ describe('input param schemas — strict validators run', () => {
       ['123456-7', false], // > 5 digits before dash
     ])('loinc_num "%s" → valid=%s', (input, expected) => {
       const result = LOINCByCodeParamsSchema.safeParse({ loinc_num: input });
-      expect(result.success).toBe(expected);
-    });
-  });
-
-  describe('SCTID numeric format', () => {
-    it.each([
-      ['73211009', true],
-      ['1', true],
-      ['abc', false],
-      ['73211-009', false],
-      ['73211 009', false],
-      ['', false],
-    ])('sctid "%s" → valid=%s', (input, expected) => {
-      const result = SNOMEDBySctidParamsSchema.safeParse({ sctid: input });
       expect(result.success).toBe(expected);
     });
   });
@@ -207,6 +187,16 @@ describe('input param schemas — strict validators run', () => {
       expect(r.term).toBe('diabetes');
       expect(r.target_terminologies).toBeUndefined();
       expect(r.source_terminology).toBeUndefined();
+    });
+
+    // 2.0.0 removed the value outright (owner's decision): a client still
+    // sending 'snomed' gets a validation error naming the accepted values,
+    // never a silent empty result.
+    it('2.0.0: "snomed" is rejected wherever a terminology is named', () => {
+      expect(FindEquivalentParamsSchema.safeParse({ term: 'x', target_terminologies: ['snomed'] }).success).toBe(false);
+      expect(FindEquivalentParamsSchema.safeParse({ term: 'x', source_terminology: 'snomed' }).success).toBe(false);
+      expect(ValidateCodesParamsSchema.safeParse({ codes: [{ code: '73211009', terminology: 'snomed' }] }).success).toBe(false);
+      expect(TerminologyVersionsParamsSchema.safeParse({ terminology: 'snomed' }).success).toBe(false);
     });
 
     it('find_equivalent: rejects unknown terminology values', () => {
@@ -570,143 +560,6 @@ describe('MeSH output schemas — fixtures parse cleanly', () => {
   });
 });
 
-describe('SNOMED CT output schemas — fixtures parse cleanly', () => {
-  const sampleSummary = {
-    concept_id: '73211009',
-    fsn: 'Diabetes mellitus (disorder)',
-    pt: 'Diabetes mellitus',
-    active: true,
-    definition_status: 'PRIMITIVE',
-    module_id: '900000000000207008',
-  };
-
-  it('search output: typical hits', () => {
-    expect(
-      SNOMEDSearchOutputSchema.safeParse({
-        query: 'diabetes',
-        active_only: true,
-        total_count: 1,
-        concepts: [sampleSummary],
-      }).success,
-    ).toBe(true);
-  });
-
-  it('search output: empty result still valid', () => {
-    expect(
-      SNOMEDSearchOutputSchema.safeParse({
-        query: 'xyzzy',
-        active_only: true,
-        total_count: 0,
-        concepts: [],
-      }).success,
-    ).toBe(true);
-  });
-
-  it('concept output: full record', () => {
-    expect(
-      SNOMEDConceptOutputSchema.safeParse({
-        ...sampleSummary,
-        effective_time: '20020131',
-      }).success,
-    ).toBe(true);
-  });
-
-  it('concept output: rejects missing effective_time (separates concept from search summary)', () => {
-    expect(SNOMEDConceptOutputSchema.safeParse(sampleSummary).success).toBe(false);
-  });
-
-  it('hierarchy output: direction=both populates both arrays', () => {
-    expect(
-      SNOMEDHierarchyOutputSchema.safeParse({
-        sctid: '73211009',
-        direction: 'both',
-        parents: [
-          {
-            concept_id: '64572001',
-            fsn: 'Disease (disorder)',
-            pt: 'Disease',
-            active: true,
-            definition_status: 'PRIMITIVE',
-          },
-        ],
-        children: [
-          {
-            concept_id: '44054006',
-            fsn: 'Type 2 diabetes mellitus (disorder)',
-            pt: 'Type 2 diabetes mellitus',
-            active: true,
-            definition_status: 'PRIMITIVE',
-          },
-        ],
-      }).success,
-    ).toBe(true);
-  });
-
-  it('hierarchy output: direction=parents → children must still be present (empty array)', () => {
-    expect(
-      SNOMEDHierarchyOutputSchema.safeParse({
-        sctid: '73211009',
-        direction: 'parents',
-        parents: [],
-        children: [],
-      }).success,
-    ).toBe(true);
-  });
-
-  it('hierarchy output: rejects unknown direction', () => {
-    expect(
-      SNOMEDHierarchyOutputSchema.safeParse({
-        sctid: '73211009',
-        direction: 'siblings',
-        parents: [],
-        children: [],
-      }).success,
-    ).toBe(false);
-  });
-
-  it('descriptions output: full record with acceptability map', () => {
-    expect(
-      SNOMEDDescriptionsOutputSchema.safeParse({
-        sctid: '73211009',
-        descriptions: [
-          {
-            description_id: '751689012',
-            term: 'Diabetes mellitus',
-            type: 'SYN',
-            type_id: '900000000000013009',
-            lang: 'en',
-            active: true,
-            case_significance: 'CASE_INSENSITIVE',
-            acceptability_map: {
-              '900000000000509007': 'PREFERRED',
-              '900000000000508004': 'ACCEPTABLE',
-            },
-          },
-        ],
-      }).success,
-    ).toBe(true);
-  });
-
-  it('descriptions output: empty list still valid', () => {
-    expect(
-      SNOMEDDescriptionsOutputSchema.safeParse({
-        sctid: '73211009',
-        descriptions: [],
-      }).success,
-    ).toBe(true);
-  });
-
-  it('ecl output: typical results', () => {
-    expect(
-      SNOMEDECLOutputSchema.safeParse({
-        ecl: '<< 73211009',
-        total_count: 1,
-        concepts: [sampleSummary],
-      }).success,
-    ).toBe(true);
-  });
-});
-
 describe('RxNorm output schemas — fixtures parse cleanly', () => {
   const sampleDrug = {
     rxcui: '6809',
@@ -897,7 +750,7 @@ describe('find_equivalent output schema — ranked aggregator with mixed results
       FindEquivalentOutputSchema.safeParse({
         term: 'diabetes',
         source_terminology: null,
-        searched_terminologies: ['icd11', 'snomed', 'loinc', 'rxnorm', 'mesh'],
+        searched_terminologies: ['icd11', 'loinc', 'rxnorm', 'mesh'],
         results: {
           icd11: {
             found: true,
@@ -912,7 +765,6 @@ describe('find_equivalent output schema — ranked aggregator with mixed results
               },
             ],
           },
-          snomed: { found: false, error: 'SNOMED tools are disabled', items: [] },
           loinc: {
             found: true,
             error: null,
@@ -1017,13 +869,12 @@ describe('find_equivalent output schema — ranked aggregator with mixed results
     expect(
       FindEquivalentOutputSchema.safeParse({
         term: 'diabetes',
-        source_terminology: 'snomed',
-        searched_terminologies: ['icd11', 'loinc', 'rxnorm', 'mesh'],
+        source_terminology: 'mesh',
+        searched_terminologies: ['icd11', 'loinc', 'rxnorm'],
         results: {
           icd11: { found: false, error: null, items: [] },
           loinc: { found: false, error: null, items: [] },
           rxnorm: { found: false, error: null, items: [] },
-          mesh: { found: false, error: null, items: [] },
         },
         groups: [],
         ranking,
@@ -1131,120 +982,6 @@ describe('map_icd10_to_icd11 output schema', () => {
         primary: null,
         alternatives: [],
         source: { version: '2025-01', release_date: '2025-01-30' },
-      }).success,
-    ).toBe(false);
-  });
-});
-
-describe('map_snomed_to_icd10 output schema (guidance envelope)', () => {
-  const sources = [
-    {
-      name: 'SNOMED Complex Map refset',
-      description: 'Refset 447562003',
-      url: null,
-    },
-    {
-      name: 'NLM UMLS Metathesaurus',
-      description: 'UTS license',
-      url: 'https://uts.nlm.nih.gov/uts/',
-    },
-  ];
-
-  it('typical guidance-only with preferred_term populated', () => {
-    expect(
-      MapSNOMEDToICD10OutputSchema.safeParse({
-        sctid: '73211009',
-        preferred_term: 'Diabetes mellitus',
-        status: 'guidance-only',
-        guidance: 'Direct mapping is not freely available.',
-        authoritative_sources: sources,
-      }).success,
-    ).toBe(true);
-  });
-
-  it('guidance-only with null preferred_term (concept not found upstream)', () => {
-    expect(
-      MapSNOMEDToICD10OutputSchema.safeParse({
-        sctid: '99999999',
-        preferred_term: null,
-        status: 'guidance-only',
-        guidance: 'Direct mapping is not freely available.',
-        authoritative_sources: sources,
-      }).success,
-    ).toBe(true);
-  });
-
-  it('upstream-unavailable status valid', () => {
-    expect(
-      MapSNOMEDToICD10OutputSchema.safeParse({
-        sctid: '73211009',
-        preferred_term: null,
-        status: 'upstream-unavailable',
-        guidance: 'SNOMED upstream did not respond.',
-        authoritative_sources: sources,
-      }).success,
-    ).toBe(true);
-  });
-
-  it('invalid status enum value fails parse', () => {
-    expect(
-      MapSNOMEDToICD10OutputSchema.safeParse({
-        sctid: '73211009',
-        preferred_term: null,
-        status: 'mapped',
-        guidance: 'should fail',
-        authoritative_sources: sources,
-      }).success,
-    ).toBe(false);
-  });
-});
-
-describe('map_loinc_to_snomed output schema (guidance envelope)', () => {
-  const sources = [
-    {
-      name: 'NLM UMLS Metathesaurus',
-      description: 'UTS license required',
-      url: 'https://uts.nlm.nih.gov/uts/',
-    },
-  ];
-
-  it('typical with full loinc_details', () => {
-    expect(
-      MapLOINCToSNOMEDOutputSchema.safeParse({
-        loinc_code: '2339-0',
-        loinc_details: {
-          code: '2339-0',
-          long_common_name: 'Glucose [Mass/volume] in Blood',
-          component: 'Glucose',
-          system: 'Bld',
-          property: 'MCnc',
-        },
-        status: 'guidance-only',
-        guidance: 'Direct mapping requires licensed sources.',
-        mapping_sources: sources,
-      }).success,
-    ).toBe(true);
-  });
-
-  it('loinc_details null when code not found upstream', () => {
-    expect(
-      MapLOINCToSNOMEDOutputSchema.safeParse({
-        loinc_code: '99999-9',
-        loinc_details: null,
-        status: 'guidance-only',
-        guidance: 'Direct mapping requires licensed sources.',
-        mapping_sources: sources,
-      }).success,
-    ).toBe(true);
-  });
-
-  it('missing required mapping_sources fails parse', () => {
-    expect(
-      MapLOINCToSNOMEDOutputSchema.safeParse({
-        loinc_code: '2339-0',
-        loinc_details: null,
-        status: 'guidance-only',
-        guidance: 'should fail',
       }).success,
     ).toBe(false);
   });

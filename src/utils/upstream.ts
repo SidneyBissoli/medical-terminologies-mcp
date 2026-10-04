@@ -25,8 +25,8 @@
  * `icd11_lookup` 1.0 s — the slowest trip this server makes, still six
  * times under the ceiling. No origin came near 30 s; the ceiling exists for
  * the hung connection, not to hurry the source.
- *  - 30 s per attempt for WHO/NLM/RxNorm/MeSH, 60 s for SNOMED (self-hosted
- *    Snowstorm, historically slow), 15 s for the WHO OAuth token — the same
+ *  - 30 s per attempt for WHO/NLM/RxNorm/MeSH (60 s for SNOMED until it was
+ *    retired in 2.0.0), 15 s for the WHO OAuth token — the same
  *    values each `HttpClient` carried before;
  *  - 2 retries (3 attempts) for what is transient, backoff 1 s → 2 s without
  *    jitter (the tests count the clock);
@@ -106,7 +106,6 @@ export const UPSTREAM_POLICY = {
     [CACHE_PREFIX.LOINC]: 30_000,
     [CACHE_PREFIX.RXNORM]: 30_000,
     [CACHE_PREFIX.MESH]: 30_000,
-    [CACHE_PREFIX.SNOMED]: 60_000,
     [CACHE_PREFIX.TOKEN]: 15_000,
   } satisfies Record<UpstreamSource, number>,
   /** Retries beyond the first attempt (only for what is transient — see `retryUpstream`). */

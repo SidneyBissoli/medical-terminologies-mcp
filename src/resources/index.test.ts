@@ -68,7 +68,8 @@ describe('resources/index handlers', () => {
     const text = textOf(result.contents[0]);
     expect(text).toContain('ICD-11');
     expect(text).toContain('LOINC');
-    expect(text).toContain('SNOMED CT');
+    // SNOMED CT was retired in 2.0.0; the notice says so instead of licensing it.
+    expect(text).toMatch(/SNOMED CT .*retired in 2\.0\.0/s);
     expect(text).toContain('CID-10');
     expect(text).toContain('lookup layer');
   });

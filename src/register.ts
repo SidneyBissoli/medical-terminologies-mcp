@@ -69,7 +69,6 @@ import './tools/icd11.js';
 import './tools/loinc.js';
 import './tools/rxnorm.js';
 import './tools/mesh.js';
-import './tools/snomed.js';
 import './tools/crosswalk.js';
 import './tools/harmonize.js';
 import './tools/atc.js';

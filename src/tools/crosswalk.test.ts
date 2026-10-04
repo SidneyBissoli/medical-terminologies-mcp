@@ -2,7 +2,7 @@
  * Tests for the validate_codes tool. Exercises the schema, the aggregation
  * math, and the two terminology branches served entirely from bundled
  * datasets (icd10, cid10) — these need zero network and stay fast.
- * The HTTP-backed branches (icd11, loinc, rxnorm, mesh, atc, snomed) share
+ * The HTTP-backed branches (icd11, loinc, rxnorm, mesh, atc) share
  * the same handler shape and rely on their per-client contract tests for
  * upstream correctness.
  */

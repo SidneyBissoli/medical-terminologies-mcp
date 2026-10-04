@@ -76,11 +76,11 @@ describe('document ids', () => {
 });
 
 describe('the local index', () => {
-  it('holds every CID-10 code once (the subcategory table repeats undivided categories), the 22 chapters and the 8 version records', () => {
+  it('holds every CID-10 code once (the subcategory table repeats undivided categories), the 22 chapters and the 7 version records', () => {
     const cid10 = getCID10Client();
     const codes = new Set([...cid10.listCategories(), ...cid10.listSubcategories()].map((h) => h.display));
     expect(codes.size).toBeLessThan(cid10.listCategories().length + cid10.listSubcategories().length);
-    const expected = codes.size + 22 + 8;
+    const expected = codes.size + 22 + 7;
     const { index, byId } = getLocalIndex();
     expect(index.size).toBe(expected);
     expect(byId.size).toBe(expected);

@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-03
+
+**Breaking: SNOMED CT is retired.** The server now covers six terminologies
+(ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10) plus the WHO ICD-10 → ICD-11 tables.
+33 tools.
+
+### Removed
+
+- The five SNOMED CT tools — `snomed_search`, `snomed_concept`,
+  `snomed_hierarchy`, `snomed_descriptions`, `snomed_ecl` — and
+  `map_snomed_to_icd10`. They were off by default (behind `ENABLE_SNOMED_TOOLS`),
+  so the default surface never had them.
+- **`map_loinc_to_snomed`**, which WAS on the default surface. It only ever
+  returned guidance (the mapping needs licensed sources); without SNOMED CT it
+  has no purpose.
+- The value **`snomed`** from every input that names a terminology:
+  `find_equivalent` (`target_terminologies`, `source_terminology`),
+  `validate_codes` (`terminology`), `terminology_versions` and
+  `terminology_diff` (`terminology`). A request that still sends it gets a
+  validation error listing the accepted values — never a silent empty result.
+  `find_equivalent` results no longer have a `snomed` key, and
+  `terminology_versions` lists 7 terminologies (was 8).
+- The Snowstorm client, the `ENABLE_SNOMED_TOOLS` / `SNOMED_BASE_URL` /
+  `SNOMED_LANGUAGE` environment variables (also removed from `server.json`),
+  the SNOMED rate limiter and the SNOMED provenance source.
+
+### Why
+
+The public IHTSDO Snowstorm host has answered HTTP 410 since 2026-05; SNOMED CT
+content needs a license that depends on the user's country; measured usage was
+zero; and the half-present terminology misled the third-party catalogs that
+describe this server (several counted the SNOMED tools as available). See
+PROGRESS.md 15.2 and the README section "SNOMED CT (retired in 2.0.0)" for
+alternatives.
+
+### Migrating from 1.x
+
+- Calls to any removed tool fail with "tool not found"; drop them.
+- Remove `snomed` from `target_terminologies` / `source_terminology` /
+  `terminology` arguments.
+- If you relied on `find_equivalent` returning a `snomed` entry (it only ever
+  carried the "disabled" note by default), stop reading that key.
+
+### Also
+
+- Handshake instructions, `info://server` (`snomed_enabled` replaced by
+  `retired: ["SNOMED CT (2.0.0)"]`), `info://licenses`, README / LEIA-ME,
+  NOTICE, PRIVACY, SECURITY, CONTRIBUTING, issue templates and the Worker
+  landing page updated. `server.json` also had the ICD-11 release default as
+  `2024-01`; it now says `2026-01`, the real default.
+- Surface baseline `baselines/surface-stdio-2.0.0.json`; surface lock and
+  LobeHub manifest regenerated; tests assert that `snomed` is rejected in all
+  four places.
+
 ## [1.18.2] - 2026-10-03
 
 Fixes wrong data that `loinc_answers` and `loinc_panels` returned without any
