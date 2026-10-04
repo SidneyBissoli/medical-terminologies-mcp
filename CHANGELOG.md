@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tests
+
+- **The output contract is client-shaped** (a reader's idea,
+  https://dev.to/arhancanli/comment/3g4i4). `src/output-contract.test.ts` no
+  longer validates against `toolRegistry`'s internal definitions with a
+  validator we picked. The real server (`createServer`, the factory both
+  transports use) is now driven by the SDK's `Client`, which runs `tools/list`
+  and `tools/call` and rejects the result against the **listed** schema, as a
+  user's session would. This matters here because the server's runtime output
+  validation is permissive on purpose, so only a client catches a dishonest
+  schema. The circuit is `@sbissoli/mcp-surface/cliente` 0.2.0, shared by the
+  seven servers.
+- Adds negative controls on `loinc_details` (a result broken on the wire must be
+  rejected, including an extra field — the listed top level is sealed — with the
+  `tools/list` trap pinned) and makes the coverage and `outputSchema` checks read
+  the listed tools. To prove the gate can fail, announcing LOINC's
+  `external_copyright_notice` as a plain string makes the `Client` itself reject
+  `loinc_details` and `loinc_search`.
+
+No surface or version change: tests and a dev dependency only.
+
 ## [2.0.0] - 2026-10-03
 
 **Breaking: SNOMED CT is retired.** The server now covers six terminologies

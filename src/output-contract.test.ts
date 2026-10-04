@@ -15,20 +15,52 @@
  * paths — absent optional parameters, sources that omit fields, empty
  * responses — because the happy path passes even with a dishonest schema.
  *
+ * Client-shaped since 2026-10-04 (a reader's idea,
+ * https://dev.to/arhancanli/comment/3g4i4). The test no longer validates the
+ * registry's `structuredContent` against `toolRegistry`'s internal definitions
+ * with a validator we picked. It drives the REAL server (`createServer`, the
+ * factory both transports use) through the SDK's own `Client`: `tools/list`,
+ * then `tools/call`, and the Client rejects the result against the LISTED
+ * `outputSchema` — so the test fails the way a user's session would. The
+ * circuit is `@sbissoli/mcp-surface/cliente`, shared by the portfolio's seven
+ * servers; it round-trips every server message through JSON, as the wire does
+ * (a required field left `undefined` vanishes there and reads as missing).
+ *
  * Network is never touched: `global.fetch` is mocked per URL, replaying the
  * captured fixtures in `src/__fixtures__/` where they exist.
  */
 
 import { describe, it, expect, vi, afterEach, beforeAll, beforeEach } from 'vitest';
-import { CfWorkerJsonSchemaValidator } from '@modelcontextprotocol/server/validators/cf-worker';
+import type { Client } from '@modelcontextprotocol/client';
+import { chamarComoCliente, conectarComoCliente, controlesNegativos } from '@sbissoli/mcp-surface/cliente';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { toolRegistry } from './server-core.js';
+import { createServer } from './register.js';
 import { cache } from './utils/cache.js';
-import './register.js';
 
-const validator = new CfWorkerJsonSchemaValidator();
+/** One call on the client's path, over a connection of its own. */
+async function callAsClient(name: string, args: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const client: Client = await conectarComoCliente(createServer());
+  try {
+    const r = await chamarComoCliente(client, name, args);
+    expect(r.structuredContent, `${name} returned no structuredContent`).toBeDefined();
+    return r.structuredContent as Record<string, unknown>;
+  } finally {
+    await client.close();
+  }
+}
+
+/** The tools as a client sees them: the `tools/list` of the real server. */
+async function listedTools() {
+  const client = await conectarComoCliente(createServer());
+  try {
+    return (await client.listTools()).tools;
+  } finally {
+    await client.close();
+  }
+}
+
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '__fixtures__');
 const fixture = (rel: string): unknown =>
   JSON.parse(readFileSync(join(FIXTURES, rel), 'utf8')) as unknown;
@@ -299,7 +331,7 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['terminology_versions', 'one terminology', { terminology: 'cid10' }],
   ['terminology_diff', 'diff without explicit versions', { terminology: 'icd10' }],
 
-  // Deep Research contract (`search`/`fetch`, via the registry like the rest).
+  // Deep Research contract (`search`/`fetch`, served like the rest).
   // `search` fans out to the mocked upstreams above and ranks with the local
   // CID-10 index; `fetch` renders through each terminology's lookup tool.
   ['search', 'query with hits in every source', { query: 'diabetes' }],
@@ -314,64 +346,58 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
 ];
 
 describe('structuredContent obeys the advertised outputSchema', () => {
+  // The Client validates against the schema it cached from `tools/list` and
+  // throws when the result does not obey it; `chamarComoCliente` also fails
+  // on `isError`. Nothing else to assert: the Client is the validator.
   it.each(CASES)('%s — %s', async (name, _path, args) => {
-    const tool = toolRegistry.getTools().find((t) => t.name === name);
-    expect(tool?.outputSchema, `tool ${name} has no outputSchema`).toBeDefined();
-
-    const handler = toolRegistry.getHandler(name);
-    expect(handler, `tool ${name} has no handler`).toBeDefined();
-
-    const result = await handler!(args);
-    const text = (result.content?.[0] as { text?: string } | undefined)?.text;
-    expect(result.isError, `${name} returned an error: ${text}`).toBeFalsy();
-    expect(result.structuredContent, `${name} returned no structuredContent`).toBeDefined();
-
-    // Validate what the CLIENT sees: `structuredContent` crosses the wire as
-    // JSON, and JSON.stringify drops keys whose value is `undefined` — a
-    // required field left undefined is a missing property on the wire.
-    const onTheWire = JSON.parse(JSON.stringify(result.structuredContent)) as unknown;
-    const validate = validator.getValidator(tool!.outputSchema as never);
-    const verdict = validate(onTheWire);
-
-    expect(verdict.valid, `${name}: ${verdict.errorMessage}`).toBe(true);
+    await callAsClient(name, args);
   });
 
-  /**
-   * A test that cannot fail is worth nothing. This one takes a REAL result
-   * and validates it against a deliberately dishonest schema — the exact
-   * lie this file exists to catch (a nullable field advertised as a plain
-   * string) — and asserts the validator rejects it.
-   */
-  it('rejects a dishonest schema (proof the gate can fail)', async () => {
-    const result = await toolRegistry.getHandler('loinc_details')!({ loinc_num: '2339-0' });
-    const honest = toolRegistry.getTools().find((t) => t.name === 'loinc_details')!.outputSchema!;
-
-    expect(validator.getValidator(honest as never)(result.structuredContent).valid).toBe(true);
-
-    const dishonest = JSON.parse(JSON.stringify(honest)) as {
-      properties: { provenance: { properties: Record<string, unknown> } };
-    };
-    // `data_vintage` is null for LOINC (the source exposes no release id).
-    dishonest.properties.provenance.properties.data_vintage = { type: 'string' };
-
-    const verdict = validator.getValidator(dishonest as never)(result.structuredContent);
-    expect(verdict.valid).toBe(false);
-    expect(verdict.errorMessage).toContain('data_vintage');
-  });
-
-  it('every registered tool declares an outputSchema', () => {
-    for (const tool of toolRegistry.getTools()) {
+  it('every listed tool declares an outputSchema', async () => {
+    const tools = await listedTools();
+    for (const tool of tools) {
       expect(tool.outputSchema, `${tool.name} has no outputSchema`).toBeDefined();
     }
-    expect(toolRegistry.getTools()).toHaveLength(33);
+    expect(tools).toHaveLength(33);
   });
 
-  it('every registered tool is covered by at least one case', () => {
+  it('every listed tool is covered by at least one case', async () => {
     const covered = new Set(CASES.map(([name]) => name));
-    const missing = toolRegistry
-      .getTools()
-      .map((t) => t.name)
-      .filter((name) => !covered.has(name));
+    const missing = (await listedTools()).map((t) => t.name).filter((name) => !covered.has(name));
     expect(missing, `tools with no output-contract case: ${missing.join(', ')}`).toEqual([]);
+  });
+});
+
+// ==================== negative control, on the client's path ====================
+//
+// A test that cannot fail is worth nothing. Here the server answers correctly
+// and the result is broken ON THE WIRE, between server and client — as it
+// would arrive from a defective server. Every break must make the call fail.
+// The breaks are derived from the LISTED schema (structuredContent absent,
+// each required field absent, a type swapped); the extra field is this
+// server's own break, measured: the listed top level of `loinc_details` is
+// sealed (`additionalProperties: false`). The last verdict is the trap: without
+// `tools/list` first the Client does not validate — if the SDK ever changes
+// that, the verdict says so.
+//
+// This replaces the earlier "dishonest schema" proof, which fed a hand-edited
+// schema to a validator we picked. The proof that the CLIENT catches a lie in
+// the listed schema was made by mutation (2026-10-04): announcing LOINC's
+// `external_copyright_notice` (null when the term carries none) as a plain
+// string made the Client itself reject `loinc_details` and `loinc_search`
+// here ("Structured content does not match the tool's output schema").
+
+describe("the client's validator rejects a result broken on the wire", () => {
+  it('loinc_details: every break is rejected, and the trap holds', async () => {
+    const vs = await controlesNegativos(() => createServer(), 'loinc_details', { loinc_num: '2339-0' }, [
+      {
+        descricao: 'field the sealed schema forbids (intruder)',
+        adulterar: (r) => {
+          if (r.structuredContent) r.structuredContent.intruder = 1;
+        },
+      },
+    ]);
+    expect(vs.length).toBeGreaterThanOrEqual(4);
+    for (const v of vs) expect(v.obtido, `${v.descricao}: ${v.mensagem ?? ''}`).toBe(v.esperado);
   });
 });
