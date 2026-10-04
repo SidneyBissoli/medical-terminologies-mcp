@@ -274,27 +274,6 @@ export const MEDICAL_SOURCES = {
     cachePrefixes: ['loinc'],
     defaultVintage: () => null,
   },
-  SNOMED_SNOWSTORM: {
-    name: 'SNOMED CT (operator-configured Snowstorm)',
-    agency: 'SNOMED International',
-    database: 'SNOMED CT',
-    endpoint: null, // resolved per call from SNOMED_BASE_URL
-    sourceUrl: () => getEnv('SNOMED_BASE_URL') ?? 'https://www.snomed.org/',
-    license: {
-      id: null,
-      name: 'SNOMED CT — served through the Snowstorm instance configured by the operator, under the OPERATOR\'s SNOMED CT license (IHTSDO Affiliate License; Brazil is not a SNOMED member country)',
-      url: null,
-      terms_url: 'https://www.snomed.org/get-snomed',
-      verified_at: VERIFIED_AT,
-    },
-    citation: (date: string) =>
-      'SNOMED CT, SNOMED International (IHTSDO), served via the operator-configured Snowstorm ' +
-      `instance. Retrieved on ${date}. SNOMED CT content is for reference only; production use ` +
-      'requires a SNOMED CT license.',
-    notices: [],
-    cachePrefixes: ['snomed'],
-    defaultVintage: () => null,
-  },
   SERVER_METADATA: {
     name: 'medical-terminologies-mcp (server-maintained metadata)',
     agency: null,
@@ -348,7 +327,7 @@ export function medicalProvenance(
       name: src.name,
       agency: src.agency,
       database: src.database,
-      endpoint: key === 'SNOMED_SNOWSTORM' ? (getEnv('SNOMED_BASE_URL') ?? null) : src.endpoint,
+      endpoint: src.endpoint,
     },
     source_url: src.sourceUrl(),
     ...(opts.dataset !== undefined

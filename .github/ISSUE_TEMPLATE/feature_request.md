@@ -12,7 +12,7 @@ labels: enhancement
 
 ## Which terminologies and tools would this touch?
 
-<!-- ICD-11 / LOINC / RxNorm / MeSH / SNOMED / crosswalk / new
+<!-- ICD-11 / LOINC / RxNorm / MeSH / ATC / CID-10 / crosswalk / new
      terminology. -->
 
 ## Proposed shape

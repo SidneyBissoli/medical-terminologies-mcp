@@ -7,7 +7,7 @@ labels: bug
 
 ## Which terminology and tool?
 
-<!-- One of: ICD-11, LOINC, RxNorm, MeSH, SNOMED CT, crosswalk. -->
+<!-- One of: ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10, crosswalk. -->
 <!-- Tool name (e.g. icd11_search, loinc_details, find_equivalent). -->
 
 ## What did you call it with?
@@ -41,13 +41,9 @@ labels: bug
 <!-- Anything you set in the MCP client's `env` block. Redact secrets. -->
 
 - `WHO_ICD11_RELEASE_ID`:
-- `ENABLE_SNOMED_TOOLS`:
-- `SNOMED_BASE_URL`:
-- `SNOMED_LANGUAGE`:
 - `LOG_LEVEL`:
 
 ## Anything else?
 
 <!-- Stack traces, partial logs, screenshots if it's a rendering issue
-     in the consuming client. For SNOMED tools, note whether your
-     Snowstorm instance has the relevant refsets/translations imported. -->
+     in the consuming client. -->

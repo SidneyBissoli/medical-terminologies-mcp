@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.SidneyBissoli/medical-terminologies-mcp",
   "title": "Medical Terminologies MCP",
-  "description": "Diagnoses, drugs & lab codes: ICD-11, SNOMED, LOINC, RxNorm, MeSH, ATC, CID-10. 34 tools, MIT.",
+  "description": "Diagnoses, drugs & lab codes: ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10. 33 tools, MIT.",
   "websiteUrl": "https://medical.sidneybissoli.com",
   "icons": [
     {
@@ -26,12 +26,12 @@
     "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
     "source": "github"
   },
-  "version": "1.18.2",
+  "version": "2.0.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "1.18.2",
+      "version": "2.0.0",
       "transport": {
         "type": "stdio"
       },
@@ -50,25 +50,7 @@
         },
         {
           "name": "WHO_ICD11_RELEASE_ID",
-          "description": "ICD-11 release to query (e.g. 2024-01, 2025-01). Optional; defaults to 2024-01.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "ENABLE_SNOMED_TOOLS",
-          "description": "Set to 'true' to register the 6 SNOMED-dependent tools (snomed_search, snomed_concept, snomed_hierarchy, snomed_descriptions, snomed_ecl, plus map_snomed_to_icd10). Disabled by default because the historical public IHTSDO Snowstorm endpoint was retired (HTTP 410 Gone). Requires SNOMED_BASE_URL pointing at a working self-hosted Snowstorm.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "SNOMED_BASE_URL",
-          "description": "Base URL of a self-hosted Snowstorm instance (e.g. https://my-snowstorm.example.com/snowstorm/snomed-ct). Required only when ENABLE_SNOMED_TOOLS is true.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "SNOMED_LANGUAGE",
-          "description": "Accept-Language tag(s) for SNOMED responses (e.g. pt, pt-BR, es). Optional; defaults to 'en'. Composite values with q-weights depend on the upstream Snowstorm instance.",
+          "description": "ICD-11 release to query (e.g. 2024-01, 2025-01). Optional; defaults to 2026-01.",
           "isRequired": false,
           "isSecret": false
         },
@@ -83,7 +65,7 @@
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "1.18.2",
+      "version": "2.0.0",
       "transport": {
         "type": "streamable-http",
         "url": "http://localhost:3000/mcp"
@@ -121,25 +103,7 @@
         },
         {
           "name": "WHO_ICD11_RELEASE_ID",
-          "description": "ICD-11 release to query (e.g. 2024-01, 2025-01). Optional; defaults to 2024-01.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "ENABLE_SNOMED_TOOLS",
-          "description": "Set to 'true' to register the 6 SNOMED-dependent tools. Requires SNOMED_BASE_URL.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "SNOMED_BASE_URL",
-          "description": "Base URL of a self-hosted Snowstorm instance. Required only when ENABLE_SNOMED_TOOLS is true.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "SNOMED_LANGUAGE",
-          "description": "Accept-Language tag(s) for SNOMED responses (e.g. pt, pt-BR, es). Optional; defaults to 'en'.",
+          "description": "ICD-11 release to query (e.g. 2024-01, 2025-01). Optional; defaults to 2026-01.",
           "isRequired": false,
           "isSecret": false
         },

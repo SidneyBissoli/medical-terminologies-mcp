@@ -33,12 +33,10 @@ import { getRxNormClient } from '../clients/rxnorm-client.js';
 import { getMeSHClient } from '../clients/mesh-client.js';
 import { getCID10Client } from '../clients/cid10-client.js';
 import { getWHOClient, WHOClient, WHO_ICD11_DEFAULT_RELEASE } from '../clients/who-client.js';
-import { getSNOMEDClient, SNOMEDClient } from '../clients/snomed-client.js';
 import { cache } from '../utils/cache.js';
 
 const ENABLED = process.env.INTEGRATION_TESTS === '1';
 const HAS_WHO_CREDS = Boolean(process.env.WHO_CLIENT_ID && process.env.WHO_CLIENT_SECRET);
-const HAS_SNOMED = process.env.ENABLE_SNOMED_TOOLS === 'true' && Boolean(process.env.SNOMED_BASE_URL);
 
 const describeIntegration = ENABLED ? describe : describe.skip;
 
@@ -296,23 +294,6 @@ describeIntegration('Integration: live API contracts', () => {
     });
   });
 
-  // SNOMED needs ENABLE_SNOMED_TOOLS=true + SNOMED_BASE_URL to a working
-  // self-hosted Snowstorm. Skip otherwise (the public IHTSDO host is dead).
-
-  (HAS_SNOMED ? describe : describe.skip)('SNOMED CT (requires self-hosted Snowstorm)', () => {
-    it('search for "diabetes mellitus" returns at least one concept', async () => {
-      const c = new SNOMEDClient();
-      const r = await c.searchConcepts('diabetes mellitus', true, 5);
-      expect(r.length).toBeGreaterThan(0);
-      expect(r[0].conceptId).toMatch(/^\d+$/);
-    });
-
-    it('getConcept for SCTID 73211009 returns Diabetes mellitus', async () => {
-      const c = await getSNOMEDClient().getConcept('73211009');
-      expect(c).not.toBeNull();
-      expect(c!.pt.toLowerCase()).toMatch(/diabetes/);
-    });
-  });
 });
 
 // Hint to anyone running locally — no test below this line.

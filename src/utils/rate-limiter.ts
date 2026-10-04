@@ -209,6 +209,4 @@ export const rateLimiters = {
   /** RxNorm API - documented limit (20 req/s) */
   rxnorm: new RateLimiter({ maxTokens: 20, refillRate: 20 }),
 
-  /** SNOMED Snowstorm - conservative limit (10 req/s) */
-  snomed: new RateLimiter({ maxTokens: 10, refillRate: 10 }),
 };

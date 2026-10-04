@@ -107,16 +107,13 @@ MeSH content is a U.S. government work served under the
 free of charge. Credit: **Courtesy of the U.S. National Library of
 Medicine.** No endorsement by NLM is implied.
 
-## 8. SNOMED CT (SNOMED International)
+## 8. SNOMED CT (SNOMED International) — retired in 2.0.0
 
-SNOMED CT requires a SNOMED International (IHTSDO) license. This server
-does **not** bundle or redistribute SNOMED CT content: the SNOMED tools
-are disabled by default and only work against a Snowstorm instance
-configured by the operator (`ENABLE_SNOMED_TOOLS` / `SNOMED_BASE_URL`),
-**under the operator's own license**. Member countries have national
-licenses; in non-member countries (including Brazil) a license must be
-requested from https://www.snomed.org/get-snomed. The SNOMED license
-disclaimer is attached to every SNOMED tool result.
+Since 2.0.0 this server neither queries nor serves SNOMED CT content.
+Until 1.18.x the SNOMED tools were off by default and worked only against
+a Snowstorm instance configured by the operator, under the operator's own
+SNOMED CT license; they, the Snowstorm client and the flag were removed.
+SNOMED CT licensing: https://www.snomed.org/get-snomed
 
 ---
 

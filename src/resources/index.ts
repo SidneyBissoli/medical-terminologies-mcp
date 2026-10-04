@@ -19,7 +19,6 @@
 import type { Resource, ReadResourceResult } from '@modelcontextprotocol/server';
 import { resourceRegistry, SERVER_INFO, toolRegistry, type ResourceHandler } from '../server-core.js';
 import { getCID10Client } from '../clients/cid10-client.js';
-import { SNOMED_TOOLS_ENABLED } from '../utils/feature-flags.js';
 
 // --- info://server -----------------------------------------------------
 
@@ -44,9 +43,8 @@ const serverInfoHandler: ResourceHandler = async (uri): Promise<ReadResourceResu
       'MeSH (NLM)',
       'ATC (via NLM RxClass)',
       'CID-10 (DataSUS V2008, Brazilian Portuguese)',
-      `SNOMED CT (${SNOMED_TOOLS_ENABLED ? 'enabled' : 'disabled by default; gated behind ENABLE_SNOMED_TOOLS'})`,
     ],
-    snomed_enabled: SNOMED_TOOLS_ENABLED,
+    retired: ['SNOMED CT (2.0.0)'],
     transport_options: ['stdio (default)', 'Streamable HTTP (Node)', 'Cloudflare Workers (hosted)'],
     hosted_endpoint: 'https://medical.sidneybissoli.com/mcp',
     license: 'MIT (server code); terminology content has its own licenses — see info://licenses',
@@ -181,16 +179,6 @@ NOTICE.md in the npm package.
   charge. Courtesy of the U.S. National Library of Medicine.
 - No authentication required.
 
-## SNOMED CT (IHTSDO / SNOMED International)
-- **Restricted.** Requires a SNOMED CT license. Member countries have
-  national licenses covering their residents; use elsewhere (including
-  Brazil, a non-member country) requires an IHTSDO license.
-- Off by default in this server (\`ENABLE_SNOMED_TOOLS\` flag); this
-  server does not bundle SNOMED content — it queries the Snowstorm
-  instance the OPERATOR configures, under the operator's own license.
-- The server attaches the SNOMED licence disclaimer to every SNOMED
-  tool result.
-
 ## Important caveat for LLM use
 
 This server is a **lookup layer**, not a clinical decision support
@@ -204,16 +192,9 @@ authoritative diagnoses.
   mappings** (release 2025-01, 11,243 categories with documented
   alternatives) — shipped in v1.4.0. Both primary and alternative
   ICD-11 candidates are exposed in \`structuredContent\`.
-- \`map_loinc_to_snomed\` and \`map_snomed_to_icd10\` remain
-  **guidance-only**: they describe where to obtain authoritative
-  mappings (UMLS Metathesaurus, LOINC SNOMED CT Expression
-  Association, SNOMED Complex Map refset 447562003) but require
-  licensed sources or a self-hosted Snowstorm to actually perform
-  the mapping. Both return structured payloads
-  (\`status: 'guidance-only'\`, \`authoritative_sources\` /
-  \`mapping_sources\` arrays) so LLM clients can present the options
-  cleanly. Real refset-backed SNOMED → ICD-10 mapping is tracked as
-  PROGRESS.md Phase 13.7.
+- SNOMED CT and its two guidance-only mappings (\`map_loinc_to_snomed\`,
+  \`map_snomed_to_icd10\`) were retired in 2.0.0: no public Snowstorm
+  host remains, and SNOMED content needs a per-country license.
 `;
 
 const licensesHandler: ResourceHandler = async (uri): Promise<ReadResourceResult> => {

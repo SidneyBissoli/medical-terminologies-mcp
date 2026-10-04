@@ -1,7 +1,7 @@
 /**
  * Versioning tools.
  *
- * - terminology_versions: lists all 8 supported terminologies with their
+ * - terminology_versions: lists all 7 supported terminologies with their
  *   current version, release date, publisher, source URL, and update
  *   cadence. Useful for pipeline maintainers who need to confirm what
  *   the server is querying against before running batch validation.
@@ -76,7 +76,7 @@ export interface TerminologyMeta {
 }
 
 /**
- * The eight terminology records, built at request time (the ICD-11 release
+ * The seven terminology records, built at request time (the ICD-11 release
  * id and the bundled-table versions are read live). Exported for the Deep
  * Research index (`deep-research.ts`), which lists one document per record.
  */
@@ -123,19 +123,6 @@ export function buildMetadata(): TerminologyMeta[] {
       update_cadence: 'frozen since 2008',
       bundled_in_server: true,
       notes: 'DataSUS has not published a successor to V2008. Brazilian healthcare systems use this version operationally.',
-    },
-    {
-      code: 'snomed',
-      name: 'SNOMED CT',
-      full_name: 'Systematized Nomenclature of Medicine — Clinical Terms (International Edition)',
-      publisher: 'SNOMED International (IHTSDO)',
-      current_version: '2025-01-31',
-      release_date: '2025-01-31',
-      source_url: 'https://www.snomed.org/',
-      changelog_url: 'https://confluence.ihtsdotools.org/display/SCT/SNOMED+CT+International+Edition+Releases',
-      update_cadence: 'bi-annual (January and July)',
-      bundled_in_server: false,
-      notes: 'Server queries a Snowstorm instance configured via SNOMED_BASE_URL. Latest known International Edition: 2025-01-31. License required.',
     },
     {
       code: 'loinc',
@@ -202,11 +189,11 @@ const terminologyVersionsTool: Tool = {
   description: `List the current version, release date, publisher, source URL, and update cadence of every terminology this server queries against.
 
 Useful for pipeline maintainers who need to:
-- Confirm which release of ICD-11 / SNOMED / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.
+- Confirm which release of ICD-11 / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.
 - Verify the bundled CID-10 (frozen at V2008) and ICD-10 → ICD-11 transition tables (currently 2025-01) match expectations.
 - Cite the data version in research artifacts.
 
-Pass \`terminology\` to filter to a single entry; otherwise the full set of 8 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.`,
+Pass \`terminology\` to filter to a single entry; otherwise the full set of 7 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.`,
   inputSchema: buildInputSchema(TerminologyVersionsParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(TerminologyVersionsOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -226,7 +213,7 @@ Inputs:
 - \`from_version\` (optional): the version you have data from. If omitted, the tool reports against the currently-bundled version.
 - \`to_version\` (optional): the version you want to compare to. If omitted, the tool reports against the publisher's latest known release.
 
-This tool is intentionally a metadata + guidance layer, not a diff engine — for terminologies that change frequently (SNOMED, LOINC, RxNorm, MeSH), the publisher's official changelog is the authoritative source.`,
+This tool is intentionally a metadata + guidance layer, not a diff engine — for terminologies that change frequently (LOINC, RxNorm, MeSH), the publisher's official changelog is the authoritative source.`,
   inputSchema: buildInputSchema(TerminologyDiffParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(TerminologyDiffOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,

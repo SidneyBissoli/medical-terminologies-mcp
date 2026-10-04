@@ -239,8 +239,8 @@ jobs:
           \`\`\`
 
           ### What's included
-          - 34 default tools (40 with SNOMED enabled) for medical terminology lookup
-          - ICD-11, SNOMED CT, LOINC, RxNorm, MeSH, ATC, CID-10 support
+          - 33 tools for medical terminology lookup
+          - ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 support
           - Cross-terminology mapping and search
 
           See [CHANGELOG.md](https://github.com/SidneyBissoli/medical-terminologies-mcp/blob/main/CHANGELOG.md) for release notes."

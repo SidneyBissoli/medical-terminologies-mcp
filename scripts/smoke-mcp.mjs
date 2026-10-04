@@ -241,10 +241,10 @@ if (init.serverInfo.name !== "medical-terminologies-mcp") fail("unexpected serve
 await rpc("notifications/initialized", {}, true).catch(() => {});
 
 // The expected count is NOT a literal: it comes from the most recent surface
-// baseline (baselines/surface-stdio-<version>.json, captured with SNOMED off —
+// baseline (baselines/surface-stdio-<version>.json —
 // see baselines/README.md). A surface change without a recaptured baseline
-// turns the smoke red, which is the deal. Local runs with
-// ENABLE_SNOMED_TOOLS=true legitimately see the 6 gated tools on top.
+// turns the smoke red, which is the deal. (Until 1.18.x a run with
+// ENABLE_SNOMED_TOOLS=true legitimately saw 6 more; SNOMED was retired in 2.0.0.)
 const versionOf = (name) => name.match(/(\d+)\.(\d+)\.(\d+)/).slice(1).map(Number);
 const latestBaseline = readdirSync("baselines")
   .filter((f) => /^surface-stdio-\d+\.\d+\.\d+\.json$/.test(f))
@@ -255,12 +255,10 @@ const latestBaseline = readdirSync("baselines")
   .at(-1);
 if (!latestBaseline) fail("no baselines/surface-stdio-*.json to derive the tool count from");
 const expected = JSON.parse(readFileSync(`baselines/${latestBaseline}`, "utf8")).toolCount;
-const SNOMED_GATED = 6;
 
 const { tools } = await rpc("tools/list", {});
 console.log(`tools/list: ${tools.length} tools (baseline ${latestBaseline}: ${expected})`);
-if (tools.length !== expected && tools.length !== expected + SNOMED_GATED)
-  fail(`expected ${expected} (default) or ${expected + SNOMED_GATED} (SNOMED on) tools, got ${tools.length}`);
+if (tools.length !== expected) fail(`expected ${expected} tools, got ${tools.length}`);
 const noOutputSchema = tools.filter((t) => !t.outputSchema);
 if (noOutputSchema.length > 0)
   fail(`tools without outputSchema: ${noOutputSchema.map((t) => t.name).join(", ")}`);

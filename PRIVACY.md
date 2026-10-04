@@ -3,7 +3,7 @@
 **Effective date:** 2026-08-09 · **Service:** `https://medical.sidneybissoli.com` (remote MCP server)
 
 This service provides read-only access to public medical terminology data
-(ICD-11, ICD-10, CID-10 BR, LOINC, RxNorm, ATC, MeSH, and optionally SNOMED CT)
+(ICD-11, ICD-10, CID-10 BR, LOINC, RxNorm, ATC, MeSH)
 from official sources. It requires no account, no login, and no API key.
 
 ## What we collect
@@ -45,8 +45,6 @@ IP address, or any client metadata. Upstreams contacted at runtime:
 - **NLM RxNav** (`rxnav.nlm.nih.gov`) — RxNorm and RxClass/ATC
 - **NLM MeSH** (`id.nlm.nih.gov`) — MeSH descriptors
 - **NLM Clinical Tables** (`clinicaltables.nlm.nih.gov`) — LOINC
-- **SNOMED CT browser** (`browser.ihtsdotools.org`) — only when the
-  SNOMED tools are explicitly enabled by the operator
 
 CID-10 (DataSUS V2008) and the ICD-10→ICD-11 crosswalk are bundled datasets —
 those lookups never leave the server.
@@ -61,8 +59,7 @@ Terminology data returned by this service comes from the official sources
 listed above, each under its own license or terms (see
 [NOTICE.md](NOTICE.md) for the consolidated attributions). Every response
 carries a provenance block (source, URL, retrieval date, license). This
-service is not endorsed by WHO, NLM, Regenstrief, DataSUS, or SNOMED
-International.
+service is not endorsed by WHO, NLM, Regenstrief, or DataSUS.
 
 ## STDIO (npm package)
 

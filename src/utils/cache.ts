@@ -60,7 +60,6 @@ export const CACHE_PREFIX = {
   LOINC: 'loinc',
   RXNORM: 'rxnorm',
   MESH: 'mesh',
-  SNOMED: 'snomed',
   TOKEN: 'token',
 } as const;
 

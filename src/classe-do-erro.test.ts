@@ -126,7 +126,7 @@ describe('the class travels OFF the wire', () => {
  * instead of letting `handleToolError` see the WHO's NOT_FOUND, so no class
  * left it, the hook fell back to the phrase, and the echoed code matched
  * `invalid`. The ICD-11 code is free text, so any caller can echo it.
- * loinc_details, mesh_descriptor and snomed_concept build the same kind of
+ * loinc_details and mesh_descriptor build the same kind of
  * result; their identifiers are regex-validated digits, so the phrase never
  * misread them — they carry the class too, so it does not depend on that.
  */

@@ -10,7 +10,7 @@ const SupportedLanguageSchema = z
     "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
   );
 
-const TerminologyEnum = z.enum(['icd11', 'snomed', 'loinc', 'rxnorm', 'mesh']);
+const TerminologyEnum = z.enum(['icd11', 'loinc', 'rxnorm', 'mesh']);
 
 /**
  * A numeric identifier that clients send either as the string the source
@@ -37,8 +37,6 @@ const lenientBoolean = z.union([
   z.boolean(),
   z.enum(['true', 'false']).transform((v) => v === 'true'),
 ]);
-
-const SCTIDSchema = numericIdSchema('SCTID');
 
 const RxCUISchema = numericIdSchema('RxCUI');
 
@@ -505,127 +503,6 @@ export type MeSHTreeOutput = z.infer<typeof MeSHTreeOutputSchema>;
 export type MeSHQualifiersOutput = z.infer<typeof MeSHQualifiersOutputSchema>;
 
 // ============================================================================
-// SNOMED CT params
-// ============================================================================
-
-export const SNOMEDSearchParamsSchema = z.object({
-  query: z.string().min(1).describe('Search term (e.g., "diabetes", "myocardial infarction")'),
-  active_only: z
-    .boolean()
-    .optional()
-    .default(true)
-    .describe('Only return active concepts. Default: true'),
-  language: SupportedLanguageSchema.optional().default('en'),
-  max_results: maxResults(25),
-}).strict();
-
-/** Shared shape for snomed_descriptions (no language — that endpoint returns all). */
-export const SNOMEDBySctidParamsSchema = z.object({
-  sctid: SCTIDSchema.describe('SNOMED CT Identifier (e.g., 73211009)'),
-}).strict();
-
-/** snomed_concept takes a language as well (Accept-Language propagated upstream). */
-export const SNOMEDConceptParamsSchema = z.object({
-  sctid: SCTIDSchema.describe('SNOMED CT Identifier (e.g., 73211009)'),
-  language: SupportedLanguageSchema.optional().default('en'),
-}).strict();
-
-export const SNOMEDHierarchyParamsSchema = z.object({
-  sctid: SCTIDSchema.describe('SNOMED CT Identifier'),
-  direction: z
-    .enum(['parents', 'children', 'both'])
-    .optional()
-    .default('both')
-    .describe('Direction: parents, children, or both. Default: both'),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional()
-    .default(50)
-    .describe('Maximum children to return (1-100). Default: 50'),
-}).strict();
-
-export const SNOMEDECLParamsSchema = z.object({
-  ecl: z.string().min(1).describe('ECL expression (e.g., "<< 73211009" for all types of diabetes)'),
-  max_results: maxResults(25),
-}).strict();
-
-// ============================================================================
-// SNOMED CT output schemas (structuredContent)
-// ============================================================================
-
-const SNOMEDConceptSummarySchema = z.object({
-  concept_id: z.string(),
-  fsn: z.string(),
-  pt: z.string(),
-  active: z.boolean(),
-  definition_status: z.string(),
-  module_id: z.string(),
-});
-
-const SNOMEDHierarchyConceptSchema = z.object({
-  concept_id: z.string(),
-  fsn: z.string(),
-  pt: z.string(),
-  active: z.boolean(),
-  definition_status: z.string(),
-});
-
-export const SNOMEDSearchOutputSchema = z.object({
-  query: z.string(),
-  active_only: z.boolean(),
-  total_count: z.number().int(),
-  concepts: z.array(SNOMEDConceptSummarySchema),
-});
-
-export const SNOMEDConceptOutputSchema = z.object({
-  concept_id: z.string(),
-  fsn: z.string(),
-  pt: z.string(),
-  active: z.boolean(),
-  effective_time: z.string(),
-  definition_status: z.string(),
-  module_id: z.string(),
-});
-
-export const SNOMEDHierarchyOutputSchema = z.object({
-  sctid: z.string(),
-  direction: z.enum(['parents', 'children', 'both']),
-  parents: z.array(SNOMEDHierarchyConceptSchema),
-  children: z.array(SNOMEDHierarchyConceptSchema),
-});
-
-export const SNOMEDDescriptionsOutputSchema = z.object({
-  sctid: z.string(),
-  descriptions: z.array(
-    z.object({
-      description_id: z.string(),
-      term: z.string(),
-      type: z.string(),
-      type_id: z.string(),
-      lang: z.string(),
-      active: z.boolean(),
-      case_significance: z.string(),
-      acceptability_map: z.record(z.string(), z.string()),
-    }),
-  ),
-});
-
-export const SNOMEDECLOutputSchema = z.object({
-  ecl: z.string(),
-  total_count: z.number().int(),
-  concepts: z.array(SNOMEDConceptSummarySchema),
-});
-
-export type SNOMEDSearchOutput = z.infer<typeof SNOMEDSearchOutputSchema>;
-export type SNOMEDConceptOutput = z.infer<typeof SNOMEDConceptOutputSchema>;
-export type SNOMEDHierarchyOutput = z.infer<typeof SNOMEDHierarchyOutputSchema>;
-export type SNOMEDDescriptionsOutput = z.infer<typeof SNOMEDDescriptionsOutputSchema>;
-export type SNOMEDECLOutput = z.infer<typeof SNOMEDECLOutputSchema>;
-
-// ============================================================================
 // Crosswalk params
 // ============================================================================
 
@@ -634,14 +511,6 @@ export const MapICD10ToICD11ParamsSchema = z.object({
     .string()
     .min(1)
     .describe('ICD-10 code to query in the ICD-11 search index (e.g., E11, I21.0, J18.9)'),
-}).strict();
-
-export const MapSNOMEDToICD10ParamsSchema = z.object({
-  sctid: SCTIDSchema.describe('SNOMED CT Identifier'),
-}).strict();
-
-export const MapLOINCToSNOMEDParamsSchema = z.object({
-  loinc_code: LOINCNumberSchema.describe('LOINC code (e.g., 2339-0 for Glucose)'),
 }).strict();
 
 export const FindEquivalentParamsSchema = z.object({
@@ -689,15 +558,14 @@ const FindEquivalentItemSchema = z.object({
   // provenance block (next session) will mark these derived: true.
   match_score: z.number().min(0).max(1),
   // Global rank across ALL searched terminologies (1 = best match overall).
-  // Ties break by terminology order (icd11, snomed, loinc, rxnorm, mesh),
+  // Ties break by terminology order (icd11, loinc, rxnorm, mesh),
   // then by upstream result order — deterministic for identical responses.
   rank: z.number().int().min(1),
 });
 
 const FindEquivalentTerminologyResultSchema = z.object({
   found: z.boolean(),
-  // Populated when the upstream call failed (timeout, server error, or — for
-  // SNOMED — when the SNOMED tools are disabled in this server).
+  // Populated when the upstream call failed (timeout, server error).
   error: z.string().nullable(),
   // Sorted by match_score descending (i.e. by global rank) since v1.7.0;
   // before that the order was whatever the upstream returned.
@@ -733,7 +601,6 @@ export const FindEquivalentOutputSchema = z.object({
   // empty items+found:false means "searched, no hits".
   results: z.object({
     icd11: FindEquivalentTerminologyResultSchema.optional(),
-    snomed: FindEquivalentTerminologyResultSchema.optional(),
     loinc: FindEquivalentTerminologyResultSchema.optional(),
     rxnorm: FindEquivalentTerminologyResultSchema.optional(),
     mesh: FindEquivalentTerminologyResultSchema.optional(),
@@ -755,13 +622,9 @@ export type FindEquivalentOutput = z.infer<typeof FindEquivalentOutputSchema>;
 // Crosswalk outputs
 //
 // `map_icd10_to_icd11` returns the real WHO transition-table entry (or null
-// when the code isn't in the category-level table). The other two are
-// guidance-only by design — no authoritative LOINC↔SNOMED or SNOMED→ICD-10
-// mapping is freely available via API, so the structured payload exposes the
-// LOINC/SNOMED lookup result we *can* do plus pointers to the licensed
-// sources operators can use to perform the actual mapping themselves. When
-// 13.7 (Snowstorm refset 447562003) ships, `MapSNOMEDToICD10OutputSchema`
-// becomes the envelope that wraps the real ReferenceSetMember list.
+// when the code isn't in the category-level table). The two guidance-only
+// mappings (map_snomed_to_icd10, map_loinc_to_snomed) were retired with
+// SNOMED CT in 2.0.0.
 // ============================================================================
 
 const ICD10SourceSchema = z.object({
@@ -808,73 +671,6 @@ export const MapICD10ToICD11OutputSchema = z.object({
 
 export type MapICD10ToICD11Output = z.infer<typeof MapICD10ToICD11OutputSchema>;
 
-const MappingSourceRefSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  url: z.string().nullable(),
-});
-
-export const MapSNOMEDToICD10OutputSchema = z.object({
-  sctid: z.string().describe('The SNOMED CT Identifier as submitted.'),
-  preferred_term: z
-    .string()
-    .nullable()
-    .describe(
-      'SNOMED preferred term for the concept, when the upstream returns one. Null when the SNOMED upstream timed out or returned nothing.',
-    ),
-  status: z
-    .enum(['guidance-only', 'upstream-unavailable'])
-    .describe(
-      '"guidance-only" — no freely available authoritative SNOMED → ICD-10 mapping API exists today; this tool returns pointers to the licensed sources (UMLS, refset 447562003) instead. "upstream-unavailable" — SNOMED was attempted but the Snowstorm host did not respond.',
-    ),
-  guidance: z
-    .string()
-    .describe(
-      'Short human-readable explanation of why this tool returns guidance instead of a mapping.',
-    ),
-  authoritative_sources: z
-    .array(MappingSourceRefSchema)
-    .describe(
-      'Structured list of authoritative SNOMED → ICD-10 mapping sources for programmatic consumers (UMLS Metathesaurus, SNOMED Complex Map refset, national extensions).',
-    ),
-});
-
-export type MapSNOMEDToICD10Output = z.infer<typeof MapSNOMEDToICD10OutputSchema>;
-
-const LOINCDetailsSchema = z.object({
-  code: z.string(),
-  long_common_name: z.string().nullable(),
-  component: z.string().nullable(),
-  system: z.string().nullable(),
-  property: z.string().nullable(),
-});
-
-export const MapLOINCToSNOMEDOutputSchema = z.object({
-  loinc_code: z.string().describe('The LOINC code as submitted.'),
-  loinc_details: LOINCDetailsSchema
-    .nullable()
-    .describe(
-      'NLM Clinical Tables details for the LOINC code (component, system, property, etc.). Null when the code was not found upstream.',
-    ),
-  status: z
-    .enum(['guidance-only'])
-    .describe(
-      'Always "guidance-only" — direct LOINC → SNOMED CT mappings require licensed sources (UMLS Metathesaurus or LOINC SNOMED CT Expression Association). This tool returns pointers, not the mapping itself.',
-    ),
-  guidance: z
-    .string()
-    .describe(
-      'Short human-readable explanation of why this tool returns guidance instead of a mapping.',
-    ),
-  mapping_sources: z
-    .array(MappingSourceRefSchema)
-    .describe(
-      'Structured list of authoritative LOINC → SNOMED CT mapping sources (UMLS Metathesaurus, LOINC SNOMED CT Expression Association, Regenstrief RELMA).',
-    ),
-});
-
-export type MapLOINCToSNOMEDOutput = z.infer<typeof MapLOINCToSNOMEDOutputSchema>;
-
 // ============================================================================
 // validate_codes params + output
 //
@@ -887,7 +683,6 @@ export type MapLOINCToSNOMEDOutput = z.infer<typeof MapLOINCToSNOMEDOutputSchema
 export const ValidateCodesTerminologyEnum = z.enum([
   'icd11',
   'icd10',
-  'snomed',
   'loinc',
   'rxnorm',
   'mesh',
@@ -1068,7 +863,7 @@ export type HarmonizeDomain = z.infer<typeof HarmonizeDomainEnum>;
 export const TerminologyVersionsParamsSchema = z.object({
   terminology: ValidateCodesTerminologyEnum
     .optional()
-    .describe('Filter to a single terminology. Omit to return all 8.'),
+    .describe('Filter to a single terminology. Omit to return all 7.'),
 }).strict();
 
 const TerminologyVersionEntrySchema = z.object({

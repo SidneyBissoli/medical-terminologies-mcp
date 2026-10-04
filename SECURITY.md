@@ -30,10 +30,9 @@ What to expect:
 ## Scope notes
 
 - This server is a read-only proxy over public medical-terminology APIs
-  (WHO ICD-11, NLM Clinical Tables, RxNav, MeSH, optional Snowstorm) plus
+  (WHO ICD-11, NLM Clinical Tables, RxNav, MeSH) plus
   bundled static datasets. It stores no user data and requires no
-  credentials except the operator's own WHO OAuth2 client (and optional
-  SNOMED endpoint configuration).
+  credentials except the operator's own WHO OAuth2 client.
 - Reports about upstream API behavior (WHO, NLM, NIH) should go to the
   respective upstream maintainers; this project can only mitigate, not
   fix, upstream issues.
