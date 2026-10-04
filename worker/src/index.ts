@@ -10,6 +10,7 @@
  * request — MCP SDK v2 + agents 0.20+).
  */
 
+import { autenticacaoDaTrava, capturarCard, cardEmCache } from "@sbissoli/mcp-surface/card";
 import { createMcpHandler } from "agents/mcp/server";
 import { unknownCursorError } from "../../dist/worker-lib.js";
 
@@ -17,7 +18,6 @@ import { StatsCounter, toolRegistry } from "../../dist/worker-lib.js";
 import { SELF_ROUTE, tagRequest, withAnalytics, recordProtocolMethods, sessionFromRequest, withSessionHeader } from "./analytics.js";
 import { desfechosDoCorpo, teeResposta, type Desfecho } from "./envelope.js";
 import { checkAuth } from "./auth.js";
-import { getServerCard } from "./card.js";
 import { SERVER_CONFIG } from "./config.js";
 import { bridgeEnv } from "./env-bridge.js";
 import { landingResponse } from "./landing.js";
@@ -29,6 +29,7 @@ import { bridgeStats, statsBadgeResponse, statsResponse } from "./stats-legacy.j
 import { buildStatus } from "./status.js";
 import type { Env } from "./types.js";
 import { createUsageRecorder, usageSnapshot, UsageTracker } from "./usage.js";
+import trava from "../../surface.lock.json";
 
 // O runtime instancia os Durable Objects a partir dos exports do entrypoint.
 // StatsCounter vem do pacote pai (mesmo class_name do worker pré-template =
@@ -38,6 +39,15 @@ export { UsageTracker, StatsCounter };
 // Baseline de uptime por isolate para o /health. Definido no primeiro request,
 // NÃO no init do módulo — Date.now() em module-load no Workers pode retornar 0.
 let isolateStartMs: number | null = null;
+
+// Server card (`/.well-known/mcp/server-card.json`) gerado pelo pacote do
+// portfólio a partir do initialize + */list REAIS do mesmo `buildServer` do
+// /mcp (InMemoryTransport, sem Ajv). `authentication` sai da seção `semToken`
+// do surface.lock.json — o que a borda mediu. Primeira montagem bem-sucedida
+// fica em cache por isolate; falha não é cacheada.
+const serverCard = cardEmCache(() =>
+  capturarCard(buildServer(), { authentication: autenticacaoDaTrava(trava) }),
+);
 
 function json(data: unknown, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(data), {
@@ -100,7 +110,7 @@ export default {
     // MCP server card para scanners de registry que o leem em vez do /mcp.
     if (url.pathname === "/.well-known/mcp/server-card.json") {
       try {
-        return new Response(await getServerCard(), {
+        return new Response(await serverCard(), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
