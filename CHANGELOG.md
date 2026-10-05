@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The Worker's server card is generated, not hand-copied.**
+  `/.well-known/mcp/server-card.json` now comes from
+  `@sbissoli/mcp-surface/card` 0.3.0 (shared by the portfolio's servers),
+  built from the real `initialize` and `*/list` of the same `buildServer` that
+  serves `/mcp`. The card gains `serverInfo` (`name`, `version` and the rest of
+  the handshake identity — the shape Smithery documents; the old card put
+  `name`/`version` loose at the root) and `authentication`, derived from the
+  `semToken` section of `surface.lock.json` (`required: false`). A worker test
+  proves the card normalizes to the same sha256 as the locked surface.
+  `worker/src/card.ts` is gone.
+
 ### Tests
 
 - **The output contract is client-shaped** (a reader's idea,
