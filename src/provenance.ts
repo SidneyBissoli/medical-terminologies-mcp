@@ -401,6 +401,8 @@ const BLOCK_DESCRIPTIONS: Record<keyof typeof ConciseBlockSchema.shape, string> 
     'Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)',
   citation: 'Ready-to-use citation/attribution string',
   license: 'License / legal regime of the data',
+  field_sources:
+    'Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses',
 };
 
 /** The subset of JSON Schema the walker reads: descriptions, and where the children are. */
@@ -429,8 +431,16 @@ function describeFromJsonSchema(
     // `x | null` is `oneOf: [x, null]` (retrieval) or `type: [x, "null"]` (vintage).
     const inner = node?.oneOf ? node.oneOf.find((n) => n.type !== 'null') : node;
     out = describeFromJsonSchema(schema.unwrap() as z.ZodType, inner, {}, '').nullable();
+  } else if (schema instanceof z.ZodOptional) {
+    // Optional keys of contract v1.2 (`field_sources`, `served_from_cache`).
+    out = describeFromJsonSchema(schema.unwrap() as z.ZodType, node, {}, '').optional();
   } else if (schema instanceof z.ZodArray) {
-    out = z.array(describeFromJsonSchema(schema.element as z.ZodType, node?.items));
+    // `clone` keeps the array's checks (`field_sources` is `.min(1)`); a fresh
+    // `z.array` would drop them and the wire schema would lose `minItems`.
+    out = schema.clone({
+      ...schema.def,
+      element: describeFromJsonSchema(schema.element as z.ZodType, node?.items),
+    });
   } else if (schema instanceof z.ZodObject) {
     out = z.strictObject(
       Object.fromEntries(
