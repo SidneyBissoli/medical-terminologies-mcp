@@ -92,14 +92,26 @@ jobs:
       # mixed isolates for a few seconds.
       - name: Hosted version matches package.json
         run: |
-          sleep 20
+          # Retries for up to 3 min (2026-10-06). A single read after `sleep 20` gave a
+          # false red when the new Worker took longer to reach the edge — and that false
+          # red SKIPPED the smoke and the surface check (measured on senado, run
+          # 37515023242). /status answers `no-store`: the delay is propagation.
           EXPECTED=$(node -p "require('./package.json').version")
-          LIVE=$(curl -sS --max-time 30 https://medical.sidneybissoli.com/status | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
-          echo "package.json=$EXPECTED  hosted=$LIVE"
-          if [ "$EXPECTED" != "$LIVE" ]; then
-            echo "::error::drift: the endpoint serves $LIVE while the repo is at $EXPECTED"
-            exit 1
-          fi
+          DEADLINE=180; INTERVAL=10; START=$(date +%s); LIVE="?"
+          while :; do
+            # A network error or invalid JSON does not break the loop: it becomes "?" and retries.
+            LIVE=$(curl -sS --max-time 30 https://medical.sidneybissoli.com/status 2>/dev/null \
+              | node -e "try{console.log(JSON.parse(require('fs').readFileSync(0,'utf8')).version)}catch{console.log('?')}" \
+              || echo "?")
+            ELAPSED=$(( $(date +%s) - START ))
+            echo "t=${ELAPSED}s  package.json=$EXPECTED  hosted=$LIVE"
+            [ "$EXPECTED" = "$LIVE" ] && exit 0
+            if [ "$ELAPSED" -ge "$DEADLINE" ]; then
+              echo "::error::drift: after ${DEADLINE}s the endpoint serves $LIVE while the repo is at $EXPECTED"
+              exit 1
+            fi
+            sleep "$INTERVAL"
+          done
 
       # Closes the loop: if the deploy ships a broken worker, the job fails
       # here — not silently the next time someone opens the endpoint.
