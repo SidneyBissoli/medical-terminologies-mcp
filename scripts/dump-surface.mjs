@@ -62,8 +62,12 @@ async function captureStdio(entry) {
   let buffer = "";
   const pending = new Map();
 
+  // Decode as a stream: `chunk.toString()` per chunk splits a multibyte UTF-8
+  // character that straddles two chunks into two U+FFFD (found in bcb-br-mcp
+  // 05/10/2026, where a "ç" landed on a chunk boundary and corrupted the baseline).
+  child.stdout.setEncoding("utf8");
   child.stdout.on("data", chunk => {
-    buffer += chunk.toString();
+    buffer += chunk;
     let nl;
     while ((nl = buffer.indexOf("\n")) >= 0) {
       const line = buffer.slice(0, nl).trim();

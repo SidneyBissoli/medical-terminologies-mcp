@@ -399,5 +399,9 @@ describe("the client's validator rejects a result broken on the wire", () => {
     ]);
     expect(vs.length).toBeGreaterThanOrEqual(4);
     for (const v of vs) expect(v.obtido, `${v.descricao}: ${v.mensagem ?? ''}`).toBe(v.esperado);
-  });
+    // 30 verdicts, each over a fresh server + Client that compiles the listed
+    // schema again: 2-4 s alone, more under the full suite's load — the
+    // default 5 s timeout was already at the edge before contract v1.2 added
+    // the optional `field_sources` node to the provenance schema.
+  }, 30_000);
 });

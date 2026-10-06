@@ -7,8 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-05
+
 ### Changed
 
+- **Provenance 0.3.0 (contract v1.2), step one: the schema accepts v1.2, the
+  server still emits v1.1.** `@sbissoli/mcp-provenance` goes to 0.3.0 and
+  `@sbissoli/mcp-upstream` to 0.4.0. Every tool's `outputSchema` now declares
+  the OPTIONAL key `field_sources` on the provenance block (eighth key, not in
+  `required`; each item with `fields`, `source_url`, `dataset_id`,
+  `data_vintage`, `retrieved_at` and an optional `served_from_cache`), and the
+  item description of the four multi-source tools (`find_equivalent`,
+  `harmonize_terms`, `search`, `validate_codes`) follows the package's v1.2
+  wording. **No response changes:** the block keeps `contract_version` 1.1 and
+  the same seven keys, byte for byte; `field_sources` is not filled. Switching
+  the emission to 1.2 is step two. The shape stays the package's
+  `ConciseBlockSchema` — the description walker in `src/provenance.ts` now
+  passes through optional keys and keeps array checks (`minItems`), so the
+  listed schema matches the package's JSON Schema.
 - **The Worker's server card is generated, not hand-copied.**
   `/.well-known/mcp/server-card.json` now comes from
   `@sbissoli/mcp-surface/card` 0.3.0 (shared by the portfolio's servers),
@@ -39,7 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `external_copyright_notice` as a plain string makes the `Client` itself reject
   `loinc_details` and `loinc_search`.
 
-No surface or version change: tests and a dev dependency only.
+The output-contract change is tests and a dev dependency only.
 
 ## [2.0.0] - 2026-10-03
 
