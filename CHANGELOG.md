@@ -7,7 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.1.0] - 2026-10-05
+## [2.1.1] - 2026-10-06
+
+Dependencies only: MCP SDK 2.1.0 → 2.3.0 at the root and `agents` 0.24.0 →
+0.25.0 in the Worker. No response and no schema changes (the surface lock
+passed without being rewritten).
+
+### Security
+
+- **GHSA-6qxp-vccf-f47h (high) in `@modelcontextprotocol/client`
+  2.0.0–2.1.0** ("OAuth client could send credentials to an authorization
+  server chosen by the MCP server"): `client` goes to 2.3.0. Here it is a
+  devDependency imported only by tests (no runtime `src/` file), with no
+  OAuth flow — the published package never loaded it.
+- `source-map-js` 1.2.1 → 1.2.2 (GHSA-68fv-2mgg-jv7q), root and Worker,
+  development only.
+
+### Changed
+
+- **`@modelcontextprotocol/server` 2.1.0 → 2.3.0**, `pino` 10.3.1 → 10.4.0,
+  and in the Worker **`agents` 0.24.0 → 0.25.0**, `wrangler` 4.147.0.
+  `agents` still declares SDK 2.0.0 as an exact peer; with
+  `legacy-peer-deps` the Worker resolves the SAME 2.3.0 copy as the root
+  (`build:worker-lib` keeps `@modelcontextprotocol/*` external, so this is
+  what the deployed bundle loads) — checked at runtime, with both PRs
+  combined, before merging.
+
 
 ### Changed
 
