@@ -3,7 +3,7 @@
   "mcpName": "io.github.SidneyBissoli/medical-terminologies-mcp",
   "version": "2.1.1",
   "description": "Unified MCP server for six medical terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10) with authoritative WHO ICD-10→ICD-11 mapping. 33 tools, hosted endpoint available, MIT.",
-  "author": "Sidney Bissoli",
+  "author": "Sidney da Silva Pereira Bissoli",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
