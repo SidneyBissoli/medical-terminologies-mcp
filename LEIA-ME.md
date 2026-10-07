@@ -513,7 +513,7 @@ Contribuições são bem-vindas! Fique à vontade para abrir um Pull Request.
 
 ## Autor
 
-**Sidney Bissoli**
+**Sidney da Silva Pereira Bissoli**
 
 - GitHub: [@SidneyBissoli](https://github.com/SidneyBissoli)
 

@@ -3,7 +3,7 @@
   "name": "Medical Terminologies MCP",
   "version": "2.1.1",
   "description": "Unified MCP server for global medical terminologies - ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
-  "author": "Sidney Bissoli",
+  "author": "Sidney da Silva Pereira Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
   "homepage": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
   "icon": "⚕️",

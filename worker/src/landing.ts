@@ -89,7 +89,7 @@ export function landingHtml(): string {
     inLanguage: l.lang,
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
     license: "https://opensource.org/licenses/MIT",
-    author: { "@type": "Person", name: "Sidney Bissoli" },
+    author: { "@type": "Person", name: "Sidney da Silva Pereira Bissoli" },
     codeRepository: l.repoUrl,
   };
 
