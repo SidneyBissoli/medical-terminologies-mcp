@@ -405,3 +405,64 @@ describe("the client's validator rejects a result broken on the wire", () => {
     // the optional `field_sources` node to the provenance schema.
   }, 30_000);
 });
+
+// ==================== contract 1.3, step one: the listed schema accepts it ====================
+//
+// The server still emits 1.2 (the four 1.3 keys never reach the wire), but the
+// LISTED schema must already accept a full 1.3 block — that is step one of the
+// two-step rollout: connectors cache the schema before the wire changes. The
+// block is injected on the wire, between server and client, and the Client
+// validates it against the schema it got from `tools/list`.
+
+const FULL_13 = {
+  notices: ['A notice the source publishes, verbatim.'],
+  derived: true,
+  derivation_note: 'What the server computed.',
+  revision: { status: 'current', note: 'Released annually.' },
+};
+
+function injectInto(r: { structuredContent?: Record<string, unknown> }, extra: Record<string, unknown>): void {
+  const prov = r.structuredContent?.provenance;
+  const blocks = Array.isArray(prov) ? prov : [prov];
+  for (const b of blocks) Object.assign(b as Record<string, unknown>, extra);
+}
+
+async function callWithInjected(name: string, args: Record<string, unknown>, extra: Record<string, unknown>) {
+  const client = await conectarComoCliente(createServer(), { adulterar: (r) => injectInto(r, extra) });
+  try {
+    return await chamarComoCliente(client, name, args);
+  } finally {
+    await client.close();
+  }
+}
+
+describe('the listed schema accepts a contract 1.3 block (step one of 1.3)', () => {
+  it('declares notices/derived/derivation_note/revision, none of them required', async () => {
+    const tool = (await listedTools()).find((t) => t.name === 'cid10_lookup');
+    const prov = (tool?.outputSchema as { properties: Record<string, { properties: object; required: string[] }> })
+      .properties.provenance;
+    for (const key of ['notices', 'derived', 'derivation_note', 'revision']) {
+      expect(Object.keys(prov.properties)).toContain(key);
+      expect(prov.required).not.toContain(key);
+    }
+  });
+
+  it('single-source tool: a block with the four 1.3 keys passes the Client', async () => {
+    const r = await callWithInjected('cid10_lookup', { code: 'A00' }, FULL_13);
+    expect((r.structuredContent as { provenance: { revision: unknown } }).provenance.revision).toEqual(FULL_13.revision);
+  });
+
+  it('multi-source tool: every block with the four 1.3 keys passes the Client', async () => {
+    await callWithInjected(
+      'validate_codes',
+      { codes: [{ code: 'E11', terminology: 'icd10' }, { code: 'A00', terminology: 'cid10' }] },
+      FULL_13,
+    );
+  });
+
+  it('negative control: a status outside the closed vocabulary is rejected', async () => {
+    await expect(
+      callWithInjected('cid10_lookup', { code: 'A00' }, { revision: { status: 'maybe', note: null } }),
+    ).rejects.toThrow();
+  });
+});

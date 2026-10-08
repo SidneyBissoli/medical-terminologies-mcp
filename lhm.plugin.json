@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "description": "Unified MCP server for global medical terminologies - ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney da Silva Pereira Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -93,7 +93,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -106,8 +106,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -171,6 +179,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -238,11 +254,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -343,7 +386,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -356,8 +399,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -421,6 +472,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -488,11 +547,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -591,7 +677,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -604,8 +690,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -669,6 +763,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -736,11 +838,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -881,7 +1010,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -894,8 +1023,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -959,6 +1096,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -1026,11 +1171,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -1124,7 +1296,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -1137,8 +1309,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -1202,6 +1382,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -1269,11 +1457,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -1425,7 +1640,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -1438,8 +1653,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -1503,6 +1726,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -1570,11 +1801,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -1743,7 +2001,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -1756,8 +2014,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -1821,6 +2087,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -1888,11 +2162,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -1994,7 +2295,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -2007,8 +2308,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -2072,6 +2381,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -2139,11 +2456,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -2317,10 +2661,10 @@
             "type": "array"
           },
           "provenance": {
-            "description": "One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)",
+            "description": "One provenance block per upstream source that contributed to this response (licenses are never merged; each block carries the origin diagnostics of ITS source)",
             "items": {
               "additionalProperties": false,
-              "description": "Bloco de proveniência (contrato v1.2): fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando a resposta junta partes de origens ou momentos distintos, de onde veio cada parte",
+              "description": "Bloco de proveniência: fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando há o que dizer, de onde veio cada parte, avisos da fonte, o que o servidor calculou e se o dado ainda pode mudar",
               "properties": {
                 "citation": {
                   "description": "Ready-to-use citation/attribution string",
@@ -2333,8 +2677,16 @@
                     "null"
                   ]
                 },
+                "derivation_note": {
+                  "description": "What this server computed; present together with derived",
+                  "type": "string"
+                },
+                "derived": {
+                  "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                  "type": "boolean"
+                },
                 "field_sources": {
-                  "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                  "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                   "items": {
                     "additionalProperties": false,
                     "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -2398,6 +2750,14 @@
                     "string",
                     "null"
                   ]
+                },
+                "notices": {
+                  "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
                 },
                 "retrieval": {
                   "anyOf": [
@@ -2465,11 +2825,38 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                  "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
                 },
                 "retrieved_at": {
                   "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                   "type": "string"
+                },
+                "revision": {
+                  "additionalProperties": false,
+                  "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                  "properties": {
+                    "note": {
+                      "description": "O específico da fonte: o que revisa, quando, por quê",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                      "enum": [
+                        "current",
+                        "provisional",
+                        "final"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "note"
+                  ],
+                  "type": "object"
                 },
                 "source": {
                   "description": "Official upstream source of this data",
@@ -2898,10 +3285,10 @@
             "type": "object"
           },
           "provenance": {
-            "description": "One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)",
+            "description": "One provenance block per upstream source that contributed to this response (licenses are never merged; each block carries the origin diagnostics of ITS source)",
             "items": {
               "additionalProperties": false,
-              "description": "Bloco de proveniência (contrato v1.2): fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando a resposta junta partes de origens ou momentos distintos, de onde veio cada parte",
+              "description": "Bloco de proveniência: fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando há o que dizer, de onde veio cada parte, avisos da fonte, o que o servidor calculou e se o dado ainda pode mudar",
               "properties": {
                 "citation": {
                   "description": "Ready-to-use citation/attribution string",
@@ -2914,8 +3301,16 @@
                     "null"
                   ]
                 },
+                "derivation_note": {
+                  "description": "What this server computed; present together with derived",
+                  "type": "string"
+                },
+                "derived": {
+                  "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                  "type": "boolean"
+                },
                 "field_sources": {
-                  "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                  "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                   "items": {
                     "additionalProperties": false,
                     "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -2979,6 +3374,14 @@
                     "string",
                     "null"
                   ]
+                },
+                "notices": {
+                  "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
                 },
                 "retrieval": {
                   "anyOf": [
@@ -3046,11 +3449,38 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                  "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
                 },
                 "retrieved_at": {
                   "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                   "type": "string"
+                },
+                "revision": {
+                  "additionalProperties": false,
+                  "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                  "properties": {
+                    "note": {
+                      "description": "O específico da fonte: o que revisa, quando, por quê",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                      "enum": [
+                        "current",
+                        "provisional",
+                        "final"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "note"
+                  ],
+                  "type": "object"
                 },
                 "source": {
                   "description": "Official upstream source of this data",
@@ -3371,7 +3801,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -3384,8 +3814,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -3449,6 +3887,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -3516,11 +3962,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -3660,7 +4133,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -3673,8 +4146,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -3738,6 +4219,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -3805,11 +4294,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -4008,7 +4524,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -4021,8 +4537,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -4086,6 +4610,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -4153,11 +4685,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -4282,7 +4841,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -4295,8 +4854,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -4360,6 +4927,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -4427,11 +5002,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -4584,7 +5186,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -4597,8 +5199,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -4662,6 +5272,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -4729,11 +5347,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -4848,7 +5493,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -4861,8 +5506,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -4926,6 +5579,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -4993,11 +5654,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -5089,7 +5777,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -5102,8 +5790,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -5167,6 +5863,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -5234,11 +5938,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -5392,7 +6123,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -5405,8 +6136,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -5470,6 +6209,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -5537,11 +6284,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -5678,7 +6452,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -5691,8 +6465,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -5756,6 +6538,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -5823,11 +6613,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -6036,7 +6853,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -6049,8 +6866,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -6114,6 +6939,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -6181,11 +7014,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -6337,7 +7197,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -6350,8 +7210,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -6415,6 +7283,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -6482,11 +7358,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -6610,7 +7513,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -6623,8 +7526,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -6688,6 +7599,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -6755,11 +7674,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -6915,7 +7861,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -6928,8 +7874,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -6993,6 +7947,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -7060,11 +8022,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -7145,7 +8134,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -7158,8 +8147,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -7223,6 +8220,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -7290,11 +8295,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -7417,7 +8449,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -7430,8 +8462,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -7495,6 +8535,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -7562,11 +8610,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -7677,7 +8752,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -7690,8 +8765,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -7755,6 +8838,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -7822,11 +8913,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -8032,7 +9150,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -8045,8 +9163,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -8110,6 +9236,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -8177,11 +9311,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -8284,7 +9445,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -8297,8 +9458,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -8362,6 +9531,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -8429,11 +9606,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -8554,7 +9758,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -8567,8 +9771,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -8632,6 +9844,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -8699,11 +9919,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -8778,10 +10025,10 @@
             "type": "array"
           },
           "provenance": {
-            "description": "One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)",
+            "description": "One provenance block per upstream source that contributed to this response (licenses are never merged; each block carries the origin diagnostics of ITS source)",
             "items": {
               "additionalProperties": false,
-              "description": "Bloco de proveniência (contrato v1.2): fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando a resposta junta partes de origens ou momentos distintos, de onde veio cada parte",
+              "description": "Bloco de proveniência: fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando há o que dizer, de onde veio cada parte, avisos da fonte, o que o servidor calculou e se o dado ainda pode mudar",
               "properties": {
                 "citation": {
                   "description": "Ready-to-use citation/attribution string",
@@ -8794,8 +10041,16 @@
                     "null"
                   ]
                 },
+                "derivation_note": {
+                  "description": "What this server computed; present together with derived",
+                  "type": "string"
+                },
+                "derived": {
+                  "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                  "type": "boolean"
+                },
                 "field_sources": {
-                  "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                  "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                   "items": {
                     "additionalProperties": false,
                     "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -8859,6 +10114,14 @@
                     "string",
                     "null"
                   ]
+                },
+                "notices": {
+                  "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
                 },
                 "retrieval": {
                   "anyOf": [
@@ -8926,11 +10189,38 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                  "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
                 },
                 "retrieved_at": {
                   "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                   "type": "string"
+                },
+                "revision": {
+                  "additionalProperties": false,
+                  "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                  "properties": {
+                    "note": {
+                      "description": "O específico da fonte: o que revisa, quando, por quê",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                      "enum": [
+                        "current",
+                        "provisional",
+                        "final"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "note"
+                  ],
+                  "type": "object"
                 },
                 "source": {
                   "description": "Official upstream source of this data",
@@ -9106,7 +10396,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -9119,8 +10409,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -9184,6 +10482,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -9251,11 +10557,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -9356,7 +10689,7 @@
           },
           "provenance": {
             "additionalProperties": false,
-            "description": "Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
             "properties": {
               "citation": {
                 "description": "Ready-to-use citation/attribution string",
@@ -9369,8 +10702,16 @@
                   "null"
                 ]
               },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
               "field_sources": {
-                "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                 "items": {
                   "additionalProperties": false,
                   "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -9434,6 +10775,14 @@
                   "string",
                   "null"
                 ]
+              },
+              "notices": {
+                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
               },
               "retrieval": {
                 "anyOf": [
@@ -9501,11 +10850,38 @@
                     "type": "null"
                   }
                 ],
-                "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
               },
               "retrieved_at": {
                 "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                 "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
               },
               "source": {
                 "description": "Official upstream source of this data",
@@ -9688,10 +11064,10 @@
             "type": "integer"
           },
           "provenance": {
-            "description": "One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)",
+            "description": "One provenance block per upstream source that contributed to this response (licenses are never merged; each block carries the origin diagnostics of ITS source)",
             "items": {
               "additionalProperties": false,
-              "description": "Bloco de proveniência (contrato v1.2): fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando a resposta junta partes de origens ou momentos distintos, de onde veio cada parte",
+              "description": "Bloco de proveniência: fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando há o que dizer, de onde veio cada parte, avisos da fonte, o que o servidor calculou e se o dado ainda pode mudar",
               "properties": {
                 "citation": {
                   "description": "Ready-to-use citation/attribution string",
@@ -9704,8 +11080,16 @@
                     "null"
                   ]
                 },
+                "derivation_note": {
+                  "description": "What this server computed; present together with derived",
+                  "type": "string"
+                },
+                "derived": {
+                  "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                  "type": "boolean"
+                },
                 "field_sources": {
-                  "description": "Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                  "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
                   "items": {
                     "additionalProperties": false,
                     "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
@@ -9769,6 +11153,14 @@
                     "string",
                     "null"
                   ]
+                },
+                "notices": {
+                  "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
                 },
                 "retrieval": {
                   "anyOf": [
@@ -9836,11 +11228,38 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                  "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
                 },
                 "retrieved_at": {
                   "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
                   "type": "string"
+                },
+                "revision": {
+                  "additionalProperties": false,
+                  "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                  "properties": {
+                    "note": {
+                      "description": "O específico da fonte: o que revisa, quando, por quê",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                      "enum": [
+                        "current",
+                        "provisional",
+                        "final"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "note"
+                  ],
+                  "type": "object"
                 },
                 "source": {
                   "description": "Official upstream source of this data",

@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-08
+
+Provenance contract: step two of 1.2 and step one of 1.3.
+`@sbissoli/mcp-provenance` 0.3.0 → 0.4.0 and `@sbissoli/mcp-upstream`
+0.4.0 → 0.4.2. **No response changes:** the concise block, the `_meta`
+mirror and the text footer are byte-identical to 2.1.2 (tested for every
+source).
+
+### Changed
+
+- **The server emits contract 1.2** (`contractVersion: "1.2"`). This server
+  never fills `field_sources` — a multi-source response carries one block per
+  source — so 1.2 only moves the canonical `contract_version`; nothing on the
+  wire changes.
+- **The listed `outputSchema` accepts contract 1.3** in every tool's
+  provenance block: `notices`, `derived`, `derivation_note` and `revision`,
+  all optional, with this server's descriptions (the `revision` sub-fields
+  carry the package's text). Connectors can cache the new schema before the
+  server emits 1.3 (planned about a week from now).
+- Hand-written schema descriptions no longer name a contract version
+  ("contract v1.1"/"v1.2" aged with every minor).
+
+### Added
+
+- **`revision` in every source preset** (contract 1.3; not emitted while the
+  server speaks 1.2): `current` for every terminology, the bundled CID-10
+  V2008 included — `final` needs proof from the source and is future work.
+  The `note` reuses what `terminology_versions` already says about each
+  source's release cycle.
+- Tests: 1.2 leaves the concise block and footer byte-identical; every preset
+  carries `revision: current`; the listed schema accepts a full 1.3 block on
+  single- and multi-source tools, and rejects a status outside the closed
+  vocabulary.
+
 ## [2.1.2] - 2026-10-07
 
 The surface fingerprint now ships **in the MCP Registry entry**, so a client can
