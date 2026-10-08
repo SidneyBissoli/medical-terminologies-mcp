@@ -26,12 +26,12 @@
     "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
     "source": "github"
   },
-  "version": "2.1.1",
+  "version": "2.1.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "transport": {
         "type": "stdio"
       },
@@ -65,7 +65,7 @@
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "transport": {
         "type": "streamable-http",
         "url": "http://localhost:3000/mcp"
@@ -121,5 +121,34 @@
       "type": "streamable-http",
       "url": "https://medical.sidneybissoli.com/mcp"
     }
-  ]
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "io.github.sidneybissoli/mcp-surface": {
+        "form": "mcp-surface/1",
+        "spec": "https://github.com/SidneyBissoli/mcp-br-commons/blob/main/packages/mcp-surface/SPEC.md",
+        "endpoint": "https://medical.sidneybissoli.com/mcp",
+        "declared": {
+          "sha256": "167e28ef23326b35dc9c7542c09a1fd77abca405fdfb4235cad4114443a8a30a",
+          "lockedAt": "2.1.0"
+        },
+        "anonymous": {
+          "sha256": "ade1bd429bdfc63453a924614520010bb782ffd8d24fdd6483aa17d5b36b61a4",
+          "answers": {
+            "initialize": true,
+            "ping": true,
+            "tools/list": true,
+            "resources/list": true,
+            "resources/templates/list": true,
+            "prompts/list": true,
+            "tools/call": true
+          },
+          "call": {
+            "name": "cid10_chapters",
+            "arguments": {}
+          }
+        }
+      }
+    }
+  }
 }

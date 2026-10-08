@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-10-07
+
+The surface fingerprint now ships **in the MCP Registry entry**, so a client can
+check it. **No tool, resource, prompt or response changes** — the declared
+surface sha is the one locked at 2.1.0 (`167e28ef2332`).
+
+### Added
+
+- `server.json` publishes, under `_meta["io.modelcontextprotocol.registry/publisher-provided"]`,
+  the sha256 of the declared surface and which methods answer without a credential
+  on the published endpoint (form `mcp-surface/1`, SPEC.md of `@sbissoli/mcp-surface`
+  0.5.0). A host can recompute it on first connect and refuse, or ask again, when it
+  differs. Idea from two readers of the replay article (Mike Dabydeen and Valentina
+  Koniukhova, dev.to).
+- `npm run surface:lock` writes the block (`mcp-surface registro`); the lock test fails
+  a `server.json` that publishes anything other than the lock.
+- `publish.yml`: after `mcp-publisher publish`, `mcp-surface conferir-registro` reads the
+  registry entry for this version and compares it with the live endpoint, as a client
+  would, without reading the lock. A stale comment about re-syncing `server.json` in
+  that job (it no longer does) was removed.
+- README / LEIA-ME: how to check it yourself (`verify.mjs`, no dependencies).
+
 ## [2.1.1] - 2026-10-06
 
 Dependencies only: MCP SDK 2.1.0 → 2.3.0 at the root and `agents` 0.24.0 →
