@@ -1,5 +1,5 @@
 /**
- * Provenance block (portfolio contract v1.1) — English/UTC adapter over
+ * Provenance block (portfolio contract) — English/UTC adapter over
  * `@sbissoli/mcp-provenance`. The canonical model, the `concise`/`detailed`
  * projections, serialization determinism, timezone handling and the footer
  * wording live in the package; this module binds them to this server:
@@ -47,6 +47,7 @@ import {
   renderConcise,
   type CanonicalProvenance,
   type ConciseBlock,
+  type Revision,
 } from '@sbissoli/mcp-provenance';
 import { cacheMetaFor, type FetchMeta } from './utils/fetch-meta.js';
 import { retrievalFor } from './utils/upstream.js';
@@ -59,9 +60,14 @@ export const provenanceContext = createProvenanceContext({
   locale: 'en',
   timezone: 'utc',
   defaultMode: 'concise',
+  // Contract 1.2 (`field_sources` when a response joins sub-sources). This
+  // server never passes `field_sources` — multi-source responses carry one
+  // block per source — so the concise block, `_meta` and footer stay
+  // byte-identical to 1.1; only the canonical `contract_version` moves.
+  contractVersion: '1.2',
 });
 
-/** Canonical envelope v1.1 (post-validation). */
+/** Canonical envelope (post-validation). */
 export type Provenance = CanonicalProvenance;
 
 /** Namespaced `_meta` keys (stable — audit/UI consumers read by these keys). */
@@ -93,6 +99,14 @@ interface MedicalSource {
   cachePrefixes: string[];
   /** Default data_vintage when the caller does not pass one. */
   defaultVintage: () => string | null;
+  /**
+   * Can this data still change at the source (contract 1.3 `revision`)?
+   * `current` for every source: `final` needs proof from the source (a
+   * frozen file whose version the response names, or the source declaring
+   * it) and is future work. `note` reuses what `terminology_versions`
+   * already publishes about each source's release cycle.
+   */
+  revision: Revision;
 }
 
 /** Verbatim verification date of every license below (medical/docs/01). */
@@ -149,6 +163,7 @@ export const MEDICAL_SOURCES = {
     ],
     cachePrefixes: ['icd11'],
     defaultVintage: () => getEnv('WHO_ICD11_RELEASE_ID') ?? WHO_ICD11_DEFAULT_RELEASE,
+    revision: { status: 'current', note: 'WHO publishes a new ICD-11 release annually (usually Jan-Feb); this server queries one pinned release.' },
   },
   WHO_TRANSITION_TABLES: {
     name: 'WHO ICD-10 → ICD-11 transition tables (bundled)',
@@ -172,6 +187,7 @@ export const MEDICAL_SOURCES = {
     ],
     cachePrefixes: [],
     defaultVintage: () => null, // caller passes the live dataset version
+    revision: { status: 'current', note: 'Bundled from one WHO release of the transition tables; ICD-10 itself is frozen (superseded by ICD-11).' },
   },
   DATASUS_CID10: {
     name: 'CID-10 V2008 (DataSUS, bundled)',
@@ -193,6 +209,7 @@ export const MEDICAL_SOURCES = {
     notices: [],
     cachePrefixes: [],
     defaultVintage: () => 'V2008',
+    revision: { status: 'current', note: 'Frozen since 2008: DataSUS has not published a successor to V2008.' },
   },
   NLM_RXNAV: {
     name: 'RxNorm (NLM RxNav API)',
@@ -212,6 +229,7 @@ export const MEDICAL_SOURCES = {
     notices: [NLM_STATEMENT],
     cachePrefixes: ['rxnorm'],
     defaultVintage: () => null,
+    revision: { status: 'current', note: 'RxNorm is released monthly (first Monday); concepts update with each release.' },
   },
   NLM_RXCLASS_ATC: {
     name: 'ATC via NLM RxClass',
@@ -234,6 +252,7 @@ export const MEDICAL_SOURCES = {
     // cache prefix; the aggregation is per-host, which is honest here.
     cachePrefixes: ['rxnorm'],
     defaultVintage: () => null,
+    revision: { status: 'current', note: 'The WHO ATC classification is updated annually.' },
   },
   NLM_MESH: {
     name: 'MeSH (NLM Linked Data API)',
@@ -254,6 +273,7 @@ export const MEDICAL_SOURCES = {
     notices: [NLM_STATEMENT],
     cachePrefixes: ['mesh'],
     defaultVintage: () => null,
+    revision: { status: 'current', note: 'MeSH is released annually (November).' },
   },
   CLINICALTABLES_LOINC: {
     name: 'LOINC via NLM Clinical Tables',
@@ -273,6 +293,7 @@ export const MEDICAL_SOURCES = {
     notices: [LOINC_NOTICE, NLM_STATEMENT],
     cachePrefixes: ['loinc'],
     defaultVintage: () => null,
+    revision: { status: 'current', note: 'LOINC is released bi-annually; the release served varies by NLM update cycle.' },
   },
   SERVER_METADATA: {
     name: 'medical-terminologies-mcp (server-maintained metadata)',
@@ -293,6 +314,7 @@ export const MEDICAL_SOURCES = {
     notices: [],
     cachePrefixes: [],
     defaultVintage: () => null,
+    revision: { status: 'current', note: null },
   },
 } satisfies Record<string, MedicalSource>;
 
@@ -347,6 +369,7 @@ export function medicalProvenance(
     citation: src.citation(date, opts.citationDetail),
     license: src.license,
     notices: src.notices,
+    revision: src.revision,
     derived: opts.derived !== undefined,
     ...(opts.derived !== undefined ? { derivation_note: opts.derived.note } : {}),
     served_from_cache: src.cachePrefixes.length === 0 ? null : meta.servedFromCache,
@@ -398,11 +421,18 @@ const BLOCK_DESCRIPTIONS: Record<keyof typeof ConciseBlockSchema.shape, string> 
   retrieved_at:
     'Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.',
   retrieval:
-    'Origin diagnostics of THIS source in this call (contract v1.1): requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)',
+    'Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)',
   citation: 'Ready-to-use citation/attribution string',
   license: 'License / legal regime of the data',
   field_sources:
-    'Present only when the response joins parts from different origins or extraction instants (contract v1.2): for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses',
+    'Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses',
+  notices:
+    'Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none',
+  derived:
+    'Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned',
+  derivation_note: 'What this server computed; present together with derived',
+  revision:
+    'Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown',
 };
 
 /** The subset of JSON Schema the walker reads: descriptions, and where the children are. */
@@ -432,7 +462,8 @@ function describeFromJsonSchema(
     const inner = node?.oneOf ? node.oneOf.find((n) => n.type !== 'null') : node;
     out = describeFromJsonSchema(schema.unwrap() as z.ZodType, inner, {}, '').nullable();
   } else if (schema instanceof z.ZodOptional) {
-    // Optional keys of contract v1.2 (`field_sources`, `served_from_cache`).
+    // Optional keys (`field_sources`, `served_from_cache`, and the 1.3 keys
+    // `notices`, `derived`, `derivation_note`, `revision`): stay optional.
     out = describeFromJsonSchema(schema.unwrap() as z.ZodType, node, {}, '').optional();
   } else if (schema instanceof z.ZodArray) {
     // `clone` keeps the array's checks (`field_sources` is `.min(1)`); a fresh
@@ -484,13 +515,13 @@ export const provenanceBlockSchema = describeFromJsonSchema(
 
 /**
  * Extends a single-source tool's output schema with the provenance channel
- * of the contract v1.1: the concise block + the `attribution` URL list
+ * of the portfolio contract: the concise block + the `attribution` URL list
  * (MCP RFC #711). Every successful response carries both.
  */
 export function withProvenance<T extends z.ZodObject<z.ZodRawShape>>(schema: T) {
   return schema.extend({
     provenance: provenanceBlockSchema.describe(
-      'Provenance block (contract v1.1): source, URL, data vintage, extraction instant, origin diagnostics, citation, license',
+      'Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license',
     ),
     attribution: z
       .array(z.string())
@@ -508,7 +539,7 @@ export function withProvenanceMulti<T extends z.ZodObject<z.ZodRawShape>>(schema
     provenance: z
       .array(provenanceBlockSchema)
       .describe(
-        'One provenance block per upstream source that contributed to this response (contract v1.1; licenses are never merged; each block carries the origin diagnostics of ITS source)',
+        'One provenance block per upstream source that contributed to this response (licenses are never merged; each block carries the origin diagnostics of ITS source)',
       ),
     attribution: z
       .array(z.string())

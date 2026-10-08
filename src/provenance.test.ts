@@ -1,18 +1,22 @@
 import { describe, it, expect } from 'vitest';
+import { createProvenanceContext, renderConcise } from '@sbissoli/mcp-provenance';
 import {
   ATTRIBUTION_META_KEY,
   MEDICAL_SOURCES,
   medicalProvenance,
   PROVENANCE_META_KEY,
+  provenanceContext,
   provenancedResult,
 } from './provenance.js';
 import { RANKING_METHOD_NOTE } from './utils/lexical-score.js';
 
-describe('medicalProvenance (canonical block v1.1)', () => {
+const SOURCE_KEYS = Object.keys(MEDICAL_SOURCES) as Array<keyof typeof MEDICAL_SOURCES>;
+
+describe('medicalProvenance (canonical block)', () => {
   it('every source preset carries the legal floor: license + citation + verified_at', () => {
-    for (const key of Object.keys(MEDICAL_SOURCES) as Array<keyof typeof MEDICAL_SOURCES>) {
+    for (const key of SOURCE_KEYS) {
       const p = medicalProvenance(key);
-      expect(p.contract_version).toBe('1.1');
+      expect(p.contract_version).toBe('1.2');
       expect(p.license.id ?? p.license.name).toBeTruthy();
       expect(p.license.verified_at).toBe('2026-08-08');
       expect(p.citation.length).toBeGreaterThan(20);
@@ -49,6 +53,57 @@ describe('medicalProvenance (canonical block v1.1)', () => {
       'International Classification of Diseases, Eleventh Revision (ICD-11), World Health Organization (WHO) 2019',
     );
     expect(p.citation).toContain('CC BY-ND 3.0 IGO');
+  });
+});
+
+describe('contract 1.2 on the wire (step two of 1.2): no byte changes', () => {
+  // This server never passes `field_sources` (multi-source responses carry one
+  // block per source), so emitting 1.2 must leave every channel as 1.1 left it.
+  const ctx11 = createProvenanceContext({
+    metaNamespace: 'com.sidneybissoli.medical',
+    locale: 'en',
+    timezone: 'utc',
+    defaultMode: 'concise',
+  });
+
+  it('the context emits 1.2', () => {
+    expect(provenanceContext.contractVersion).toBe('1.2');
+  });
+
+  it('concise block and footer are byte-identical to the 1.1 rendering, for every source', () => {
+    for (const key of SOURCE_KEYS) {
+      const p = medicalProvenance(key);
+      const as11 = { ...p, contract_version: '1.1' as const };
+      expect(JSON.stringify(renderConcise(p))).toBe(JSON.stringify(renderConcise(as11)));
+      expect(renderConcise(p)).not.toHaveProperty('field_sources');
+      expect(provenanceContext.footer([p])).toBe(ctx11.footer([as11]));
+    }
+    // A derived block (find_equivalent ranking) too.
+    const d = medicalProvenance('NLM_MESH', { derived: { note: RANKING_METHOD_NOTE } });
+    const d11 = { ...d, contract_version: '1.1' as const };
+    expect(JSON.stringify(renderConcise(d))).toBe(JSON.stringify(renderConcise(d11)));
+    expect(provenanceContext.footer([d])).toBe(ctx11.footer([d11]));
+  });
+});
+
+describe('revision (contract 1.3, informed now, emitted from 1.3 on)', () => {
+  it('the canonical block carries revision current for every source, the bundled CID-10 included', () => {
+    for (const key of SOURCE_KEYS) {
+      const p = medicalProvenance(key);
+      expect(p.revision?.status, key).toBe('current');
+    }
+    // `final` needs proof from the source — not claimed for the frozen V2008.
+    expect(medicalProvenance('DATASUS_CID10').revision).toEqual({
+      status: 'current',
+      note: 'Frozen since 2008: DataSUS has not published a successor to V2008.',
+    });
+    expect(medicalProvenance('SERVER_METADATA').revision).toEqual({ status: 'current', note: null });
+  });
+
+  it('it does not reach the 1.2 wire: concise block without revision', () => {
+    for (const key of SOURCE_KEYS) {
+      expect(renderConcise(medicalProvenance(key))).not.toHaveProperty('revision');
+    }
   });
 });
 
