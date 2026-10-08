@@ -134,10 +134,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Sync server.json's version with the version that was just
-      # published to npm. Without this, workflow_dispatch with a custom
-      # version input would publish package.json@X to npm but try to
-      # register server.json@(stale) in the registry.
       # O server.json commitado JA declara a versao correta: quem a mantem e
       # scripts/sync-version.mjs, no hook `version` do npm, com guarda em teste.
       # Reescrever aqui fazia o arquivo do repositorio mentir (chegou a ficar
@@ -183,6 +179,20 @@ jobs:
 
       - name: Publish to MCP Registry
         run: ./mcp-publisher publish
+
+      # A conferência que um CLIENTE faria: lê a entrada desta versão no
+      # registro (o _meta publisher-provided que o server.json levou) e a compara
+      # com o endpoint no ar, sem ler o surface.lock.json. Prova que o que o
+      # registro promete ao host é o que ele vai encontrar. Versão do pacote
+      # tirada do lock, para o npx não pegar outra e sem `npm ci` neste job.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Registry entry = live endpoint (as a client would check)
+        run: |
+          V=$(node -p "require('./package-lock.json').packages['node_modules/@sbissoli/mcp-surface'].version")
+          npx --yes "@sbissoli/mcp-surface@$V" conferir-registro
 
   create-release:
     needs: publish
