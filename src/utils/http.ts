@@ -63,9 +63,13 @@ export interface HttpRequestOptions {
   timeout?: number;
 }
 
+/**
+ * Only 2xx reaches the caller (the package throws on every other status),
+ * and the trip is made in `text` mode, which does not hand back the status
+ * — so there is no status here rather than an invented 200.
+ */
 interface HttpResponse<T> {
   data: T;
-  status: number;
 }
 
 /**
@@ -74,11 +78,16 @@ interface HttpResponse<T> {
  * serve JSON without an application/json content-type, while error pages
  * (Cloudflare challenges, nginx 502 HTML) need to surface as strings for
  * extractErrorMessage's preview/truncation path. This is why the trip is
- * made in the package's `response` mode: the body is ours to read.
+ * made in the package's `text` mode and not `json`: the parse is ours.
+ *
+ * Not `response` mode either: there the package clears its timer when the
+ * HEADERS arrive and hands the body over unread, so a server that answers
+ * headers and stalls the body was never cut by `timeout` (through 2.2.0; nock
+ * 15, whose `delay()` holds the body instead of the headers, exposed it).
+ * In `text` mode the body is read inside the attempt, under the timer.
  */
-async function parseBody(response: Response): Promise<unknown> {
-  const text = await response.text();
-  if (text.length === 0) {
+function parseBody(text: string | undefined): unknown {
+  if (text === undefined || text.length === 0) {
     return undefined;
   }
   try {
@@ -127,12 +136,12 @@ export async function translateUpstreamError(error: unknown, timeoutMs: number):
     case 'aborted':
       return new HttpError(`request aborted${after}`);
     case 'malformed_body':
-      // Not reachable in `response` mode (the body is parsed here, leniently).
+      // Not reachable in `text` mode without `inspectBody` (the body is parsed here, leniently).
       return new HttpError(`malformed upstream response${after}`, { status: error.status });
     default: {
       // A response arrived: http_4xx, http_5xx, rate_limited, not_found.
       const status = error.status ?? error.response?.status;
-      const data = error.response ? await parseBody(error.response) : error.body;
+      const data = parseBody(error.body);
       return new HttpError(`Request failed with status code ${status}${after}`, { status, data });
     }
   }
@@ -180,9 +189,9 @@ export class HttpClient {
       options.timeout ?? this.config.timeout ?? UPSTREAM_POLICY.timeoutMs[this.config.source];
     const headers = { ...this.config.headers, ...options.headers };
 
-    let response: Response;
+    let text: string;
     try {
-      response = await upstreamCallFor(this.config.source).response(fullUrl, {
+      text = await upstreamCallFor(this.config.source).text(fullUrl, {
         method,
         headers,
         body,
@@ -193,6 +202,6 @@ export class HttpClient {
     }
 
     // Only 2xx reaches here: the package throws on every other status.
-    return { data: (await parseBody(response)) as T, status: response.status };
+    return { data: parseBody(text) as T };
   }
 }

@@ -111,7 +111,7 @@ describe('the count that reaches the provenance block, per source', () => {
     await withUpstreamCalls(async () => {
       const client = new HttpClient({ source: CACHE_PREFIX.RXNORM, baseURL: `${RXNAV}/REST` });
       const res = await client.get('/rxcui.json', { params: { name: 'x' } });
-      expect(res.status).toBe(200);
+      expect(res.data).toEqual({ idGroup: {} });
 
       expect(medicalProvenance('NLM_RXNAV').retrieval).toEqual({
         requests: 1,
@@ -237,7 +237,7 @@ describe('the count that reaches the provenance block, per source', () => {
     const client = new HttpClient({ source: CACHE_PREFIX.RXNORM, baseURL: `${RXNAV}/REST` });
     const res = await client.get('/rxcui.json', { params: { name: 'x' } });
 
-    expect(res.status).toBe(200);
+    expect(res.data).toEqual({ idGroup: {} });
     expect(sleeps).toEqual([1000]);
     expect(retrievalFor(['rxnorm'])).toBeNull();
     expect(medicalProvenance('NLM_RXNAV').retrieval).toBeNull();

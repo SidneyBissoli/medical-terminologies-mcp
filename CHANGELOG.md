@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The per-attempt timeout now covers the response body, not only the
+  headers.** An upstream that sent its headers and then stalled the body was
+  never cut: the call hung past the 30 s ceiling (15 s for the WHO token)
+  for as long as the connection stayed open. The HTTP client read the body
+  after the shared fetch had already stopped its timer; it now lets the
+  shared fetch read the body inside the attempt. A stalled body ends as
+  "timeout of N ms exceeded", like a slow header. Found when nock 15 moved
+  its `delay()` from the headers to the body.
+
 ## [2.2.0] - 2026-10-08
 
 Provenance contract: step two of 1.2 and step one of 1.3.
