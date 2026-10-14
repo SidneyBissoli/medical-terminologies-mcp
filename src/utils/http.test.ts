@@ -182,8 +182,17 @@ describe('HttpClient', () => {
     expect(sleeps).toEqual([1000, 2000]);
   });
 
+  // Both timeout cases stall a fetch stub, not nock: `delay()` holds the
+  // headers in nock 14 and the body in nock 15, and in nock 15 the delayed
+  // body still lands after the abort and trips undici's `assert(!this.aborted)`
+  // as an unhandled error.
   it('times out via AbortSignal and reports the configured timeout', async () => {
-    nock(HOST).get('/slow').delay(500).reply(200, {});
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal!.reason));
+        }),
+    );
 
     const client = new HttpClient({ source: SOURCE, baseURL: HOST, timeout: 25 });
     const err = await client.get('/slow').catch((e: unknown) => e);
@@ -193,10 +202,9 @@ describe('HttpClient', () => {
     expect((err as HttpError).message).toBe('timeout of 25ms exceeded');
   });
 
-  // Headers on time, body never: the timeout must still cut. Until 2.2.x the
+  // Headers on time, body never: the timeout must still cut. Through 2.2.0 the
   // trip ran in `response` mode, whose timer stops at the headers, and this
-  // hung. Built on a stub instead of nock because `delay()` holds the headers
-  // in nock 14 and the body in nock 15 — the case above covers whichever one.
+  // hung.
   it('times out when the headers arrive but the body stalls', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
       const body = new ReadableStream<Uint8Array>({
