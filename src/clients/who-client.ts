@@ -221,7 +221,7 @@ export class WHOClient {
         },
       });
       const duration = Date.now() - startTime;
-      log.debug({ status: response.status, duration }, 'HTTP response OK');
+      log.debug({ duration }, 'HTTP response OK');
       return response.data;
     } catch (error) {
       if (error instanceof HttpError) {

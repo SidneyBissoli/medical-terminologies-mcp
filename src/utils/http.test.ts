@@ -42,7 +42,6 @@ describe('HttpClient', () => {
     const client = new HttpClient({ source: SOURCE, baseURL: `${HOST}/v1` });
     const res = await client.get<{ id: number }>('/thing');
 
-    expect(res.status).toBe(200);
     expect(res.data).toEqual({ id: 7 });
   });
 
@@ -188,6 +187,29 @@ describe('HttpClient', () => {
 
     const client = new HttpClient({ source: SOURCE, baseURL: HOST, timeout: 25 });
     const err = await client.get('/slow').catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(HttpError);
+    expect((err as HttpError).status).toBeUndefined();
+    expect((err as HttpError).message).toBe('timeout of 25ms exceeded');
+  });
+
+  // Headers on time, body never: the timeout must still cut. Until 2.2.x the
+  // trip ran in `response` mode, whose timer stops at the headers, and this
+  // hung. Built on a stub instead of nock because `delay()` holds the headers
+  // in nock 14 and the body in nock 15 — the case above covers whichever one.
+  it('times out when the headers arrive but the body stalls', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_input, init) => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"partial":'));
+          init?.signal?.addEventListener('abort', () => controller.error(init.signal!.reason));
+        },
+      });
+      return new Response(body, { status: 200 });
+    });
+
+    const client = new HttpClient({ source: SOURCE, baseURL: HOST, timeout: 25 });
+    const err = await client.get('/stalled-body').catch((e: unknown) => e);
 
     expect(err).toBeInstanceOf(HttpError);
     expect((err as HttpError).status).toBeUndefined();
