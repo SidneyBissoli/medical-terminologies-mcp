@@ -1,14 +1,19 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { createProvenanceContext, renderConcise } from '@sbissoli/mcp-provenance';
+import { CONCISE_BLOCK_JSON_SCHEMA, renderConcise } from '@sbissoli/mcp-provenance';
 import {
   ATTRIBUTION_META_KEY,
+  LOINC_NOTICE,
   MEDICAL_SOURCES,
   medicalProvenance,
+  NLM_STATEMENT,
   PROVENANCE_META_KEY,
   provenanceContext,
   provenancedResult,
 } from './provenance.js';
 import { RANKING_METHOD_NOTE } from './utils/lexical-score.js';
+import { resourceRegistry } from './server-core.js';
+import './resources/index.js';
 
 const SOURCE_KEYS = Object.keys(MEDICAL_SOURCES) as Array<keyof typeof MEDICAL_SOURCES>;
 
@@ -16,7 +21,7 @@ describe('medicalProvenance (canonical block)', () => {
   it('every source preset carries the legal floor: license + citation + verified_at', () => {
     for (const key of SOURCE_KEYS) {
       const p = medicalProvenance(key);
-      expect(p.contract_version).toBe('1.2');
+      expect(p.contract_version).toBe('1.3');
       expect(p.license.id ?? p.license.name).toBeTruthy();
       expect(p.license.verified_at).toBe('2026-08-08');
       expect(p.citation.length).toBeGreaterThan(20);
@@ -56,37 +61,96 @@ describe('medicalProvenance (canonical block)', () => {
   });
 });
 
-describe('contract 1.2 on the wire (step two of 1.2): no byte changes', () => {
-  // This server never passes `field_sources` (multi-source responses carry one
-  // block per source), so emitting 1.2 must leave every channel as 1.1 left it.
-  const ctx11 = createProvenanceContext({
-    metaNamespace: 'com.sidneybissoli.medical',
-    locale: 'en',
-    timezone: 'utc',
-    defaultMode: 'concise',
+describe('contract 1.3 on the wire: revision always, notices and derived by exception', () => {
+  const listed = Object.keys(CONCISE_BLOCK_JSON_SCHEMA.properties);
+
+  it('the context emits 1.3', () => {
+    expect(provenanceContext.contractVersion).toBe('1.3');
   });
 
-  it('the context emits 1.2', () => {
-    expect(provenanceContext.contractVersion).toBe('1.2');
-  });
-
-  it('concise block and footer are byte-identical to the 1.1 rendering, for every source', () => {
+  it('every source: the required keys in the schema order, plus revision, and nothing undeclared', () => {
     for (const key of SOURCE_KEYS) {
-      const p = medicalProvenance(key);
-      const as11 = { ...p, contract_version: '1.1' as const };
-      expect(JSON.stringify(renderConcise(p))).toBe(JSON.stringify(renderConcise(as11)));
-      expect(renderConcise(p)).not.toHaveProperty('field_sources');
-      expect(provenanceContext.footer([p])).toBe(ctx11.footer([as11]));
+      const c = renderConcise(medicalProvenance(key)) as unknown as Record<string, unknown>;
+      const keys = Object.keys(c);
+      expect(keys.slice(0, CONCISE_BLOCK_JSON_SCHEMA.required.length), key).toEqual(
+        CONCISE_BLOCK_JSON_SCHEMA.required,
+      );
+      expect(c.revision, key).toEqual(MEDICAL_SOURCES[key].revision);
+      for (const k of keys) expect(listed, `${key}.${k}`).toContain(k);
+      expect(c, key).not.toHaveProperty('field_sources');
     }
-    // A derived block (find_equivalent ranking) too.
-    const d = medicalProvenance('NLM_MESH', { derived: { note: RANKING_METHOD_NOTE } });
-    const d11 = { ...d, contract_version: '1.1' as const };
-    expect(JSON.stringify(renderConcise(d))).toBe(JSON.stringify(renderConcise(d11)));
-    expect(provenanceContext.footer([d])).toBe(ctx11.footer([d11]));
+  });
+
+  it('the common case (no caveat, nothing computed) gains only revision: no notices, no derived, no footer line', () => {
+    const p = medicalProvenance('NLM_RXNAV');
+    const c = renderConcise(p);
+    expect(Object.keys(c)).toEqual([...CONCISE_BLOCK_JSON_SCHEMA.required, 'revision']);
+    expect(c).not.toHaveProperty('notices');
+    expect(c).not.toHaveProperty('derived');
+    expect(c).not.toHaveProperty('derivation_note');
+    expect(provenanceContext.footer([p])).not.toMatch(/Notices from the source|Values computed/);
+  });
+
+  it('a caveat about the DATA reaches the block and the footer (WHO transition tables)', () => {
+    const p = medicalProvenance('WHO_TRANSITION_TABLES', { dataVintage: '2025-01' });
+    const c = renderConcise(p) as { notices?: string[] };
+    expect(c.notices).toEqual(MEDICAL_SOURCES.WHO_TRANSITION_TABLES.notices);
+    expect(c.notices?.[0]).toContain('not intended for directly converting data');
+    expect(provenanceContext.footer([p])).toContain('Notices from the source: WHO: "Mapping tables');
+  });
+
+  it('a value this server computed says so, with the note, in the block and the footer', () => {
+    const p = medicalProvenance('NLM_MESH', { derived: { note: RANKING_METHOD_NOTE } });
+    const c = renderConcise(p) as { derived?: boolean; derivation_note?: string };
+    expect(c.derived).toBe(true);
+    expect(c.derivation_note).toBe(RANKING_METHOD_NOTE);
+    expect(provenanceContext.footer([p])).toContain('Values computed by the server from the source data:');
   });
 });
 
-describe('revision (contract 1.3, informed now, emitted from 1.3 on)', () => {
+describe('license statements are not notices (they live in the fixed places)', () => {
+  const flat = (s: string) => s.replace(/^\s*>\s?/gm, '').replace(/\*/g, '').replace(/\s+/g, ' ');
+  const root = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+
+  it('no preset carries the NLM statement or the LOINC notice in notices; ICD-11 none at all', () => {
+    for (const key of SOURCE_KEYS) {
+      const p = medicalProvenance(key);
+      expect(p.notices, key).not.toContain(NLM_STATEMENT);
+      expect(p.notices, key).not.toContain(LOINC_NOTICE);
+      expect(provenanceContext.footer([p]), key).not.toContain('National Library of Medicine (NLM)');
+    }
+    expect(medicalProvenance('WHO_ICD_API').notices).toEqual([]);
+  });
+
+  it('the LOINC citation still embeds the §10 notice — once per response, in the citation', () => {
+    const p = medicalProvenance('CLINICALTABLES_LOINC');
+    expect(p.citation).toContain(LOINC_NOTICE);
+    expect(renderConcise(p)).not.toHaveProperty('notices');
+  });
+
+  it('MeSH credits NLM without claiming a wording the MeSH terms do not require', () => {
+    const p = medicalProvenance('NLM_MESH');
+    expect(p.citation).not.toContain('Courtesy of');
+    expect(p.license.name).not.toContain('Courtesy of');
+  });
+
+  it('README, LEIA-ME, NOTICE.md and info://licenses carry both statements verbatim', async () => {
+    const handler = resourceRegistry.getHandler('info://licenses');
+    const res = await handler!('info://licenses');
+    const md = (res.contents[0] as { text: string }).text;
+    for (const [name, text] of [
+      ['README.md', root('README.md')],
+      ['LEIA-ME.md', root('LEIA-ME.md')],
+      ['NOTICE.md', root('NOTICE.md')],
+      ['info://licenses', md],
+    ] as const) {
+      expect(flat(text), name).toContain(LOINC_NOTICE);
+      expect(flat(text), name).toContain(NLM_STATEMENT);
+    }
+  });
+});
+
+describe('revision (contract 1.3)', () => {
   it('the canonical block carries revision current for every source, the bundled CID-10 included', () => {
     for (const key of SOURCE_KEYS) {
       const p = medicalProvenance(key);
@@ -98,12 +162,6 @@ describe('revision (contract 1.3, informed now, emitted from 1.3 on)', () => {
       note: 'Frozen since 2008: DataSUS has not published a successor to V2008.',
     });
     expect(medicalProvenance('SERVER_METADATA').revision).toEqual({ status: 'current', note: null });
-  });
-
-  it('it does not reach the 1.2 wire: concise block without revision', () => {
-    for (const key of SOURCE_KEYS) {
-      expect(renderConcise(medicalProvenance(key))).not.toHaveProperty('revision');
-    }
   });
 });
 

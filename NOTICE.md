@@ -104,8 +104,8 @@ channel as well.
 
 MeSH content is a U.S. government work served under the
 [NLM Terms and Conditions](https://www.nlm.nih.gov/databases/download/terms_and_conditions.html),
-free of charge. Credit: **Courtesy of the U.S. National Library of
-Medicine.** No endorsement by NLM is implied.
+free of charge. The NLM statement in section 5 applies to this channel as
+well; no endorsement by NLM is implied.
 
 ## 8. SNOMED CT (SNOMED International) — retired in 2.0.0
 

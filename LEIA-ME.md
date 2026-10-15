@@ -449,7 +449,11 @@ Conversão de formato (TSV → JSON, conteúdo inalterado) das tabelas que a OMS
 
 ### LOINC
 
-Este material contém conteúdo do LOINC (http://loinc.org). O LOINC é copyright © Regenstrief Institute, Inc. e do Logical Observation Identifiers Names and Codes (LOINC) Committee, e está disponível sem custo sob a licença em http://loinc.org/license. LOINC® é marca registrada nos Estados Unidos do Regenstrief Institute, Inc.
+Texto exigido pela licença, verbatim:
+
+> This material contains content from LOINC (http://loinc.org). LOINC is copyright © Regenstrief Institute, Inc. and the Logical Observation Identifiers Names and Codes (LOINC) Committee and is available at no cost under the license at http://loinc.org/license. LOINC® is a registered United States trademark of Regenstrief Institute, Inc.
+
+Em português: este material contém conteúdo do LOINC (http://loinc.org). O LOINC é copyright © Regenstrief Institute, Inc. e do Logical Observation Identifiers Names and Codes (LOINC) Committee, e está disponível sem custo sob a licença em http://loinc.org/license. LOINC® é marca registrada nos Estados Unidos do Regenstrief Institute, Inc.
 
 - Servido pela API gratuita NLM Clinical Tables; todo código vem com o nome de exibição oficial
 - Termos com copyright de terceiros são servidos com o aviso repassado verbatim
@@ -458,7 +462,11 @@ Este material contém conteúdo do LOINC (http://loinc.org). O LOINC é copyrigh
 
 O RxNorm é produzido pela U.S. National Library of Medicine; as APIs RxNav servem conteúdo RxNorm de domínio público, não proprietário, sem custo.
 
-> Este produto usa dados publicamente disponíveis da U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; a NLM não é responsável pelo produto e não o endossa nem o recomenda, nem a qualquer outro produto.
+Declaração pedida pela NLM, verbatim:
+
+> This product uses publicly available data from the U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; NLM is not responsible for the product and does not endorse or recommend this or any other product.
+
+Em português: este produto usa dados publicamente disponíveis da U.S. National Library of Medicine (NLM), National Institutes of Health, Department of Health and Human Services; a NLM não é responsável pelo produto e não o endossa nem o recomenda, nem a qualquer outro produto.
 
 ### ATC (via NLM RxClass)
 
@@ -466,7 +474,7 @@ Classificação ATC © WHO Collaborating Centre for Drug Statistics Methodology 
 
 ### MeSH
 
-O MeSH é obra do governo dos Estados Unidos, servido sob os [Termos e Condições da NLM](https://www.nlm.nih.gov/databases/download/terms_and_conditions.html). Cortesia da U.S. National Library of Medicine.
+O MeSH é obra do governo dos Estados Unidos, servido sem custo sob os [Termos e Condições da NLM](https://www.nlm.nih.gov/databases/download/terms_and_conditions.html). A declaração da NLM acima (RxNorm) vale também para este canal.
 
 ## Impressão digital da superfície, conferível pelo registro
 
