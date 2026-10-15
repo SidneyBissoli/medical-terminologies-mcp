@@ -113,7 +113,8 @@ with the server** (CID-10 V2008 and the WHO ICD-10 → ICD-11 transition
 tables), which are NOT covered by the MIT license. Every successful tool
 response carries a provenance block (source, URL, data vintage,
 extraction instant, citation, license); this resource is the
-consolidated notice for the hosted service. The full text ships as
+consolidated notice for the hosted service — the license statements below
+are not repeated in each response's notices. The full text ships as
 NOTICE.md in the npm package.
 
 ## ICD-11 (WHO)
@@ -171,12 +172,15 @@ NOTICE.md in the npm package.
 - ATC classification © WHO Collaborating Centre for Drug Statistics
   Methodology (https://atcddd.fhi.no/); retrieved via NLM RxClass and
   served verbatim. This server never redistributes the WHOCC ATC/DDD
-  index itself.
+  index itself. The NLM statement in the RxNorm section applies to the
+  RxClass channel as well.
 - No authentication required to query.
 
 ## MeSH (US National Library of Medicine)
-- U.S. government work under the NLM Terms and Conditions, free of
-  charge. Courtesy of the U.S. National Library of Medicine.
+- U.S. government work under the NLM Terms and Conditions
+  (https://www.nlm.nih.gov/databases/download/terms_and_conditions.html),
+  free of charge. The NLM statement in the RxNorm section applies to this
+  channel as well; no endorsement by NLM is implied.
 - No authentication required.
 
 ## Important caveat for LLM use

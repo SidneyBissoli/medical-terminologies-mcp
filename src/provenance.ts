@@ -60,11 +60,14 @@ export const provenanceContext = createProvenanceContext({
   locale: 'en',
   timezone: 'utc',
   defaultMode: 'concise',
-  // Contract 1.2 (`field_sources` when a response joins sub-sources). This
-  // server never passes `field_sources` — multi-source responses carry one
-  // block per source — so the concise block, `_meta` and footer stay
-  // byte-identical to 1.1; only the canonical `contract_version` moves.
-  contractVersion: '1.2',
+  // Contract 1.3 since step two of it (the imported schema accepted 1.3 since
+  // 2.2.0): the concise block carries `revision` always (every preset sets
+  // it), `notices` when the source has a caveat about the DATA, and `derived`
+  // + `derivation_note` when this server computed — absent, not empty, when
+  // there is nothing to say. License statements are NOT notices: they live in
+  // NOTICE.md, the README and `info://licenses`. This server never passes
+  // `field_sources` (1.2) — multi-source responses carry one block per source.
+  contractVersion: '1.3',
 });
 
 /** Canonical envelope (post-validation). */
@@ -93,7 +96,12 @@ interface MedicalSource {
   license: LicenseSpec;
   /** Ready-to-use citation. `date` = retrieval date (UTC, YYYY-MM-DD). */
   citation: (date: string, detail?: string) => string;
-  /** Verbatim upstream notices that accompany the data (detailed mode). */
+  /**
+   * Verbatim caveats the source publishes about the DATA (contract 1.3: they
+   * reach the concise block and the footer). Never license statements — those
+   * are terms of use and live in the fixed places (NOTICE.md, README,
+   * `info://licenses`), not in every response.
+   */
   notices: string[];
   /** Cache prefixes whose accesses belong to this source ([] = bundled). */
   cachePrefixes: string[];
@@ -113,9 +121,11 @@ interface MedicalSource {
 const VERIFIED_AT = '2026-08-08';
 
 /**
- * NLM attribution statement — required wording from the RxNav Terms of
- * Service, reproduced verbatim (docs/01 §3). Shared by the RxNorm, ATC
- * (RxClass), MeSH, and ClinicalTables presets.
+ * NLM attribution statement — the wording the RxNav Terms of Service ask
+ * applications to include, reproduced verbatim (docs/01 §3). A request to the
+ * application, not a per-response requirement: it lives in NOTICE.md, the
+ * README and `info://licenses` (tests keep the copies verbatim), not in
+ * `notices`.
  */
 export const NLM_STATEMENT =
   'This product uses publicly available data from the U.S. National Library of Medicine (NLM), ' +
@@ -123,9 +133,10 @@ export const NLM_STATEMENT =
   'for the product and does not endorse or recommend this or any other product.';
 
 /**
- * LOINC §10 notice — required verbatim by the LOINC License for online
- * terminology services (docs/01 §6). Also reproduced in NOTICE.md, the
- * README, and the `info://licenses` resource.
+ * LOINC §10 notice — required verbatim by the LOINC License; §10(a) asks an
+ * online service (API) to make it available "in the license or terms of use"
+ * (docs/01 §6), so it lives in NOTICE.md, the README and `info://licenses`,
+ * not in `notices`. The LOINC citation still embeds it.
  */
 export const LOINC_NOTICE =
   'This material contains content from LOINC (http://loinc.org). LOINC is copyright © Regenstrief ' +
@@ -158,9 +169,10 @@ export const MEDICAL_SOURCES = {
       'Organization (WHO) 2019. https://icd.who.int/browse11. Licensed under the Creative Commons ' +
       'Attribution-NoDerivatives 3.0 IGO licence (CC BY-ND 3.0 IGO). ' +
       `Retrieved via the WHO ICD-API on ${date}.`,
-    notices: [
-      'ICD-11 content is served verbatim with code, title, and URI preserved (license §1.2.2–1.2.3).',
-    ],
+    // Verbatim service with code, title and URI (license §1.2.2–1.2.3) is how
+    // this server complies with the license — stated in `info://licenses`, not
+    // a caveat about the data.
+    notices: [],
     cachePrefixes: ['icd11'],
     defaultVintage: () => getEnv('WHO_ICD11_RELEASE_ID') ?? WHO_ICD11_DEFAULT_RELEASE,
     revision: { status: 'current', note: 'WHO publishes a new ICD-11 release annually (usually Jan-Feb); this server queries one pinned release.' },
@@ -226,7 +238,7 @@ export const MEDICAL_SOURCES = {
     },
     citation: (date: string) =>
       `RxNorm, U.S. National Library of Medicine. Retrieved via the NLM RxNav API on ${date}.`,
-    notices: [NLM_STATEMENT],
+    notices: [],
     cachePrefixes: ['rxnorm'],
     defaultVintage: () => null,
     revision: { status: 'current', note: 'RxNorm is released monthly (first Monday); concepts update with each release.' },
@@ -247,7 +259,7 @@ export const MEDICAL_SOURCES = {
     citation: (date: string) =>
       'ATC classification © WHO Collaborating Centre for Drug Statistics Methodology, served via ' +
       `NLM RxClass. Retrieved on ${date}.`,
-    notices: [NLM_STATEMENT],
+    notices: [],
     // ATC shares the RxNorm client/host, so its accesses land on the same
     // cache prefix; the aggregation is per-host, which is honest here.
     cachePrefixes: ['rxnorm'],
@@ -262,15 +274,15 @@ export const MEDICAL_SOURCES = {
     sourceUrl: () => 'https://id.nlm.nih.gov/mesh',
     license: {
       id: null,
-      name: 'NLM Terms and Conditions — U.S. government work, no charges or royalties; credit "Courtesy of the U.S. National Library of Medicine" required',
+      name: 'NLM Terms and Conditions — MeSH is a U.S. government work, free of charge',
       url: null,
       terms_url: 'https://www.nlm.nih.gov/databases/download/terms_and_conditions.html',
       verified_at: VERIFIED_AT,
     },
     citation: (date: string) =>
-      'MeSH (Medical Subject Headings). Courtesy of the U.S. National Library of Medicine. ' +
+      'MeSH (Medical Subject Headings), U.S. National Library of Medicine. ' +
       `Retrieved via the MeSH Linked Data API on ${date}.`,
-    notices: [NLM_STATEMENT],
+    notices: [],
     cachePrefixes: ['mesh'],
     defaultVintage: () => null,
     revision: { status: 'current', note: 'MeSH is released annually (November).' },
@@ -290,7 +302,7 @@ export const MEDICAL_SOURCES = {
     },
     citation: (date: string) =>
       `LOINC content retrieved via the NLM Clinical Tables API on ${date}. ${LOINC_NOTICE}`,
-    notices: [LOINC_NOTICE, NLM_STATEMENT],
+    notices: [],
     cachePrefixes: ['loinc'],
     defaultVintage: () => null,
     revision: { status: 'current', note: 'LOINC is released bi-annually; the release served varies by NLM update cycle.' },
@@ -427,7 +439,7 @@ const BLOCK_DESCRIPTIONS: Record<keyof typeof ConciseBlockSchema.shape, string> 
   field_sources:
     'Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses',
   notices:
-    'Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none',
+    'Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none',
   derived:
     'Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned',
   derivation_note: 'What this server computed; present together with derived',

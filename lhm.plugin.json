@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Unified MCP server for global medical terminologies - ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney da Silva Pereira Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -181,7 +181,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -474,7 +474,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -765,7 +765,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -1098,7 +1098,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -1384,7 +1384,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -1728,7 +1728,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -2089,7 +2089,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -2383,7 +2383,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -2752,7 +2752,7 @@
                   ]
                 },
                 "notices": {
-                  "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                  "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                   "items": {
                     "type": "string"
                   },
@@ -3376,7 +3376,7 @@
                   ]
                 },
                 "notices": {
-                  "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                  "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                   "items": {
                     "type": "string"
                   },
@@ -3889,7 +3889,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -4221,7 +4221,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -4612,7 +4612,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -4929,7 +4929,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -5274,7 +5274,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -5581,7 +5581,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -5865,7 +5865,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -6211,7 +6211,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -6540,7 +6540,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -6941,7 +6941,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -7285,7 +7285,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -7601,7 +7601,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -7949,7 +7949,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -8222,7 +8222,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -8537,7 +8537,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -8840,7 +8840,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -9238,7 +9238,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -9533,7 +9533,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -9846,7 +9846,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -10116,7 +10116,7 @@
                   ]
                 },
                 "notices": {
-                  "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                  "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                   "items": {
                     "type": "string"
                   },
@@ -10484,7 +10484,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -10777,7 +10777,7 @@
                 ]
               },
               "notices": {
-                "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                 "items": {
                   "type": "string"
                 },
@@ -11155,7 +11155,7 @@
                   ]
                 },
                 "notices": {
-                  "description": "Notices the source publishes alongside the data (license statements, caveats), verbatim. Absent when there is none",
+                  "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
                   "items": {
                     "type": "string"
                   },

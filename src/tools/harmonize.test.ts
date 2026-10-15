@@ -268,7 +268,12 @@ describe('harmonize_terms', () => {
       'RxNorm (NLM RxNav API)',
       'ATC via NLM RxClass',
     ]);
-    // The concise block drops `derived`; the method travels in the payload.
+    // Contract 1.3: every block says the ranking was computed here, with the
+    // note; the method also travels in the payload.
+    for (const b of structured.provenance as Array<{ derived?: boolean; derivation_note?: string }>) {
+      expect(b.derived).toBe(true);
+      expect(b.derivation_note).toContain('match_type is computed by this server');
+    }
     expect(structured.ranking.method).toBe('lexical');
     expect(structured.ranking.note).toContain('match_type is computed by this server');
   });

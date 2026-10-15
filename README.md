@@ -466,7 +466,7 @@ ATC classification © WHO Collaborating Centre for Drug Statistics Methodology (
 
 ### MeSH
 
-MeSH is a U.S. government work served under the [NLM Terms and Conditions](https://www.nlm.nih.gov/databases/download/terms_and_conditions.html). Courtesy of the U.S. National Library of Medicine.
+MeSH is a U.S. government work served free of charge under the [NLM Terms and Conditions](https://www.nlm.nih.gov/databases/download/terms_and_conditions.html). The NLM statement above (RxNorm) applies to this channel as well.
 
 ## Surface fingerprint, checkable from the registry
 

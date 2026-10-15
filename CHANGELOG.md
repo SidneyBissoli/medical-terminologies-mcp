@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-15
+
+Provenance contract: step two of 1.3. What 2.2.0 started to ACCEPT in the
+listed schema now goes out in the responses, a week later, as the two-step
+rollout prescribes. Minor, not patch: one description in `tools/list`
+changed (the `notices` key of the provenance block), so `surface.lock.json`
+and the `server.json` fingerprint were re-locked; no tool, argument or
+output field was added or removed.
+
+### Changed
+
+- **The server emits contract 1.3.** The concise block carries `revision` in
+  every response (`current` for every source, with the release cycle as the
+  note — CID-10 V2008 included: `final` needs proof from the source),
+  `notices` when the source publishes a caveat about the data (the WHO
+  warning that the ICD-10 → ICD-11 transition tables are "not intended for
+  directly converting data") and `derived` + `derivation_note` when this
+  server computed (`find_equivalent` and `harmonize_terms` rankings, the
+  `terminology_diff` summary, the Deep Research ranking). The text footer
+  gains a "Notices from the source:" or "Values computed by the server…"
+  line only in those cases. Without a caveat and without a computation the
+  two keys stay absent, not empty.
+- **License statements left the per-response `notices`.** The NLM statement
+  (RxNorm, ATC, MeSH, LOINC presets), the LOINC §10 notice and the ICD-11
+  "served verbatim" line are terms of use, not caveats about the data: the
+  NLM Terms of Service *request* the statement from the application, and
+  LOINC §10(a) asks an online service to make its notice available "in the
+  license or terms of use". They live, verbatim, in NOTICE.md, the README,
+  LEIA-ME.md and the `info://licenses` resource (a test now keeps the four
+  copies verbatim). The LOINC citation still embeds the §10 notice, so a
+  LOINC response carries it once instead of twice.
+- **MeSH attribution reworded.** The MeSH license and citation no longer
+  present "Courtesy of the U.S. National Library of Medicine" as a credit
+  the MeSH terms require — that wording comes from the NLM terms for
+  downloaded data; the citation now reads "MeSH (Medical Subject Headings),
+  U.S. National Library of Medicine".
+- The `notices` description in every tool's `outputSchema` now says what the
+  key carries (caveats about the data, not license statements).
+
 ### Fixed
 
 - **The per-attempt timeout now covers the response body, not only the
