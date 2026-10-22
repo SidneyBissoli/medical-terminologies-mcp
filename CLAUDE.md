@@ -16,7 +16,17 @@ npm run typecheck       # tsc --noEmit (strict; not invoked by `npm run build`)
 
 node scripts/smoke-mcp.mjs           # smoke against the hosted Worker (initialize/tools/list/calls)
 node scripts/smoke-mcp.mjs --stdio   # same smoke over local STDIO (requires npm run build)
+node scripts/smoke-mcp.mjs --sonda   # only asks the sources (RxNav, clinicaltables, MeSH, WHO) whether they are serving (exit 0/2) — read a red deploy with it
 ```
+
+The smoke runs on `criarSmoke` from `@sbissoli/mcp-live-source` (dev): a tool that answers
+`isError` unexpectedly triggers a direct probe of the source(s) that check names
+(`sondas: ["rxnav"]`, `["clinicaltables"]`, `["mesh"]`, `["who-token", "who-api"]`; bundled
+CID-10 and ICD-10→ICD-11 checks declare `sondas: []`); source down = `::warning title=Fonte
+indisponível`, exit 0 (the deploy step stays green); source serving = red with the tool's
+text. A check that throws (assertion, HTTP, JSON-RPC) is a deploy defect and never probes.
+The `who-api` probe GETs an API path without a token and expects the 401 (every ICD-11
+resource needs a bearer token; a 4xx is the origin standing up).
 
 The Cloudflare Worker (`worker/`, not published to npm) is an instance of the
 portfolio's Fase 0 hosting template (`mcp-br-commons/templates/cloudflare-worker`)

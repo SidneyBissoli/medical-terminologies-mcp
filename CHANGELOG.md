@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Production smoke: a source that is down is no longer a failed deploy.**
+  `scripts/smoke-mcp.mjs` now runs every check through `criarSmoke` from
+  `@sbissoli/mcp-live-source` 0.3.0 (dev). Measured on 2026-10-22 in the
+  sibling servers (bcb, ibge): the smoke only sees `isError` plus a text on
+  the wire — the class of the upstream error does not travel — so a tool
+  degrading because the NLM or the WHO was unreachable went red as "returned
+  error" with the Worker live at the right version, and the portfolio panel
+  opened "Deploy FAILED". This script decided the same way (`fail(...)` per
+  block). Now a tool answering `isError` unexpectedly triggers a direct probe
+  of the source(s) that check names — `rxnav` (RxNorm/ATC,
+  `/REST/version.json`), `clinicaltables` (LOINC, `loinc_items` search),
+  `mesh` (MeSH RDF, descriptor D003920), `who-token` (the ICD-11 OAuth
+  issuer's `openid-configuration`) and `who-api` (`/icd/entity` WITHOUT a
+  token: the expected 401 is the origin standing up and refusing) —: source
+  down = `::warning title=Fonte indisponível::<check>`, exit 0; source
+  serving = red with the tool's text. A check that throws (assertion, HTTP,
+  JSON-RPC) is a deploy defect and never probes; pedagogical refusals are
+  `esperaErro`; `cid10_search` and `map_icd10_to_icd11` read bundled data and
+  declare no probe; `fetch` picks its probe from the id prefix.
+  `find_equivalent` answering with fewer provenance blocks than sources (a
+  source that errors gets no block) is handed to the package as an error, so
+  the probes decide. New `node scripts/smoke-mcp.mjs --sonda` asks only
+  whether the sources are serving (exit 0/2; `SMOKE_SONDA_<NAME>` points a
+  probe elsewhere). Coverage unchanged: same checks, arguments and
+  assertions (14 over HTTP, 11 over STDIO). Proved 2026-10-22: `--sonda`
+  exit 0 with the five probes serving and 2 with one pointed at a closed
+  port; production "14 de 14 verificadas", STDIO "11 de 11"; `npm test`
+  green.
 - **Daily live contract: a source that is down skips the case, drift fails
   it.** `src/integration/live-apis.integration.test.ts` runs every case that
   reaches the network in `aoVivo` from `@sbissoli/mcp-live-source/vitest`

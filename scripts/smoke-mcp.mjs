@@ -1,23 +1,121 @@
 /**
- * Manual smoke of the MCP surface (Fase 0 portfolio pattern, ported from
+ * Smoke of the MCP surface (Fase 0 portfolio pattern, ported from
  * ibge-br-mcp): initialize → tools/list → real calls on both bundled and
  * live-upstream tools, plus the pedagogical-error path.
  *
  * The script talks to the SERVER (production Worker or local STDIO), never
  * to WHO/NLM directly — upstream handling (rate limit, retry, cache) lives
- * in the server.
+ * in the server. The one exception is the PROBE (below): a minimal GET
+ * straight at a source, only when a tool has just failed.
  *
  * Usage:
  *   node scripts/smoke-mcp.mjs                        # HTTP against production
  *   node scripts/smoke-mcp.mjs http://localhost:8787  # HTTP against another base
  *   node scripts/smoke-mcp.mjs --stdio                # spawn dist/index.js (requires npm run build)
+ *   node scripts/smoke-mcp.mjs --sonda                # only asks the sources whether they serve (exit 0/2)
+ *
+ * A SOURCE THAT IS DOWN IS NOT A BROKEN DEPLOY. Measured on 2026-10-22 in
+ * the siblings: bcb failed two re-runs with the SGS answering 502, and ibge
+ * went red on "ibge_estados returned error" with the Worker live at the
+ * right version and the IBGE refusing connections from part of the clouds.
+ * The panel opened "Deploy FAILED" for deploys that had not failed. The
+ * smoke only sees what travels on the wire (`isError` + a text; the class
+ * of the upstream error does not travel), so the decision belongs to
+ * `criarSmoke` from @sbissoli/mcp-live-source: a tool answering `isError`
+ * unexpectedly → direct probe of the source(s) that check names → source
+ * down = WARNING (`::warning title=Fonte indisponível`, exit 0); source
+ * serving = FAILURE with the tool's text (exit 1). A check that THROWS
+ * (assertion, HTTP, JSON-RPC) is a deploy defect and goes red without
+ * probing; `esperaErro: true` demands the refusal. Tools that read only the
+ * bundled datasets (CID-10, ICD-10→ICD-11 tables) declare `sondas: []`: a
+ * failure there is ours by construction.
  */
 
 import { spawn } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
+import { criarSmoke } from "@sbissoli/mcp-live-source";
 
-const STDIO = process.argv[2] === "--stdio";
-const BASE = STDIO ? null : (process.argv[2] ?? "https://medical.sidneybissoli.com");
+const args = process.argv.slice(2);
+const STDIO = args.includes("--stdio");
+const BASE = STDIO ? null : (args.find((a) => !a.startsWith("--")) ?? "https://medical.sidneybissoli.com");
+
+/**
+ * The sources the tools of this script consult, one minimal request each
+ * against a resource that EXISTS, with a small body. `SMOKE_SONDA_<NAME>`
+ * points a probe elsewhere — to prove `--sonda` saying DOWN without waiting
+ * for the NLM to fall over. One probe per origin, because they fail
+ * independently (measured 2026-05-09: clinicaltables 404 for a week while
+ * RxNav and MeSH served):
+ *
+ * - rxnav          RxNorm + ATC (RxClass), rxnav.nlm.nih.gov
+ * - clinicaltables LOINC, clinicaltables.nlm.nih.gov
+ * - mesh           MeSH RDF, id.nlm.nih.gov
+ * - who-token      the OAuth issuer of the ICD-11 API (icdaccessmanagement.who.int)
+ * - who-api        the ICD-11 API itself (id.who.int). Every API resource
+ *                  requires a bearer token, and the smoke has none: the
+ *                  probe GETs an API path WITHOUT a token and expects the
+ *                  401 — a 4xx is the origin standing up and refusing, which
+ *                  the package counts as "servindo" (and logs as "de pé, mas
+ *                  recusou o pedido mínimo"; that line is expected here).
+ *                  Down is a timeout, a network error or a 5xx.
+ *
+ * CID-10 and the ICD-10→ICD-11 tables are bundled: no probe.
+ */
+const ehJson = (f) => (corpo) => {
+  try {
+    return f(JSON.parse(corpo));
+  } catch {
+    return false;
+  }
+};
+const smoke = criarSmoke({
+  sondas: [
+    {
+      nome: "rxnav",
+      url: process.env.SMOKE_SONDA_RXNAV ?? "https://rxnav.nlm.nih.gov/REST/version.json",
+      aceita: ehJson((j) => typeof j?.version === "string"),
+    },
+    {
+      nome: "clinicaltables",
+      url:
+        process.env.SMOKE_SONDA_CLINICALTABLES ??
+        "https://clinicaltables.nlm.nih.gov/api/loinc_items/v3/search?terms=glucose&maxList=1",
+      aceita: ehJson((j) => Array.isArray(j) && typeof j[0] === "number" && j[0] > 0),
+    },
+    {
+      nome: "mesh",
+      url: process.env.SMOKE_SONDA_MESH ?? "https://id.nlm.nih.gov/mesh/D003920.json",
+      aceita: ehJson((j) => j?.["@id"] === "http://id.nlm.nih.gov/mesh/D003920"),
+    },
+    {
+      nome: "who-token",
+      url: process.env.SMOKE_SONDA_WHO_TOKEN ?? "https://icdaccessmanagement.who.int/.well-known/openid-configuration",
+      aceita: ehJson((j) => j?.token_endpoint === "https://icdaccessmanagement.who.int/connect/token"),
+    },
+    {
+      nome: "who-api",
+      url: process.env.SMOKE_SONDA_WHO_API ?? "https://id.who.int/icd/entity",
+      cabecalhos: { Accept: "application/json", "API-Version": "v2" },
+    },
+  ],
+});
+
+// Exiting in the same tick in which the fetch socket closes crashes Node 24
+// on Windows ("Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)", rc 127
+// instead of the requested code). A short breath fixes it; measured on bcb
+// on 2026-10-22.
+let child = null; // the STDIO child process, when there is one
+async function sair(codigo) {
+  if (child) child.kill();
+  await new Promise((r) => setTimeout(r, 200));
+  process.exit(codigo);
+}
+
+if (args.includes("--sonda")) {
+  const estados = await smoke.sondar();
+  await sair(estados.every((e) => e.veredito === "servindo") ? 0 : 2);
+}
+
 /**
  * O smoke fala pela ROTA DE USO PRÓPRIO, e isso não é detalhe de estilo.
  *
@@ -41,40 +139,6 @@ const BASE = STDIO ? null : (process.argv[2] ?? "https://medical.sidneybissoli.c
  * protocolo e o painel os exclui, então sai de graça na telemetria.
  */
 const ROTA_MCP = STDIO ? null : (process.env.SMOKE_MCP_ROUTE ?? "/mcp/uso-proprio");
-
-/** Handshake contra a rota PÚBLICA, para uma quebra só nela não passar batida. */
-async function confereRotaPublica(base) {
-  if (STDIO || ROTA_MCP === "/mcp") return;
-  const res = await fetch(`${base}/mcp`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 0,
-      method: "initialize",
-      params: {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "smoke-rota-publica", version: "0.0.0" },
-      },
-    }),
-  });
-  const texto = await res.text();
-  if (!res.ok) {
-    console.error(`SMOKE FALHOU: rota pública /mcp: HTTP ${res.status} ${texto.slice(0, 200)}`);
-    process.exit(1);
-  }
-  const linha = texto.includes("data:")
-    ? texto.split("\n").find((l) => l.startsWith("data:"))?.slice(5).trim()
-    : texto;
-  const nome = JSON.parse(linha)?.result?.serverInfo?.name;
-  if (!nome) {
-    console.error(`SMOKE FALHOU: rota pública /mcp sem serverInfo (${texto.slice(0, 200)})`);
-    process.exit(1);
-  }
-  console.log(`rota pública /mcp: ok (${nome})`);
-}
-
 let nextId = 1;
 
 // --- HTTP transport (Streamable HTTP) ---------------------------------------
@@ -106,7 +170,6 @@ async function rpcHttp(method, params, isNotification = false) {
 }
 
 // --- STDIO transport (newline-delimited JSON against dist/index.js) ---------
-let child = null;
 const pending = new Map();
 function startStdio() {
   child = spawn(process.execPath, ["dist/index.js"], { stdio: ["pipe", "pipe", "inherit"] });
@@ -151,9 +214,31 @@ function rpcStdio(method, params, isNotification = false) {
 const rpc = STDIO ? rpcStdio : rpcHttp;
 if (STDIO) startStdio();
 
-function fail(msg) {
-  console.error(`SMOKE FAILED: ${msg}`);
-  process.exit(1);
+/** Script assertion: throws, and `verificar` records it as a deploy defect. */
+function exigir(condicao, msg) {
+  if (!condicao) throw new Error(msg);
+}
+
+/** A check the rest depends on: if it failed, conclude and exit now. */
+async function ouPara(resultado) {
+  if (resultado !== undefined) return resultado;
+  const resumo = smoke.concluir();
+  await sair(resumo.codigoDeSaida);
+}
+
+/**
+ * A multi-source tool answered WITHOUT the block of a source: that source
+ * errored (a source that fails gets no block — crosswalk.ts). On the wire
+ * that is a success, so the package would not probe; this synthetic
+ * `isError` hands it the decision — the probes of the sources that check
+ * names say whether the missing block is an outage (warning) or ours (red).
+ */
+function faltaFonte(label, blocos, esperados) {
+  const fontes = (Array.isArray(blocos) ? blocos : []).map((b) => b.source).join(", ") || "none";
+  return {
+    isError: true,
+    content: [{ type: "text", text: `${label}: expected ${esperados} provenance blocks, got ${blocos?.length ?? 0} (${fontes}) — a source gave no block` }],
+  };
 }
 
 const PROV_META_KEY = "com.sidneybissoli.medical/provenance";
@@ -161,33 +246,55 @@ const PROV_META_KEY = "com.sidneybissoli.medical/provenance";
 /** Provenance gate (v1.8.0): every success carries the three channels. */
 function checkProvenance(label, result, { multi = false, sourceContains, contractText = false } = {}) {
   const prov = result.structuredContent?.provenance;
-  if (!prov) fail(`${label}: structuredContent.provenance missing`);
+  exigir(prov, `${label}: structuredContent.provenance missing`);
   const blocks = Array.isArray(prov) ? prov : [prov];
-  if (multi && !Array.isArray(prov)) fail(`${label}: expected an ARRAY of provenance blocks`);
+  exigir(!multi || Array.isArray(prov), `${label}: expected an ARRAY of provenance blocks`);
   for (const b of blocks) {
-    if (!b.source || !b.source_url || !b.retrieved_at || !b.citation)
-      fail(`${label}: incomplete provenance block ${JSON.stringify(b).slice(0, 200)}`);
-    if (b.license === undefined) fail(`${label}: provenance block without license key`);
+    exigir(b.source && b.source_url && b.retrieved_at && b.citation, `${label}: incomplete provenance block ${JSON.stringify(b).slice(0, 200)}`);
+    exigir(b.license !== undefined, `${label}: provenance block without license key`);
   }
-  if (sourceContains && !blocks.some((b) => b.source.includes(sourceContains)))
-    fail(`${label}: no block with source containing "${sourceContains}"`);
+  exigir(!sourceContains || blocks.some((b) => b.source.includes(sourceContains)), `${label}: no block with source containing "${sourceContains}"`);
   const attribution = result.structuredContent?.attribution;
-  if (!Array.isArray(attribution) || attribution.length === 0)
-    fail(`${label}: attribution list missing/empty`);
-  if (!result._meta || result._meta[PROV_META_KEY] === undefined)
-    fail(`${label}: _meta mirror missing (${PROV_META_KEY})`);
+  exigir(Array.isArray(attribution) && attribution.length > 0, `${label}: attribution list missing/empty`);
+  exigir(result._meta && result._meta[PROV_META_KEY] !== undefined, `${label}: _meta mirror missing (${PROV_META_KEY})`);
   const text = (result.content ?? []).map((c) => c.text).join("\n");
   if (contractText) {
     // Deep Research pair: content[0].text is the JSON of the object, nothing
     // else (ChatGPT parses it) — provenance travels in the other two channels.
-    if ((result.content ?? []).length !== 1) fail(`${label}: contract text must be ONE block`);
-    if ("provenance" in JSON.parse(text)) fail(`${label}: contract text carries provenance keys`);
-  } else if (!text.includes("Source: ") || !text.includes("License: ")) {
-    fail(`${label}: text footer missing`);
+    exigir((result.content ?? []).length === 1, `${label}: contract text must be ONE block`);
+    exigir(!("provenance" in JSON.parse(text)), `${label}: contract text carries provenance keys`);
+  } else {
+    exigir(text.includes("Source: ") && text.includes("License: "), `${label}: text footer missing`);
   }
 }
 
 // --- Script ------------------------------------------------------------------
+
+/** Handshake against the PUBLIC route, so a break only there does not go unnoticed. */
+async function confereRotaPublica() {
+  const res = await fetch(`${BASE}/mcp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 0,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "smoke-rota-publica", version: "0.0.0" },
+      },
+    }),
+  });
+  const texto = await res.text();
+  exigir(res.ok, `rota pública /mcp: HTTP ${res.status} ${texto.slice(0, 200)}`);
+  const linha = texto.includes("data:")
+    ? texto.split("\n").find((l) => l.startsWith("data:"))?.slice(5).trim()
+    : texto;
+  const nome = JSON.parse(linha)?.result?.serverInfo?.name;
+  exigir(nome, `rota pública /mcp sem serverInfo (${texto.slice(0, 200)})`);
+  return nome;
+}
 
 /**
  * CONTRATO DE SESSÃO (desde 2026-09-17). O Worker emite `Mcp-Session-Id` no
@@ -208,37 +315,38 @@ async function contratoDeSessao(endpoint) {
   });
   await init.text();
   const sid = init.headers.get("mcp-session-id") ?? "";
-  if (!/^[A-Za-z0-9._~-]{1,64}$/.test(sid)) {
-    throw new Error(`contrato de sessão: initialize sem Mcp-Session-Id legível (${JSON.stringify(sid)})`);
-  }
+  exigir(/^[A-Za-z0-9._~-]{1,64}$/.test(sid), `initialize sem Mcp-Session-Id legível (${JSON.stringify(sid)})`);
   const lista = await fetch(endpoint, {
     method: "POST", headers: { ...cab, "mcp-session-id": "contrato-inexistente-" + Date.now() },
     body: JSON.stringify({ jsonrpc: "2.0", id: 92, method: "tools/list", params: {} })
   });
   await lista.text();
-  if (lista.status !== 200) {
-    throw new Error(`contrato de sessão: tools/list com id desconhecido respondeu HTTP ${lista.status} (o handler stateless tem de ignorar o cabeçalho)`);
-  }
+  exigir(lista.status === 200, `tools/list com id desconhecido respondeu HTTP ${lista.status} (o handler stateless tem de ignorar o cabeçalho)`);
   const del = await fetch(endpoint, { method: "DELETE", headers: { "mcp-session-id": sid } });
   await del.text();
-  if (del.status !== 405) {
-    throw new Error(`contrato de sessão: DELETE respondeu HTTP ${del.status}, esperado 405 (servidor sem sessão)`);
-  }
-  console.log("contrato de sessão: ok (id emitido no initialize, id desconhecido ignorado, DELETE 405)");
+  exigir(del.status === 405, `DELETE respondeu HTTP ${del.status}, esperado 405 (servidor sem sessão)`);
+  return "id emitido no initialize, id desconhecido ignorado, DELETE 405";
 }
 
-await confereRotaPublica(BASE);
-if (!STDIO) await contratoDeSessao(`${BASE}${ROTA_MCP}`);
+if (!STDIO && ROTA_MCP !== "/mcp") await ouPara(await smoke.verificar("rota pública /mcp", confereRotaPublica, { detalhe: (n) => n }));
+if (!STDIO) await ouPara(await smoke.verificar("contrato de sessão", () => contratoDeSessao(`${BASE}${ROTA_MCP}`), { detalhe: (d) => d }));
 
-const init = await rpc("initialize", {
-  protocolVersion: "2025-06-18",
-  capabilities: {},
-  clientInfo: { name: "smoke", version: "0.0.0" },
-});
-console.log("initialize:", init.serverInfo);
-if (init.serverInfo.name !== "medical-terminologies-mcp") fail("unexpected serverInfo.name");
-
-await rpc("notifications/initialized", {}, true).catch(() => {});
+await ouPara(
+  await smoke.verificar(
+    "initialize",
+    async () => {
+      const init = await rpc("initialize", {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "smoke", version: "0.0.0" },
+      });
+      exigir(init.serverInfo?.name === "medical-terminologies-mcp", `unexpected serverInfo.name: ${init.serverInfo?.name}`);
+      await rpc("notifications/initialized", {}, true).catch(() => {});
+      return init;
+    },
+    { detalhe: (init) => `${init.serverInfo.name} ${init.serverInfo.version}` },
+  ),
+);
 
 // The expected count is NOT a literal: it comes from the most recent surface
 // baseline (baselines/surface-stdio-<version>.json —
@@ -253,119 +361,178 @@ const latestBaseline = readdirSync("baselines")
     return va[0] - vb[0] || va[1] - vb[1] || va[2] - vb[2];
   })
   .at(-1);
-if (!latestBaseline) fail("no baselines/surface-stdio-*.json to derive the tool count from");
-const expected = JSON.parse(readFileSync(`baselines/${latestBaseline}`, "utf8")).toolCount;
 
-const { tools } = await rpc("tools/list", {});
-console.log(`tools/list: ${tools.length} tools (baseline ${latestBaseline}: ${expected})`);
-if (tools.length !== expected) fail(`expected ${expected} tools, got ${tools.length}`);
-const noOutputSchema = tools.filter((t) => !t.outputSchema);
-if (noOutputSchema.length > 0)
-  fail(`tools without outputSchema: ${noOutputSchema.map((t) => t.name).join(", ")}`);
-const badAnnotations = tools.filter((t) => t.annotations?.readOnlyHint !== true);
-if (badAnnotations.length > 0)
-  fail(`tools without readOnlyHint: ${badAnnotations.map((t) => t.name).join(", ")}`);
-console.log("outputSchema + READ_ONLY annotations: ok on all", tools.length);
+await ouPara(
+  await smoke.verificar(
+    "tools/list",
+    async () => {
+      exigir(latestBaseline, "no baselines/surface-stdio-*.json to derive the tool count from");
+      const expected = JSON.parse(readFileSync(`baselines/${latestBaseline}`, "utf8")).toolCount;
+      const { tools } = await rpc("tools/list", {});
+      exigir(tools.length === expected, `expected ${expected} tools (baseline ${latestBaseline}), got ${tools.length}`);
+      const noOutputSchema = tools.filter((t) => !t.outputSchema);
+      exigir(noOutputSchema.length === 0, `tools without outputSchema: ${noOutputSchema.map((t) => t.name).join(", ")}`);
+      const badAnnotations = tools.filter((t) => t.annotations?.readOnlyHint !== true);
+      exigir(badAnnotations.length === 0, `tools without readOnlyHint: ${badAnnotations.map((t) => t.name).join(", ")}`);
+      return tools;
+    },
+    { detalhe: (tools) => `${tools.length} tools (baseline ${latestBaseline}), outputSchema + readOnlyHint ok on all` },
+  ),
+);
 
-const { prompts } = await rpc("prompts/list", {});
-if (prompts.length !== 3) fail(`expected 3 prompts, got ${prompts.length}`);
-const { resources } = await rpc("resources/list", {});
-if (resources.length !== 4) fail(`expected 4 resources, got ${resources.length}`);
-console.log("prompts: 3, resources: 4");
+await smoke.verificar(
+  "prompts/list + resources/list",
+  async () => {
+    const { prompts } = await rpc("prompts/list", {});
+    exigir(prompts.length === 3, `expected 3 prompts, got ${prompts.length}`);
+    const { resources } = await rpc("resources/list", {});
+    exigir(resources.length === 4, `expected 4 resources, got ${resources.length}`);
+    return { prompts: prompts.length, resources: resources.length };
+  },
+  { detalhe: (r) => `prompts: ${r.prompts}, resources: ${r.resources}` },
+);
 
-// 1) Bundled dataset — CID-10 (in-process, no upstream)
-const cid10 = await rpc("tools/call", {
-  name: "cid10_search",
-  arguments: { query: "diabetes" },
-});
-if (cid10.isError) fail("cid10_search returned error");
-if (!cid10.structuredContent?.hits?.length) fail("cid10_search: no structured hits");
-checkProvenance("cid10_search", cid10, { sourceContains: "DataSUS" });
-console.log("\ncid10_search 'diabetes':", cid10.structuredContent.total_count, "matches (provenance ok)");
+const chamar = (name, args) => rpc("tools/call", { name, arguments: args });
+
+// 1) Bundled dataset — CID-10 (in-process, no upstream): a failure is ours.
+await smoke.verificar(
+  "cid10_search 'diabetes' (bundled)",
+  async () => {
+    const cid10 = await chamar("cid10_search", { query: "diabetes" });
+    if (cid10.isError) return cid10;
+    exigir(cid10.structuredContent?.hits?.length, "cid10_search: no structured hits");
+    checkProvenance("cid10_search", cid10, { sourceContains: "DataSUS" });
+    return cid10;
+  },
+  { sondas: [], detalhe: (r) => `${r.structuredContent.total_count} matches (provenance ok)` },
+);
 
 // 2) Bundled authoritative crosswalk — the 4th most used tool (docs/00)
-const map = await rpc("tools/call", {
-  name: "map_icd10_to_icd11",
-  arguments: { icd10_code: "E10" },
-});
-if (map.isError) fail("map_icd10_to_icd11 returned error");
-if (!map.structuredContent) fail("map_icd10_to_icd11: structuredContent missing");
-checkProvenance("map_icd10_to_icd11", map, { sourceContains: "transition tables" });
-if (!map.structuredContent.provenance.data_vintage)
-  fail("map_icd10_to_icd11: bundled dataset must expose data_vintage");
-console.log(
-  "map_icd10_to_icd11 E10 →",
-  map.structuredContent.primary?.code ?? "(null mapping)",
-  "(provenance ok, vintage",
-  map.structuredContent.provenance.data_vintage + ")",
+await smoke.verificar(
+  "map_icd10_to_icd11 E10 (bundled)",
+  async () => {
+    const map = await chamar("map_icd10_to_icd11", { icd10_code: "E10" });
+    if (map.isError) return map;
+    exigir(map.structuredContent, "map_icd10_to_icd11: structuredContent missing");
+    checkProvenance("map_icd10_to_icd11", map, { sourceContains: "transition tables" });
+    exigir(map.structuredContent.provenance.data_vintage, "map_icd10_to_icd11: bundled dataset must expose data_vintage");
+    return map;
+  },
+  {
+    sondas: [],
+    detalhe: (m) => `E10 → ${m.structuredContent.primary?.code ?? "(null mapping)"} (provenance ok, vintage ${m.structuredContent.provenance.data_vintage})`,
+  },
 );
 
 // 3) Live upstream — RxNorm via NLM (top usage axis: drug)
-const rx = await rpc("tools/call", {
-  name: "rxnorm_search",
-  arguments: { query: "metformin" },
-});
-if (rx.isError) fail("rxnorm_search returned error (NLM upstream reachable?)");
-if (!rx.structuredContent) fail("rxnorm_search: structuredContent missing");
-checkProvenance("rxnorm_search", rx, { sourceContains: "RxNav" });
-console.log("rxnorm_search 'metformin': ok (provenance ok)");
+await smoke.verificar(
+  "rxnorm_search 'metformin' (RxNav)",
+  async () => {
+    const rx = await chamar("rxnorm_search", { query: "metformin" });
+    if (rx.isError) return rx;
+    exigir(rx.structuredContent, "rxnorm_search: structuredContent missing");
+    checkProvenance("rxnorm_search", rx, { sourceContains: "RxNav" });
+    return rx;
+  },
+  { sondas: ["rxnav"], detalhe: () => "provenance ok" },
+);
 
-// 3b) Multi-source provenance — one block PER source (license segregation)
-const eq = await rpc("tools/call", {
-  name: "find_equivalent",
-  arguments: { term: "aspirin", target_terminologies: ["rxnorm", "mesh"], limit: 3 },
-});
-if (eq.isError) fail("find_equivalent returned error");
-checkProvenance("find_equivalent", eq, { multi: true, sourceContains: "RxNav" });
-const eqBlocks = eq.structuredContent.provenance;
-if (eqBlocks.length !== 2) fail(`find_equivalent: expected 2 blocks, got ${eqBlocks.length}`);
-console.log("find_equivalent 'aspirin' (rxnorm+mesh): 2 provenance blocks ok");
+// 3b) Multi-source provenance — one block PER source (license segregation).
+// A source that errors gets no block, and the tool still answers: fewer
+// blocks than sources is handed to the package as an error (see faltaFonte).
+await smoke.verificar(
+  "find_equivalent 'aspirin' rxnorm+mesh (2 provenance blocks)",
+  async () => {
+    const eq = await chamar("find_equivalent", { term: "aspirin", target_terminologies: ["rxnorm", "mesh"], limit: 3 });
+    if (eq.isError) return eq;
+    const blocos = eq.structuredContent?.provenance;
+    if (Array.isArray(blocos) && blocos.length !== 2) return faltaFonte("find_equivalent", blocos, 2);
+    checkProvenance("find_equivalent", eq, { multi: true, sourceContains: "RxNav" });
+    return eq;
+  },
+  { sondas: ["rxnav", "mesh"], detalhe: () => "2 provenance blocks ok" },
+);
 
 // 3c) ChatGPT Deep Research contract — search → fetch with the returned id.
 // `search` fans out to the live upstreams and ranks with the local CID-10
-// index; `fetch` renders through the terminology's lookup tool. The text of
-// both is the JSON of the object (the contract), provenance in the other two
-// channels.
-const search = await rpc("tools/call", { name: "search", arguments: { query: "diabetes" } });
-if (search.isError) fail("search returned error");
-const found = search.structuredContent?.results ?? [];
-if (found.length === 0) fail("search 'diabetes': no results");
-if (found.some((r) => !r.id || !r.title || !r.url)) fail("search: result without id/title/url");
-if (JSON.parse(search.content?.[0]?.text ?? "{}").results?.length !== found.length)
-  fail("search: content[0].text is not the JSON of the object");
-checkProvenance("search", search, { multi: true, sourceContains: "DataSUS", contractText: true });
-const doc = await rpc("tools/call", { name: "fetch", arguments: { id: found[0].id } });
-if (doc.isError) fail(`fetch ${found[0].id} returned error: ${doc.content?.[0]?.text?.slice(0, 120)}`);
-if (doc.structuredContent?.id !== found[0].id || !doc.structuredContent?.text || !doc.structuredContent?.url)
-  fail("fetch: document without id/text/url");
-checkProvenance("fetch", doc, { contractText: true });
-const missing = await rpc("tools/call", { name: "fetch", arguments: { id: "nope:1" } });
-if (!missing.isError) fail("fetch of an unknown id should return isError");
-console.log(`search 'diabetes': ${found.length} results (${found[0].id}) → fetch ok; unknown id → error ok`);
+// index (a source that fails is left out, never an error); `fetch` renders
+// through the terminology's lookup tool, so its source is the id's prefix.
+// The text of both is the JSON of the object (the contract), provenance in
+// the other two channels.
+const busca = await smoke.verificar(
+  "search 'diabetes' (Deep Research)",
+  async () => {
+    const search = await chamar("search", { query: "diabetes" });
+    if (search.isError) return search;
+    const found = search.structuredContent?.results ?? [];
+    exigir(found.length > 0, "search 'diabetes': no results");
+    exigir(!found.some((r) => !r.id || !r.title || !r.url), "search: result without id/title/url");
+    exigir(JSON.parse(search.content?.[0]?.text ?? "{}").results?.length === found.length, "search: content[0].text is not the JSON of the object");
+    checkProvenance("search", search, { multi: true, sourceContains: "DataSUS", contractText: true });
+    return { search, found };
+  },
+  { detalhe: (b) => `${b.found.length} results | [0] = ${b.found[0].id} | ${b.search.structuredContent.provenance.length} provenance blocks` },
+);
 
-// 4) Pedagogical error — handler-level Zod validation, not a protocol error
-const bad = await rpc("tools/call", { name: "cid10_search", arguments: {} });
-if (!bad.isError) fail("cid10_search without query should return isError");
-const errText = bad.content?.[0]?.text ?? "";
-if (!errText.includes("Validation error")) fail(`unexpected error text: ${errText.slice(0, 120)}`);
-console.log("pedagogical validation error: ok");
-
-// 5) HTTP-only routes (hosted template + legacy StatsCounter)
-if (!STDIO) {
-  const health = await (await fetch(`${BASE}/health`)).json();
-  if (health.status !== "ok") fail("/health not ok");
-  const status = await (await fetch(`${BASE}/status`)).json();
-  if (status.name !== "medical-terminologies-mcp") fail("/status wrong name");
-  const stats = await (await fetch(`${BASE}/stats`)).json();
-  if (typeof stats.total_invocations !== "number") fail("/stats malformed");
-  const badge = await (await fetch(`${BASE}/stats/badge`)).json();
-  if (badge.schemaVersion !== 1 || badge.label !== "tool calls") fail("/stats/badge malformed");
-  const metrics = await (await fetch(`${BASE}/metrics`)).json();
-  console.log(
-    `\nroutes: /health ok | /status ${status.version}${status.deploy ? ` (deploy ${status.deploy.timestamp})` : ""} | /stats total=${stats.total_invocations} | badge='${badge.message}' | /metrics ${metrics.totals ? "ok" : "warn"}`,
+const SONDAS_POR_PREFIXO = { "icd11:": ["who-token", "who-api"], "loinc:": ["clinicaltables"], "rxnorm:": ["rxnav"], "mesh:": ["mesh"] };
+if (busca === undefined) {
+  smoke.naoMedida("fetch (Deep Research)", "depends on the id that search would return");
+} else {
+  const id = busca.found[0].id;
+  const sondas = Object.entries(SONDAS_POR_PREFIXO).find(([p]) => id.startsWith(p))?.[1] ?? []; // cid10:/version: are bundled
+  await smoke.verificar(
+    "fetch (Deep Research)",
+    async () => {
+      const doc = await chamar("fetch", { id });
+      if (doc.isError) return doc;
+      exigir(doc.structuredContent?.id === id && doc.structuredContent?.text && doc.structuredContent?.url, "fetch: document without id/text/url");
+      checkProvenance("fetch", doc, { contractText: true });
+      return doc;
+    },
+    { sondas, detalhe: (d) => `${id} | text ${d.structuredContent.text.length} chars | url ${d.structuredContent.url}` },
   );
 }
 
-console.log("\nSMOKE OK");
-if (STDIO) child.kill();
-process.exit(0);
+await smoke.verificar(
+  "fetch of an unknown id → isError",
+  () => chamar("fetch", { id: "nope:1" }),
+  { esperaErro: true, detalhe: (e) => (e.content?.[0]?.text ?? "").replaceAll(/\s+/g, " ").slice(0, 80) },
+);
+
+// 4) Pedagogical error — handler-level Zod validation, not a protocol error.
+// The refusal is the right answer; its text still has to be the validation one.
+await smoke.verificar(
+  "cid10_search without query → validation isError",
+  async () => {
+    const bad = await chamar("cid10_search", {});
+    if (!bad.isError) return bad;
+    const errText = bad.content?.[0]?.text ?? "";
+    exigir(errText.includes("Validation error"), `unexpected error text: ${errText.slice(0, 120)}`);
+    return bad;
+  },
+  { esperaErro: true, detalhe: (e) => (e.content?.[0]?.text ?? "").replaceAll(/\s+/g, " ").slice(0, 80) },
+);
+
+// 5) HTTP-only routes (hosted template + legacy StatsCounter)
+if (!STDIO) {
+  await smoke.verificar(
+    "routes /health /status /stats /stats/badge /metrics",
+    async () => {
+      const health = await (await fetch(`${BASE}/health`)).json();
+      exigir(health.status === "ok", "/health not ok");
+      const status = await (await fetch(`${BASE}/status`)).json();
+      exigir(status.name === "medical-terminologies-mcp", "/status wrong name");
+      const stats = await (await fetch(`${BASE}/stats`)).json();
+      exigir(typeof stats.total_invocations === "number", "/stats malformed");
+      const badge = await (await fetch(`${BASE}/stats/badge`)).json();
+      exigir(badge.schemaVersion === 1 && badge.label === "tool calls", "/stats/badge malformed");
+      const metrics = await (await fetch(`${BASE}/metrics`)).json();
+      return `/health ok | /status ${status.version}${status.deploy ? ` (deploy ${status.deploy.timestamp})` : ""} | /stats total=${stats.total_invocations} | badge='${badge.message}' | /metrics ${metrics.totals ? "ok" : "warn"}`;
+    },
+    { detalhe: (d) => d },
+  );
+}
+
+const resumo = smoke.concluir();
+console.log(resumo.codigoDeSaida === 0 ? (resumo.naoMedidas.length > 0 ? "\nSMOKE OK with source warning" : "\nSMOKE OK") : "\nSMOKE FAILED");
+await sair(resumo.codigoDeSaida);
