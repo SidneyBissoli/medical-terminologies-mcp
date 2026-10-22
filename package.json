@@ -68,7 +68,7 @@
   "devDependencies": {
     "@modelcontextprotocol/client": "^2.0.0",
     "@sbissoli/mcp-evals": "^0.2.1",
-    "@sbissoli/mcp-live-source": "^0.2.0",
+    "@sbissoli/mcp-live-source": "^0.3.0",
     "@sbissoli/mcp-surface": "^0.6.0",
     "@types/node": "^26.5.1",
     "esbuild": "^0.28.2",
