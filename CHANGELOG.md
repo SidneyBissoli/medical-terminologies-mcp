@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Production smoke: the WHO probe goes with a token, like the server.** The
+  ICD-11 API has no resource that answers without a bearer token, so the
+  `who-api` probe could only "expect the 401" and read it as "the origin is
+  up" — blind to a broken auth on the WHO side, which would paint the deploy
+  red. Now, with `WHO_CLIENT_ID`/`WHO_CLIENT_SECRET` in the environment (the
+  deploy job passes the repository secrets to the smoke step), the script
+  obtains a token exactly as `who-client.ts` does (client credentials, scope
+  `icdapi_access`, 15 s) and GETs `/icd/entity` with it: 2xx JSON = serving;
+  401/403 = the WHO refusing the credential the server uses = not serving us,
+  a warning (`recusaEhFora`, `@sbissoli/mcp-live-source` 0.3.1). If the token
+  request fails, the probe goes without a token and the 401 reads the same
+  way. Without credentials (a local run) the previous behaviour stays.
 - **Production smoke: a source that is down is no longer a failed deploy.**
   `scripts/smoke-mcp.mjs` now runs every check through `criarSmoke` from
   `@sbissoli/mcp-live-source` 0.3.0 (dev). Measured on 2026-10-22 in the

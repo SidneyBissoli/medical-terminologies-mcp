@@ -15,9 +15,10 @@ name: Deploy to Cloudflare Workers
 #   CLOUDFLARE_API_TOKEN — scoped token with "Workers Scripts: Edit"
 #                         permission for the target account
 #   CLOUDFLARE_ACCOUNT_ID — account ID the worker deploys into
-#   (WHO_CLIENT_ID + WHO_CLIENT_SECRET are NOT GitHub secrets — they're
-#    set via `wrangler secret put` on the Cloudflare side because they're
-#    only needed at the Worker's runtime, not at build time.)
+#   WHO_CLIENT_ID + WHO_CLIENT_SECRET — the Worker's RUNTIME copy is set via
+#    `wrangler secret put` on the Cloudflare side; the GitHub copy (added
+#    2026-10-03 for integration.yml) is used here only by the production
+#    smoke, so its `who-api` probe can carry a token like the server does.
 
 on:
   push:
@@ -115,8 +116,15 @@ jobs:
 
       # Closes the loop: if the deploy ships a broken worker, the job fails
       # here — not silently the next time someone opens the endpoint.
+      # The WHO credentials let the smoke's `who-api` probe go WITH a token, as
+      # the server does: a 401 then means the WHO is not serving us (warning),
+      # not "the origin is up" (red). Without them the probe can only expect
+      # the 401 (scripts/smoke-mcp.mjs, header).
       - name: Production smoke
         run: node scripts/smoke-mcp.mjs
+        env:
+          WHO_CLIENT_ID: ${{ secrets.WHO_CLIENT_ID }}
+          WHO_CLIENT_SECRET: ${{ secrets.WHO_CLIENT_SECRET }}
 
       # What went live is what was locked: declared surface served without a
       # credential and, method by method, who answers without a token

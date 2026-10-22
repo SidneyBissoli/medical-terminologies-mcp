@@ -25,8 +25,11 @@ The smoke runs on `criarSmoke` from `@sbissoli/mcp-live-source` (dev): a tool th
 CID-10 and ICD-10→ICD-11 checks declare `sondas: []`); source down = `::warning title=Fonte
 indisponível`, exit 0 (the deploy step stays green); source serving = red with the tool's
 text. A check that throws (assertion, HTTP, JSON-RPC) is a deploy defect and never probes.
-The `who-api` probe GETs an API path without a token and expects the 401 (every ICD-11
-resource needs a bearer token; a 4xx is the origin standing up).
+The `who-api` probe carries a bearer token when `WHO_CLIENT_ID`/`WHO_CLIENT_SECRET` are in
+the environment (the deploy job passes the repository secrets): 2xx JSON = serving, 401/403
+= the WHO refusing the credential the server uses = down (`recusaEhFora`, mcp-live-source
+0.3.1, warning). Without credentials (local run) it can only expect the 401 (every ICD-11
+resource needs a token; a 4xx without an HTML page is the origin standing up).
 
 The Cloudflare Worker (`worker/`, not published to npm) is an instance of the
 portfolio's Fase 0 hosting template (`mcp-br-commons/templates/cloudflare-worker`)
