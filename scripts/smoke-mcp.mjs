@@ -52,12 +52,21 @@ const BASE = STDIO ? null : (args.find((a) => !a.startsWith("--")) ?? "https://m
  * - mesh           MeSH RDF, id.nlm.nih.gov
  * - who-token      the OAuth issuer of the ICD-11 API (icdaccessmanagement.who.int)
  * - who-api        the ICD-11 API itself (id.who.int). Every API resource
- *                  requires a bearer token, and the smoke has none: the
- *                  probe GETs an API path WITHOUT a token and expects the
- *                  401 — a 4xx is the origin standing up and refusing, which
- *                  the package counts as "servindo" (and logs as "de pé, mas
- *                  recusou o pedido mínimo"; that line is expected here).
- *                  Down is a timeout, a network error or a 5xx.
+ *                  requires a bearer token. With WHO_CLIENT_ID/WHO_CLIENT_SECRET
+ *                  in the environment (the deploy job passes the repository
+ *                  secrets) the probe first obtains a token exactly like the
+ *                  server does (client credentials, scope icdapi_access) and
+ *                  GETs `/icd/entity` WITH it: 2xx JSON = serving; 401/403 =
+ *                  the WHO refusing the credential the server uses, i.e. not
+ *                  serving us — `recusaEhFora` (mcp-live-source 0.3.1) counts
+ *                  it as down (warning), because the tool cannot work and the
+ *                  deploy is not to blame. If the token request itself fails,
+ *                  the probe goes without a token and the 401 is read the same
+ *                  way. Without credentials (a local run) the probe falls back
+ *                  to "expect the 401": a 4xx without an HTML page is the origin
+ *                  standing up (logged as "de pé, mas recusou o pedido mínimo";
+ *                  that line is expected in that mode and cannot see a broken
+ *                  auth on their side).
  *
  * CID-10 and the ICD-10→ICD-11 tables are bundled: no probe.
  */
@@ -68,6 +77,47 @@ const ehJson = (f) => (corpo) => {
     return false;
   }
 };
+
+/**
+ * A bearer token for the ICD-11 API, obtained the way the server obtains it
+ * (src/clients/who-client.ts: client credentials, scope icdapi_access, 15 s).
+ * `undefined` when there are no credentials in the environment, or when the
+ * token endpoint did not hand one out — the probe then goes without a token,
+ * and with credentials configured that 401 still reads as "not serving us".
+ */
+const CREDENCIAIS_OMS = Boolean(process.env.WHO_CLIENT_ID && process.env.WHO_CLIENT_SECRET);
+async function tokenDaOms() {
+  if (!CREDENCIAIS_OMS) return undefined;
+  try {
+    const res = await fetch("https://icdaccessmanagement.who.int/connect/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.WHO_CLIENT_ID,
+        client_secret: process.env.WHO_CLIENT_SECRET,
+        grant_type: "client_credentials",
+        scope: "icdapi_access",
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const corpo = await res.text();
+    if (!res.ok) {
+      console.log(`        token da OMS: HTTP ${res.status} ${corpo.slice(0, 120)} — a sonda who-api vai sem token`);
+      return undefined;
+    }
+    const token = JSON.parse(corpo)?.access_token;
+    if (typeof token !== "string" || token === "") {
+      console.log("        token da OMS: resposta sem access_token — a sonda who-api vai sem token");
+      return undefined;
+    }
+    return token;
+  } catch (e) {
+    console.log(`        token da OMS: ${e?.name ?? "erro"}: ${e?.message ?? e} — a sonda who-api vai sem token`);
+    return undefined;
+  }
+}
+const TOKEN_OMS = await tokenDaOms();
+
 const smoke = criarSmoke({
   sondas: [
     {
@@ -95,7 +145,17 @@ const smoke = criarSmoke({
     {
       nome: "who-api",
       url: process.env.SMOKE_SONDA_WHO_API ?? "https://id.who.int/icd/entity",
-      cabecalhos: { Accept: "application/json", "API-Version": "v2" },
+      cabecalhos: {
+        Accept: "application/json",
+        "API-Version": "v2",
+        "Accept-Language": "en",
+        ...(TOKEN_OMS ? { Authorization: `Bearer ${TOKEN_OMS}` } : {}),
+      },
+      // With the token, `/icd/entity` is the Foundation root: JSON with a title.
+      aceita: TOKEN_OMS ? ehJson((j) => typeof j?.title === "object" || typeof j?.title === "string") : undefined,
+      // Credentials configured = a 401/403 is the WHO not serving us (warning),
+      // whether the token request failed or the API refused the token.
+      recusaEhFora: CREDENCIAIS_OMS,
     },
   ],
 });
