@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Daily live contract: a source that is down skips the case, drift fails
+  it.** `src/integration/live-apis.integration.test.ts` runs every case that
+  reaches the network in `aoVivo` from `@sbissoli/mcp-live-source/vitest`
+  (0.2.0, dev): after the clients' own retries, a source that is down
+  (timeout, network, 429, 5xx) SKIPS the case and is annotated
+  `::warning title=Fonte indisponível::<endpoint>` — job green, the portfolio
+  panel counts nights per endpoint —; only what the source answered fails,
+  red and labelled `Deriva de formato`. Until now any non-success painted
+  the panel "the source changed" (`mcp:fonte-indisponivel-nao-e-deriva`).
+  For that, `HttpError` carries the `@sbissoli/mcp-upstream` error as
+  `cause` and the four clients' `ApiError` carries the `HttpError` as
+  `cause` (new optional `options` argument; messages, codes and the
+  telemetry class unchanged). `@sbissoli/mcp-upstream` ^0.5.1 (0.5.x only
+  adds `entregaDaOrigem`). Tools, `tools/list` and responses unchanged.
+
 ## [2.3.0] - 2026-10-15
 
 Provenance contract: step two of 1.3. What 2.2.0 started to ACCEPT in the

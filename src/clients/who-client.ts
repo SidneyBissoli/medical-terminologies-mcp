@@ -235,20 +235,21 @@ export class WHOClient {
         if (status === 401) {
           // Token expired, clear cache and retry
           cache.delete(CACHE_PREFIX.TOKEN, TOKEN_CACHE_KEY);
-          throw new ApiError('Authentication failed - token expired', 'AUTH_EXPIRED', status);
+          throw new ApiError('Authentication failed - token expired', 'AUTH_EXPIRED', status, undefined, { cause: error });
         }
         if (status === 404) {
-          throw new ApiError(`Resource not found: ${path}`, 'NOT_FOUND', status);
+          throw new ApiError(`Resource not found: ${path}`, 'NOT_FOUND', status, undefined, { cause: error });
         }
         if (status === 429) {
-          throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status);
+          throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status, undefined, { cause: error });
         }
 
         throw new ApiError(
           `WHO API error: ${message}`,
           'API_ERROR',
           status,
-          error.data
+          error.data,
+          { cause: error }
         );
       }
       throw error;
