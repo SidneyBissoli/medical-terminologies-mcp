@@ -34,8 +34,16 @@ export class HttpError extends Error {
   readonly status?: number;
   readonly data?: unknown;
 
-  constructor(message: string, opts: { status?: number; data?: unknown } = {}) {
-    super(message);
+  /**
+   * `cause` is the package's `UpstreamError` (since piece 4 of
+   * `mcp:fonte-indisponivel-nao-e-deriva`, 2026-10-22): the live contract
+   * test reads the origin's `kind` through the `cause` chain
+   * (`@sbissoli/mcp-live-source`) to tell "the source is down" (test
+   * skipped, warning) from "the source changed" (red). The clients keep the
+   * chain by passing this error as `cause` of their `ApiError`.
+   */
+  constructor(message: string, opts: { status?: number; data?: unknown; cause?: unknown } = {}) {
+    super(message, opts.cause === undefined ? undefined : { cause: opts.cause });
     this.name = 'HttpError';
     this.status = opts.status;
     this.data = opts.data;
@@ -128,21 +136,22 @@ function describeFetchFailure(error: unknown): string {
 export async function translateUpstreamError(error: unknown, timeoutMs: number): Promise<unknown> {
   if (!(error instanceof UpstreamError)) return error;
   const after = error.attempts > 1 ? ` (after ${error.attempts} attempts)` : '';
+  const cause = error;
   switch (error.kind) {
     case 'timeout':
-      return new HttpError(`timeout of ${timeoutMs}ms exceeded${after}`);
+      return new HttpError(`timeout of ${timeoutMs}ms exceeded${after}`, { cause });
     case 'network':
-      return new HttpError(`${describeFetchFailure(error.cause)}${after}`);
+      return new HttpError(`${describeFetchFailure(error.cause)}${after}`, { cause });
     case 'aborted':
-      return new HttpError(`request aborted${after}`);
+      return new HttpError(`request aborted${after}`, { cause });
     case 'malformed_body':
       // Not reachable in `text` mode without `inspectBody` (the body is parsed here, leniently).
-      return new HttpError(`malformed upstream response${after}`, { status: error.status });
+      return new HttpError(`malformed upstream response${after}`, { status: error.status, cause });
     default: {
       // A response arrived: http_4xx, http_5xx, rate_limited, not_found.
       const status = error.status ?? error.response?.status;
       const data = parseBody(error.body);
-      return new HttpError(`Request failed with status code ${status}${after}`, { status, data });
+      return new HttpError(`Request failed with status code ${status}${after}`, { status, data, cause });
     }
   }
 }

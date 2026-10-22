@@ -9,6 +9,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import nock from 'nock';
+import { UpstreamError, entregaDaOrigem } from '@sbissoli/mcp-upstream';
+import { ApiError } from '../types/index.js';
 import { HttpClient, HttpError } from './http.js';
 import { upstreamIo } from './upstream.js';
 import { CACHE_PREFIX } from './cache.js';
@@ -131,6 +133,24 @@ describe('HttpClient', () => {
     expect((err as HttpError).message).toBe('Request failed with status code 502 (after 3 attempts)');
     expect(sleeps).toEqual([1000, 2000]);
     expect(nock.isDone()).toBe(true);
+  });
+
+  // Piece 4 of `mcp:fonte-indisponivel-nao-e-deriva`: the live contract test
+  // reads the origin's `kind` through the `cause` chain. Without it, a 502
+  // from the source reached the reporter as "an error that is not the
+  // source's" and the job went red for an outage, like a drift.
+  it('keeps the package error as `cause`, through the ApiError the clients throw', async () => {
+    nock(HOST).get('/down').times(3).reply(502, 'nope');
+
+    const client = new HttpClient({ source: SOURCE, baseURL: HOST });
+    const err = (await client.get('/down').catch((e: unknown) => e)) as HttpError;
+
+    expect(err.cause).toBeInstanceOf(UpstreamError);
+    expect((err.cause as UpstreamError).kind).toBe('http_5xx');
+
+    const apiError = new ApiError('NLM API error: nope', 'API_ERROR', 502, 'nope', { cause: err });
+    expect(entregaDaOrigem(apiError)).toMatchObject({ veredito: 'indisponivel', kind: 'http_5xx', status: 502 });
+    expect(entregaDaOrigem(new ApiError('sem causa', 'API_ERROR', 502)).veredito).toBe('alheio');
   });
 
   it('does NOT repeat a 404: absence is the answer of the source (one attempt, no wait)', async () => {

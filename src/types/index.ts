@@ -1160,8 +1160,15 @@ export class ApiError extends Error {
     public readonly code: string,
     public readonly statusCode?: number,
     public readonly details?: unknown,
+    /**
+     * `cause` = the `HttpError` the client translated (whose own `cause` is
+     * the `@sbissoli/mcp-upstream` error): the live contract test reads the
+     * origin's `kind` through this chain to tell "the source is down" from
+     * "the source changed" (piece 4 of `mcp:fonte-indisponivel-nao-e-deriva`).
+     */
+    options?: { cause?: unknown },
   ) {
-    super(message);
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'ApiError';
   }
 

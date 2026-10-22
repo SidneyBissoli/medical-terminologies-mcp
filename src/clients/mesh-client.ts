@@ -73,17 +73,18 @@ export class MeSHClient {
         const message = extractErrorMessage(error);
 
         if (status === 404) {
-          throw new ApiError('Resource not found', 'NOT_FOUND', status);
+          throw new ApiError('Resource not found', 'NOT_FOUND', status, undefined, { cause: error });
         }
         if (status === 429) {
-          throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status);
+          throw new ApiError('Rate limit exceeded', 'RATE_LIMIT', status, undefined, { cause: error });
         }
 
         throw new ApiError(
           `MeSH API error: ${message}`,
           'API_ERROR',
           status,
-          error.data
+          error.data,
+          { cause: error }
         );
       }
       throw error;
