@@ -120,6 +120,17 @@ jobs:
       # the server does: a 401 then means the WHO is not serving us (warning),
       # not "the origin is up" (red). Without them the probe can only expect
       # the 401 (scripts/smoke-mcp.mjs, header).
+      # The probes alone, printed on every deploy: the smoke only probes when a
+      # tool fails, so this is where a reader sees the five sources' state —
+      # and the WHO probe carrying the token. Exit 2 (a source down) must not
+      # fail the deploy; the smoke below decides that.
+      - name: Source probes (with the WHO credential)
+        run: node scripts/smoke-mcp.mjs --sonda
+        continue-on-error: true
+        env:
+          WHO_CLIENT_ID: ${{ secrets.WHO_CLIENT_ID }}
+          WHO_CLIENT_SECRET: ${{ secrets.WHO_CLIENT_SECRET }}
+
       - name: Production smoke
         run: node scripts/smoke-mcp.mjs
         env:
