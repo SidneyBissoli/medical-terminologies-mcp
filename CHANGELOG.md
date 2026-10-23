@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Production smoke: a tool that failed with the source up is called once
+  more before being judged** (`@sbissoli/mcp-live-source` ^0.4.0, dev; only
+  the lockfile and this note change here). The owner's decision on
+  2026-10-22 after a measurement on bcb: the minimal probe answered from
+  cache while heavy requests timed out, and checks came out red "with the
+  source up" in one run and green in the next. `verificar` now repeats the
+  call once: answered on the 2nd = a hiccup of the source (warning `Fonte
+  indisponível`, line `[AVISO] … passou na 2ª chamada`); failed again =
+  red. Source down on the probe, expected errors and throwing assertions do
+  not repeat.
 - **Production smoke: the WHO probe goes with a token, like the server.** The
   ICD-11 API has no resource that answers without a bearer token, so the
   `who-api` probe could only "expect the 401" and read it as "the origin is
