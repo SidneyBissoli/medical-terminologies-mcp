@@ -39,7 +39,7 @@
  *    the same exploration).
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { createUpstream, UpstreamError } from '@sbissoli/mcp-upstream';
 import { suiteAoVivo } from '@sbissoli/mcp-live-source/vitest';
 import { getNLMClient } from '../clients/nlm-client.js';
@@ -48,6 +48,21 @@ import { getMeSHClient } from '../clients/mesh-client.js';
 import { getCID10Client } from '../clients/cid10-client.js';
 import { getWHOClient, WHOClient, WHO_ICD11_DEFAULT_RELEASE } from '../clients/who-client.js';
 import { cache } from '../utils/cache.js';
+import { UPSTREAM_POLICY } from '../utils/upstream.js';
+
+/**
+ * Per-case ceiling, derived from the network policy instead of typed. Until
+ * 2026-10-27 no case declared one, so vitest's 5 s default applied while a
+ * single trip may legitimately take up to 36 s (30 s attempt ceiling + 6 s
+ * budget slack): a source answering in 6-30 s became "Test timed out in
+ * 5000ms" — red with no label, because vitest kills the case before `aoVivo`
+ * can classify it (the class ibge-br-mcp hit on 2026-09-21 and 09-28). The
+ * deepest case chains three trips (MeSH descriptor → preferred concept →
+ * its terms; WHO is token → request, two).
+ */
+const TRIP_MS = Math.max(...Object.values(UPSTREAM_POLICY.timeoutMs)) + UPSTREAM_POLICY.budgetSlackMs;
+const SEQUENTIAL_TRIPS_MAX = 3;
+vi.setConfig({ testTimeout: SEQUENTIAL_TRIPS_MAX * TRIP_MS });
 
 const ENABLED = process.env.INTEGRATION_TESTS === '1';
 const HAS_WHO_CREDS = Boolean(process.env.WHO_CLIENT_ID && process.env.WHO_CLIENT_SECRET);
