@@ -30,9 +30,16 @@ jobs:
   rerun:
     # Deliberadamente NAO e `!= 'success'`: rodada cancelada a mao tambem
     # reporta `cancelled`, e re-roda-la atropelaria a decisao de quem cancelou.
+    # Mas o TETO do job (`timeout-minutes`) tambem sai `cancelled`: o GitHub
+    # nao usa `timed_out` para ele (medido no bcb em 26/10/2026 - anotacao
+    # "The job has exceeded the maximum execution time of 15m0s", conclusao
+    # `cancelled`), entao `timed_out` aqui nunca disparou e o caso para o qual
+    # este retry nasceu (12/09: travou e foi cortado pelo teto) nunca re-rodou.
+    # `cancelled` entra no `if`; quem decide se foi o teto e o passo abaixo.
     if: >-
       (github.event.workflow_run.conclusion == 'failure' ||
-       github.event.workflow_run.conclusion == 'timed_out') &&
+       github.event.workflow_run.conclusion == 'timed_out' ||
+       github.event.workflow_run.conclusion == 'cancelled') &&
       github.event.workflow_run.run_attempt < 3
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -42,6 +49,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ github.event.workflow_run.id }}
           ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CONCLUSAO: ${{ github.event.workflow_run.conclusion }}
         run: |
           set -euo pipefail
           echo "run $RUN_ID nao passou na tentativa $ATTEMPT; esperando 60s"
@@ -61,5 +69,25 @@ jobs:
             echo "run $RUN_ID ja esta na tentativa $live; desistindo"
             exit 0
           fi
-          gh run rerun "$RUN_ID" --failed -R "${{ github.repository }}"
+          # `cancelled` = a mao OU o teto do job; distingue a anotacao que o
+          # GitHub poe no job que estourou o teto, lida nos jobs DESTA tentativa.
+          # Cancelada a mao: respeitar e sair. Teto: re-rodar a rodada inteira
+          # (sem `--failed`, que nao garante incluir job cancelado).
+          modo="--failed"
+          if [ "$CONCLUSAO" = "cancelled" ]; then
+            tetos=0
+            for u in $(gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID/attempts/$ATTEMPT/jobs" \
+                --jq '.jobs[].check_run_url'); do
+              n=$(gh api "${u#https://api.github.com/}/annotations" \
+                --jq '[.[] | select(.message | contains("exceeded the maximum execution time"))] | length')
+              tetos=$((tetos + n))
+            done
+            if [ "$tetos" -eq 0 ]; then
+              echo "run $RUN_ID foi cancelada sem estourar o teto do job (a mao); nao re-rodo"
+              exit 0
+            fi
+            echo "run $RUN_ID estourou o teto do job em $tetos job(s); re-rodando a rodada"
+            modo=""
+          fi
+          gh run rerun "$RUN_ID" $modo -R "${{ github.repository }}"
           echo "re-rodada pedida para os jobs vermelhos de $RUN_ID"
