@@ -27,7 +27,20 @@ concurrency:
 
 jobs:
   integration:
-    runs-on: ubuntu-latest
+    # Roda no DESKTOP (executor próprio, rótulo desktop-br), não nos runners do
+    # GitHub: medido em 27/10/2026, o IBGE recusa conexões vindas de fora do
+    # Brasil (saída BR responde; EUA e Alemanha falham a conexão; a mesma saída
+    # EUA alcança o BCB), e os runners do GitHub ficam nos EUA. Decisão do dono:
+    # o GitHub agenda, repete e anota; só a execução vem para uma máquina no
+    # Brasil, e vale para os seis servidores com contrato ao vivo, não só o ibge.
+    # Instalação: portfolio-monitor/scripts/registrar-runners-desktop.ps1.
+    # Desktop desligado: o job espera na fila até 24 h e, se ninguém o pegar,
+    # termina sem sucesso — o painel acusa, como acusaria uma falha.
+    runs-on: [self-hosted, desktop-br]
+    # O executor é Windows; bash (do Git) mantém a semântica dos passos `run:`.
+    defaults:
+      run:
+        shell: bash
     # Teto de parede. O alvo de um destes contratos pode parar de responder
     # sem fechar a conexão — descarte silencioso em firewall, medido no
     # senado-br-mcp em 12/09/2026 — e aí cada requisição só morre no timeout
