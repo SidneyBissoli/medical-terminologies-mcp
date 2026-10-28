@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.3.1] - 2026-10-27
+## [2.4.0] - 2026-10-27
+
+Renumbered from 2.3.1 (never published) to 2.4.0: the published surface changed (`outputSchema` descriptions), which by this repository's convention is a minor bump.
 
 ### Fixed
 
