@@ -125,8 +125,11 @@ const ICD11MatchingPVSchema = z.object({
 });
 
 export const ICD11SearchOutputSchema = z.object({
-  query: z.string(),
-  total_count: z.number().int(),
+  query: z.string().describe('The search text as submitted.'),
+  total_count: z
+    .number()
+    .int()
+    .describe('Number of entities the WHO search returned, before the max_results cap.'),
   entities: z.array(
     z.object({
       code: z.string().nullable(),
@@ -136,7 +139,7 @@ export const ICD11SearchOutputSchema = z.object({
       is_leaf: z.boolean(),
       matching_pvs: z.array(ICD11MatchingPVSchema),
     }),
-  ),
+  ).describe('Matching ICD-11 MMS entities in WHO relevance order, at most max_results.'),
 });
 
 const ICD11LabelRefSchema = z.object({
@@ -145,25 +148,25 @@ const ICD11LabelRefSchema = z.object({
 });
 
 export const ICD11LookupOutputSchema = z.object({
-  code: z.string().nullable(),
-  code_range: z.string().nullable(),
-  uri: z.string(),
-  title: z.string(),
-  class_kind: z.string().nullable(),
-  block_id: z.string().nullable(),
-  definition: z.string().nullable(),
-  long_definition: z.string().nullable(),
-  diagnostic_criteria: z.string().nullable(),
-  coding_note: z.string().nullable(),
-  exclusions: z.array(ICD11LabelRefSchema),
-  inclusions: z.array(ICD11LabelRefSchema),
-  index_terms: z.array(ICD11LabelRefSchema),
-  browser_url: z.string().nullable(),
+  code: z.string().nullable().describe('ICD-11 MMS code (e.g. "BA00"); null for blocks and chapters, which have a code_range instead.'),
+  code_range: z.string().nullable().describe('Code range of a block or chapter (e.g. "BA00-BA0Z"); null for coded categories.'),
+  uri: z.string().describe('WHO ICD-11 entity URI.'),
+  title: z.string().describe('Official title in the requested language ("Unknown" when the WHO returns none).'),
+  class_kind: z.string().nullable().describe('WHO class kind (e.g. "chapter", "block", "category"); null when the WHO does not state it.'),
+  block_id: z.string().nullable().describe('WHO block identifier for blocks; null otherwise.'),
+  definition: z.string().nullable().describe('Official short definition; null when the WHO publishes none.'),
+  long_definition: z.string().nullable().describe('Official detailed description; null when the WHO publishes none.'),
+  diagnostic_criteria: z.string().nullable().describe('Official diagnostic criteria text; null when the WHO publishes none.'),
+  coding_note: z.string().nullable().describe('Official coding note; null when the WHO publishes none.'),
+  exclusions: z.array(ICD11LabelRefSchema).describe('Exclusion entries (conditions coded elsewhere), each with its URI and label.'),
+  inclusions: z.array(ICD11LabelRefSchema).describe('Inclusion entries (synonyms and terms included under this entity), each with its URI and label.'),
+  index_terms: z.array(ICD11LabelRefSchema).describe('Index terms that lead to this entity, each with its URI and label.'),
+  browser_url: z.string().nullable().describe('Link to the entity in the WHO ICD-11 browser; null when the WHO returns none.'),
 });
 
 export const ICD11HierarchyOutputSchema = z.object({
-  code: z.string(),
-  direction: z.enum(['parents', 'children']),
+  code: z.string().describe('The code, block range or URI the walk started from, as submitted.'),
+  direction: z.enum(['parents', 'children']).describe('Direction walked: parents (ancestors) or children (subtypes).'),
   entities: z.array(
     z.object({
       code: z.string().nullable(),
@@ -171,7 +174,7 @@ export const ICD11HierarchyOutputSchema = z.object({
       title: z.string(),
       uri: z.string(),
     }),
-  ),
+  ).describe('Direct parents or children of the entity; empty when it has none. Entries the WHO failed to return are left out.'),
 });
 
 export const ICD11ChaptersOutputSchema = z.object({
@@ -184,11 +187,11 @@ export const ICD11ChaptersOutputSchema = z.object({
       title: z.string().nullable(),
       error: z.string().nullable(),
     }),
-  ),
+  ).describe('Top-level ICD-11 MMS chapters in WHO order; a chapter the WHO failed to return keeps its number and URI, with error set and the other fields null.'),
 });
 
 export const ICD11PostcoordinationOutputSchema = z.object({
-  code: z.string(),
+  code: z.string().describe('The ICD-11 code as submitted.'),
   axes: z.array(
     z.object({
       axis_name: z.string(),
@@ -196,7 +199,7 @@ export const ICD11PostcoordinationOutputSchema = z.object({
       allow_multiple: z.boolean(),
       value_count: z.number().int().nullable(),
     }),
-  ),
+  ).describe('Postcoordination axes the WHO allows for this code; empty when it has none or the WHO has no postcoordination info for it.'),
 });
 
 export type ICD11SearchOutput = z.infer<typeof ICD11SearchOutputSchema>;
@@ -223,36 +226,41 @@ export const LOINCByCodeParamsSchema = z.object({
 // LOINC output schemas (structuredContent)
 // ============================================================================
 
+// Every text field below is passed through from NLM Clinical Tables; a field
+// the source leaves blank comes back as an empty string, never null.
 const LOINCItemOutputSchema = z.object({
-  loinc_num: z.string(),
-  long_common_name: z.string(),
-  short_name: z.string(),
-  component: z.string(),
-  property: z.string(),
-  time_aspect: z.string(),
-  system: z.string(),
-  scale_type: z.string(),
-  method_type: z.string(),
-  class: z.string(),
-  status: z.string(),
+  loinc_num: z.string().describe('LOINC number (e.g. "2339-0").'),
+  long_common_name: z.string().describe('LOINC Long Common Name, the full human-readable name of the term.'),
+  short_name: z.string().describe('LOINC short name; empty when the source has none.'),
+  component: z.string().describe('LOINC axis 1, Component: what is measured or observed (e.g. "Glucose").'),
+  property: z.string().describe('LOINC axis 2, Property: the kind of quantity (e.g. "MCnc" = mass concentration).'),
+  time_aspect: z.string().describe('LOINC axis 3, Time: point in time or interval of the observation (e.g. "Pt", "24H").'),
+  system: z.string().describe('LOINC axis 4, System: the specimen or thing observed (e.g. "Bld", "Ser/Plas").'),
+  scale_type: z.string().describe('LOINC axis 5, Scale: Qn (quantitative), Ord, Nom, Nar, etc.'),
+  method_type: z.string().describe('LOINC axis 6, Method; empty when the term specifies none.'),
+  class: z.string().describe('LOINC class the term is grouped under (e.g. "CHEM").'),
+  status: z.string().describe('LOINC term status (e.g. "ACTIVE", "DEPRECATED"); empty when the source omits it.'),
   // LOINC License §10 pass-through: some LOINC terms carry third-party
   // copyright (e.g. survey instruments like PHQ-9). When Clinical Tables
   // exposes EXTERNAL_COPYRIGHT_NOTICE for a term, it is served verbatim
   // alongside the term; null when the term carries none.
-  external_copyright_notice: z.string().nullable(),
+  external_copyright_notice: z
+    .string()
+    .nullable()
+    .describe('Third-party copyright notice the term carries, served verbatim (LOINC License §10); null when it carries none.'),
 });
 
 export const LOINCSearchOutputSchema = z.object({
-  query: z.string(),
-  total_count: z.number().int(),
-  shown_count: z.number().int(),
-  items: z.array(LOINCItemOutputSchema),
+  query: z.string().describe('The search term as submitted.'),
+  total_count: z.number().int().describe('Total number of LOINC terms matching the query at the source, which may exceed the items returned.'),
+  shown_count: z.number().int().describe('Number of terms returned in items (at most max_results).'),
+  items: z.array(LOINCItemOutputSchema).describe('Matching LOINC terms in source relevance order.'),
 });
 
 export const LOINCDetailsOutputSchema = LOINCItemOutputSchema;
 
 export const LOINCAnswersOutputSchema = z.object({
-  loinc_num: z.string(),
+  loinc_num: z.string().describe('The LOINC number as submitted.'),
   answers: z.array(
     z.object({
       sequence: z.number().int().describe('Display order in the answer list (1-based).'),
@@ -263,7 +271,7 @@ export const LOINCAnswersOutputSchema = z.object({
         .nullable()
         .describe('Numeric score for scored instruments (PHQ-9 items: 0-3); null when the answer list carries none.'),
     }),
-  ),
+  ).describe('Answer list of the question in display order; empty when the code exists but has no answer list.'),
 });
 
 const LOINCPanelOutputSchema = z.object({
@@ -283,8 +291,8 @@ const LOINCPanelOutputSchema = z.object({
 });
 
 export const LOINCPanelsOutputSchema = z.object({
-  loinc_num: z.string(),
-  panel: LOINCPanelOutputSchema.nullable(),
+  loinc_num: z.string().describe('The LOINC number as submitted.'),
+  panel: LOINCPanelOutputSchema.nullable().describe('Panel/form definition with its member items; null when no panel structure is found for the code (not a panel, or no definition available).'),
 });
 
 export type LOINCSearchOutput = z.infer<typeof LOINCSearchOutputSchema>;
@@ -341,29 +349,31 @@ const RxNormDrugOutputSchema = z.object({
 });
 
 export const RxNormSearchOutputSchema = z.object({
-  query: z.string(),
-  total_count: z.number().int(),
+  query: z.string().describe('The drug name as submitted.'),
+  total_count: z.number().int().describe('Number of concepts RxNav returned for the name, before the max_results cap.'),
   // tty === 'APPROX' on items signals the search used the approximate-match
   // fallback rather than an exact name match.
-  drugs: z.array(RxNormDrugOutputSchema),
+  drugs: z
+    .array(RxNormDrugOutputSchema)
+    .describe('Matching RxNorm concepts, at most max_results. tty "APPROX" marks results of the approximate-match fallback, used when the name matched nothing exactly.'),
 });
 
 export const RxNormConceptOutputSchema = z.object({
-  rxcui: z.string(),
+  rxcui: z.string().describe('The RxCUI looked up.'),
   // An RxCUI that RxNorm does not have is an ANSWER, not an error (since
   // 1.16.0; the siblings already say so: rxnorm_search with total_count 0,
   // rxnorm_ingredients/classes/ndc with an empty list, atc_lookup with
   // found:false). found=false ⇒ every concept field below is null,
   // remapped_to is [] and related_groups is null.
   found: z.boolean().describe('false when RxNorm has no concept with this RxCUI (the lookup answered; the fields below are null)'),
-  name: z.string().nullable(),
-  synonym: z.string().nullable(),
-  tty: z.string().nullable(),
-  language: z.string().nullable(),
-  suppress: z.string().nullable(),
-  umlscui: z.string().nullable(),
-  status: z.string().nullable(),
-  remapped_to: z.array(z.string()),
+  name: z.string().nullable().describe('RxNorm normalized name of the concept; null when found=false.'),
+  synonym: z.string().nullable().describe('RxNorm synonym (may be empty); null when found=false.'),
+  tty: z.string().nullable().describe('RxNorm term type (e.g. "IN" ingredient, "SCD" clinical drug, "SBD" branded drug); null when found=false.'),
+  language: z.string().nullable().describe('Language of the concept name as RxNav reports it (e.g. "ENG"); null when found=false.'),
+  suppress: z.string().nullable().describe('RxNorm suppress flag ("N" = not suppressed, the default when RxNav omits it); null when found=false.'),
+  umlscui: z.string().nullable().describe('UMLS Concept Unique Identifier linked to the concept (empty when none); null when found=false.'),
+  status: z.string().nullable().describe('RxNorm history status (e.g. "Active", "Remapped", "Obsolete"); "Active" when RxNav does not report one; null when found=false.'),
+  remapped_to: z.array(z.string()).describe('RxCUIs a remapped concept was replaced by; empty otherwise.'),
   // Populated only when include_related=true; null when the caller didn't
   // ask for related concepts so the field's absence vs emptiness is
   // unambiguous.
@@ -374,11 +384,12 @@ export const RxNormConceptOutputSchema = z.object({
         concepts: z.array(RxNormDrugOutputSchema),
       }),
     )
-    .nullable(),
+    .nullable()
+    .describe('Related concepts (ingredients, brands, dose forms) grouped by term type; null unless include_related=true.'),
 });
 
 export const RxNormIngredientsOutputSchema = z.object({
-  rxcui: z.string(),
+  rxcui: z.string().describe('The RxCUI as submitted.'),
   ingredients: z.array(
     z.object({
       rxcui: z.string(),
@@ -386,11 +397,11 @@ export const RxNormIngredientsOutputSchema = z.object({
       tty: z.string(),
       is_multiple: z.boolean(),
     }),
-  ),
+  ).describe('Ingredient concepts (term types IN and MIN) RxNav relates to the RxCUI; empty when none.'),
 });
 
 export const RxNormClassesOutputSchema = z.object({
-  rxcui: z.string(),
+  rxcui: z.string().describe('The RxCUI as submitted.'),
   classes: z.array(
     z.object({
       class_id: z.string(),
@@ -398,16 +409,23 @@ export const RxNormClassesOutputSchema = z.object({
       class_type: z.string(),
       source: z.string(),
     }),
-  ),
+  ).describe('Drug classes NLM RxClass links to the RxCUI (one entry per class and relationship); empty when none.'),
 });
 
 export const RxNormNDCOutputSchema = z.object({
   // 'ndcs_for_rxcui': rxcui populated, ndc null, ndcs = list.
   // 'rxcui_for_ndc':  ndc populated, rxcui = found ID or null, ndcs = [].
-  query_mode: z.enum(['ndcs_for_rxcui', 'rxcui_for_ndc']),
-  rxcui: z.string().nullable(),
-  ndc: z.string().nullable(),
-  ndcs: z.array(z.object({ ndc: z.string() })),
+  query_mode: z
+    .enum(['ndcs_for_rxcui', 'rxcui_for_ndc'])
+    .describe('Which lookup ran: ndcs_for_rxcui (rxcui given, list its NDCs) or rxcui_for_ndc (ndc given, find its RxCUI).'),
+  rxcui: z
+    .string()
+    .nullable()
+    .describe('ndcs_for_rxcui: the RxCUI as submitted. rxcui_for_ndc: the RxCUI the NDC belongs to, or null when RxNorm has none for it.'),
+  ndc: z.string().nullable().describe('rxcui_for_ndc: the NDC as submitted; null in ndcs_for_rxcui mode.'),
+  ndcs: z
+    .array(z.object({ ndc: z.string() }))
+    .describe('ndcs_for_rxcui: NDC codes RxNorm lists for the RxCUI (empty when none); always empty in rxcui_for_ndc mode.'),
 });
 
 export type RxNormSearchOutput = z.infer<typeof RxNormSearchOutputSchema>;
@@ -458,24 +476,24 @@ const MeSHQualifierOutputSchema = z.object({
 });
 
 export const MeSHSearchOutputSchema = z.object({
-  query: z.string(),
-  match: z.enum(['exact', 'contains', 'startswith']),
-  total_count: z.number().int(),
+  query: z.string().describe('The search term as submitted.'),
+  match: z.enum(['exact', 'contains', 'startswith']).describe('Match type applied to descriptor labels.'),
+  total_count: z.number().int().describe('Number of descriptors returned (the NLM lookup is capped at max_results, so this is not a total count of all matches).'),
   descriptors: z.array(
     z.object({
       id: z.string(),
       uri: z.string(),
       label: z.string(),
     }),
-  ),
+  ).describe('Matching MeSH descriptors, each with its ID (e.g. "D003920"), URI and label.'),
 });
 
 export const MeSHDescriptorOutputSchema = z.object({
-  id: z.string(),
-  uri: z.string(),
-  label: z.string(),
-  scope_note: z.string(),
-  tree_numbers: z.array(MeSHTreeNumberOutputSchema),
+  id: z.string().describe('MeSH descriptor ID (e.g. "D003920").'),
+  uri: z.string().describe('NLM MeSH RDF URI of the descriptor.'),
+  label: z.string().describe('Descriptor heading, in the requested language when NLM publishes that translation.'),
+  scope_note: z.string().describe("Scope note (definition) of the descriptor's preferred concept; empty when it has none."),
+  tree_numbers: z.array(MeSHTreeNumberOutputSchema).describe('Tree numbers placing the descriptor in the MeSH hierarchy (e.g. "C18.452.394.750").'),
   concepts: z.array(
     z.object({
       uri: z.string(),
@@ -483,18 +501,18 @@ export const MeSHDescriptorOutputSchema = z.object({
       is_preferred: z.boolean(),
       terms: z.array(z.string()),
     }),
-  ),
-  qualifiers: z.array(MeSHQualifierOutputSchema),
+  ).describe('The preferred concept with its entry terms (synonyms); non-preferred concepts are not retrieved. Empty when the descriptor names no preferred concept.'),
+  qualifiers: z.array(MeSHQualifierOutputSchema).describe('Allowable qualifiers (subheadings) for the descriptor.'),
 });
 
 export const MeSHTreeOutputSchema = z.object({
-  mesh_id: z.string(),
-  tree_numbers: z.array(MeSHTreeNumberOutputSchema),
+  mesh_id: z.string().describe('The MeSH descriptor ID as submitted.'),
+  tree_numbers: z.array(MeSHTreeNumberOutputSchema).describe('Tree numbers placing the descriptor in the MeSH hierarchy; a descriptor can sit in several branches.'),
 });
 
 export const MeSHQualifiersOutputSchema = z.object({
-  mesh_id: z.string(),
-  qualifiers: z.array(MeSHQualifierOutputSchema),
+  mesh_id: z.string().describe('The MeSH descriptor ID as submitted.'),
+  qualifiers: z.array(MeSHQualifierOutputSchema).describe('Allowable qualifiers (subheadings) for the descriptor, each with its ID, URI and label.'),
 });
 
 export type MeSHSearchOutput = z.infer<typeof MeSHSearchOutputSchema>;
@@ -564,12 +582,17 @@ const FindEquivalentItemSchema = z.object({
 });
 
 const FindEquivalentTerminologyResultSchema = z.object({
-  found: z.boolean(),
+  found: z.boolean().describe('True when this terminology returned at least one candidate.'),
   // Populated when the upstream call failed (timeout, server error).
-  error: z.string().nullable(),
+  error: z
+    .string()
+    .nullable()
+    .describe('Failure message when the search in this terminology failed (timeout, server error); null when it answered.'),
   // Sorted by match_score descending (i.e. by global rank) since v1.7.0;
   // before that the order was whatever the upstream returned.
-  items: z.array(FindEquivalentItemSchema),
+  items: z
+    .array(FindEquivalentItemSchema)
+    .describe('Candidates from this terminology, best first (by global rank), at most limit.'),
 });
 
 // Cross-terminology grouping (v1.7.0, additive): candidates from DIFFERENT
@@ -593,27 +616,31 @@ const FindEquivalentGroupSchema = z.object({
 });
 
 export const FindEquivalentOutputSchema = z.object({
-  term: z.string(),
-  source_terminology: TerminologyEnum.nullable(),
-  searched_terminologies: z.array(TerminologyEnum),
+  term: z.string().describe('The medical term as submitted.'),
+  source_terminology: TerminologyEnum.nullable().describe('Terminology excluded from the search; null when none was given.'),
+  searched_terminologies: z
+    .array(TerminologyEnum)
+    .describe('Terminologies actually searched: the targets minus source_terminology. Empty when nothing was left to search.'),
   // Each terminology key is present only if it was actually searched (i.e.
   // it's in searched_terminologies). Absent keys mean "not requested",
   // empty items+found:false means "searched, no hits".
   results: z.object({
-    icd11: FindEquivalentTerminologyResultSchema.optional(),
-    loinc: FindEquivalentTerminologyResultSchema.optional(),
-    rxnorm: FindEquivalentTerminologyResultSchema.optional(),
-    mesh: FindEquivalentTerminologyResultSchema.optional(),
-  }),
+    icd11: FindEquivalentTerminologyResultSchema.optional().describe('ICD-11 (WHO) candidates; present only when ICD-11 was searched.'),
+    loinc: FindEquivalentTerminologyResultSchema.optional().describe('LOINC candidates; present only when LOINC was searched.'),
+    rxnorm: FindEquivalentTerminologyResultSchema.optional().describe('RxNorm candidates; present only when RxNorm was searched.'),
+    mesh: FindEquivalentTerminologyResultSchema.optional().describe('MeSH candidates; present only when MeSH was searched.'),
+  }).describe('Per-terminology results, keyed by terminology. A key is absent when that terminology was not searched; found=false with empty items and error null means searched, no hits.'),
   // Groups of lexically identical candidates across terminologies, sorted
   // by best member match_score. Empty when nothing groups.
-  groups: z.array(FindEquivalentGroupSchema),
+  groups: z
+    .array(FindEquivalentGroupSchema)
+    .describe('Candidates from different terminologies whose normalized titles are identical, grouped as likely the same concept; best match_score first. Empty when nothing groups (not evidence of non-equivalence).'),
   // Self-description of the server-side ranking so consumers know the
   // scores are derived here, not upstream relevance.
   ranking: z.object({
-    method: z.literal('lexical'),
-    note: z.string(),
-  }),
+    method: z.literal('lexical').describe('Ranking method: lexical similarity computed by this server.'),
+    note: z.string().describe('How match_score and rank are computed.'),
+  }).describe('Self-description of the ranking: match_score, rank and groups are computed by this server, not upstream relevance.'),
 });
 
 export type FindEquivalentOutput = z.infer<typeof FindEquivalentOutputSchema>;
@@ -666,7 +693,7 @@ export const MapICD10ToICD11OutputSchema = z.object({
       .string()
       .describe('Transition table release identifier (e.g. "2025-01").'),
     release_date: z.string().describe('ISO date string for the release.'),
-  }),
+  }).describe('The bundled WHO ICD-10 → ICD-11 transition table release this answer comes from.'),
 });
 
 export type MapICD10ToICD11Output = z.infer<typeof MapICD10ToICD11OutputSchema>;
@@ -745,7 +772,7 @@ export const ValidateCodesOutputSchema = z.object({
     .number()
     .int()
     .describe('How many couldn\'t be validated due to upstream/network errors.'),
-  results: z.array(ValidateCodesResultSchema),
+  results: z.array(ValidateCodesResultSchema).describe('One entry per submitted code, in request order.'),
 });
 
 export type ValidateCodesOutput = z.infer<typeof ValidateCodesOutputSchema>;
@@ -836,20 +863,20 @@ export const HarmonizeTermsOutputSchema = z.object({
   total: z.number().int().describe('Terms submitted.'),
   unique_lookups: z.number().int().describe('Distinct term+domain pairs actually looked up.'),
   counts: z.object({
-    exact: z.number().int(),
-    strong: z.number().int(),
-    needs_review: z.number().int(),
-    no_candidates: z.number().int(),
-    error: z.number().int(),
-  }),
+    exact: z.number().int().describe('Terms whose best candidate is an exact match.'),
+    strong: z.number().int().describe('Terms whose best candidate is a strong match.'),
+    needs_review: z.number().int().describe('Terms whose best candidate needs review.'),
+    no_candidates: z.number().int().describe('Terms the source answered with no candidates.'),
+    error: z.number().int().describe('Terms whose lookup failed.'),
+  }).describe('Submitted terms tallied by outcome (best-candidate match_type, no candidates, or error); the five counts add up to total.'),
   results: z.array(HarmonizeResultSchema).describe('One entry per submitted term, in request order.'),
   // Same self-description as find_equivalent: match_score and match_type are
   // computed here, not upstream relevance (the concise provenance block does
   // not carry `derived`, so the method travels in the payload).
   ranking: z.object({
-    method: z.literal('lexical'),
-    note: z.string(),
-  }),
+    method: z.literal('lexical').describe('Ranking method: lexical similarity computed by this server.'),
+    note: z.string().describe('How match_score and match_type are computed.'),
+  }).describe('Self-description of the ranking: match_score and match_type are computed by this server, not upstream relevance.'),
 });
 
 export type HarmonizeTermsOutput = z.infer<typeof HarmonizeTermsOutputSchema>;
@@ -882,8 +909,10 @@ const TerminologyVersionEntrySchema = z.object({
 
 export const TerminologyVersionsOutputSchema = z.object({
   generated: z.string().describe('Date this snapshot was generated.'),
-  total: z.number().int(),
-  terminologies: z.array(TerminologyVersionEntrySchema),
+  total: z.number().int().describe('Number of terminologies listed.'),
+  terminologies: z
+    .array(TerminologyVersionEntrySchema)
+    .describe('Release this server queries for each terminology (all 7, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.'),
 });
 
 export type TerminologyVersionsOutput = z.infer<typeof TerminologyVersionsOutputSchema>;
@@ -909,17 +938,22 @@ const CrossRevisionSummarySchema = z.object({
 });
 
 export const TerminologyDiffOutputSchema = z.object({
-  terminology: ValidateCodesTerminologyEnum,
-  from_version: z.string().nullable(),
-  to_version: z.string().nullable(),
+  terminology: ValidateCodesTerminologyEnum.describe('The terminology reported on, as submitted.'),
+  from_version: z
+    .string()
+    .nullable()
+    .describe('The from_version requested (for icd10, the bundled ICD-10 release when not given); null when not given.'),
+  to_version: z.string().nullable().describe('The to_version requested; null when not given.'),
   diff_available: z
     .boolean()
     .describe(
       'True when this server has the data to compute a real diff for the requested terminology. False = guidance-only response.',
     ),
-  message: z.string(),
-  changelog_url: z.string().nullable(),
-  bundled_versions: z.array(z.string()),
+  message: z.string().describe('Explanation of the answer: what was computed, or why no diff is available and where to look instead.'),
+  changelog_url: z.string().nullable().describe("Publisher's official changelog for the terminology; null when none is known."),
+  bundled_versions: z
+    .array(z.string())
+    .describe('Versions of this terminology bundled in the server; empty when the server queries the live upstream.'),
   cross_revision_summary: CrossRevisionSummarySchema
     .nullable()
     .describe(
@@ -973,7 +1007,7 @@ const ATCClassEntrySchema = z.object({
 });
 
 export const ATCClassifyOutputSchema = z.object({
-  drug_name: z.string(),
+  drug_name: z.string().describe('The drug name as submitted.'),
   matches: z.array(
     z.object({
       rxcui: z.string(),
@@ -983,19 +1017,19 @@ export const ATCClassifyOutputSchema = z.object({
       atc_name: z.string(),
       atc_level_type: z.string(),
     }),
-  ),
+  ).describe('ATC classes NLM RxClass assigns to the drug, one entry per RxNorm concept and ATC class pair; empty when the drug is unknown or has no ATC mapping.'),
 });
 
 export const ATCLookupOutputSchema = z.object({
-  atc_code: z.string(),
-  found: z.boolean(),
+  atc_code: z.string().describe('The ATC code as submitted.'),
+  found: z.boolean().describe('Whether RxClass knows the code at level 1-4; false for unknown and for 7-character substance codes.'),
   // Populated when found=true. Null when the code is unknown or
   // substance-level (RxClass byId doesn't expose the 7-char codes).
-  details: ATCClassEntrySchema.nullable(),
+  details: ATCClassEntrySchema.nullable().describe('The ATC class (code, name, level type); null when found=false.'),
 });
 
 export const ATCMembersOutputSchema = z.object({
-  atc_code: z.string(),
+  atc_code: z.string().describe('The ATC code as submitted.'),
   members: z.array(
     z.object({
       rxcui: z.string(),
@@ -1005,7 +1039,7 @@ export const ATCMembersOutputSchema = z.object({
       // When the queried class is at level 5, this matches atc_code.
       source_atc_code: z.string(),
     }),
-  ),
+  ).describe('RxNorm drug concepts in the ATC class (all member substances for levels 1-4); empty when the code is unknown or has no RxNorm-mapped members.'),
 });
 
 export type ATCClassifyOutput = z.infer<typeof ATCClassifyOutputSchema>;
@@ -1092,32 +1126,35 @@ const CID10HitSchema = z.object({
 });
 
 export const CID10SearchOutputSchema = z.object({
-  query: z.string(),
-  level: z.enum(['categories', 'subcategories', 'all']),
-  total_count: z.number().int(),
-  shown_count: z.number().int(),
-  hits: z.array(CID10HitSchema),
+  query: z.string().describe('The search terms as submitted.'),
+  level: z.enum(['categories', 'subcategories', 'all']).describe('Code level searched: 3-char categories, 4-char subcategories, or all.'),
+  total_count: z.number().int().describe('Number of CID-10 codes matching the query, before the max_results cap.'),
+  shown_count: z.number().int().describe('Number of codes returned in hits (at most max_results).'),
+  hits: z.array(CID10HitSchema).describe('Matching CID-10 V2008 codes with their Portuguese titles, chapter and group.'),
   // Present only when a query word was translated to the CID-10's own wording
   // ("câncer" → "neoplasia maligna"); says which (src/clients/cid10-vocabulary.ts).
-  vocabulary_notes: z.array(z.string()).optional(),
+  vocabulary_notes: z
+    .array(z.string())
+    .optional()
+    .describe("Present only when a query word was translated to the CID-10's own wording (e.g. \"câncer\" → \"neoplasia maligna\"); says which."),
 });
 
 export const CID10LookupOutputSchema = z.object({
-  code: z.string(),
-  found: z.boolean(),
+  code: z.string().describe('The CID-10 code as submitted.'),
+  found: z.boolean().describe('Whether the code exists in CID-10 V2008.'),
   // Populated when found=true; null otherwise.
-  hit: CID10HitSchema.nullable(),
+  hit: CID10HitSchema.nullable().describe('The CID-10 entry (Portuguese title, chapter, group, restrictions); null when found=false.'),
 });
 
 export const CID10ChaptersOutputSchema = z.object({
-  chapters: z.array(CID10ChapterEntrySchema),
+  chapters: z.array(CID10ChapterEntrySchema).describe('The 22 chapters of CID-10 V2008, each with its number, code range and Portuguese title.'),
 });
 
 export const CID10ChapterDetailOutputSchema = z.object({
-  num: z.number().int(),
-  found: z.boolean(),
-  chapter: CID10ChapterEntrySchema.nullable(),
-  groups: z.array(CID10GroupEntrySchema),
+  num: z.number().int().describe('The chapter number as submitted.'),
+  found: z.boolean().describe('Whether the chapter exists in CID-10 V2008.'),
+  chapter: CID10ChapterEntrySchema.nullable().describe('The chapter (number, code range, Portuguese title); null when found=false.'),
+  groups: z.array(CID10GroupEntrySchema).describe('Groups (code-range blocks) of the chapter, each with its range and Portuguese title; empty when found=false.'),
 });
 
 export const CID10ChapterParamsSchema = z.object({

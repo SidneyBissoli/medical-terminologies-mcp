@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-10-27
+
+### Fixed
+
+- **Every top-level property of every tool's `outputSchema` now carries a
+  `description`.** mcpscore 1.29 added `tools_output_properties_documented`
+  (LOW): 143 output properties across 31 of the 33 tools had none (query echoes, counts,
+  result lists, the `find_equivalent` per-terminology results and the
+  `ranking`/`counts` objects of `find_equivalent` and `harmonize_terms`), so
+  production fell to 206/207 and the post-deploy gate (floor 100) went red.
+  Descriptions only, written from the handler that fills each field; no
+  field, type or value changes. stdio now passes the rule (174/176, no failing
+  rule). Surface lock, `server.json` and `lhm.plugin.json` regenerated.
+
 ### Changed
 
 - **Production smoke: a tool that failed with the source up is called once

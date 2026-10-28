@@ -1,8 +1,8 @@
 {
   "$comentario": "Impressão digital da superfície (@sbissoli/mcp-surface). Não editar à mão: `npm run surface:lock` regrava, e só aceita superfície nova sob versão nova.",
   "declarada": {
-    "versao": "2.3.0",
-    "sha256": "d3805749748c0a2cd86ecd03350950cd9bd7a3e8c913338f3aed25730fd28c30",
+    "versao": "2.3.1",
+    "sha256": "b505f162af09b05dda4226394311c3823e937bdd0fdcdf4532fa0055b35d8604",
     "conteudo": {
       "initialize": {
         "capabilities": {
@@ -151,9 +151,11 @@
                 "type": "array"
               },
               "drug_name": {
+                "description": "The drug name as submitted.",
                 "type": "string"
               },
               "matches": {
+                "description": "ATC classes NLM RxClass assigns to the drug, one entry per RxNorm concept and ATC class pair; empty when the drug is unknown or has no ATC mapping.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -442,6 +444,7 @@
             "additionalProperties": false,
             "properties": {
               "atc_code": {
+                "description": "The ATC code as submitted.",
                 "type": "string"
               },
               "attribution": {
@@ -476,9 +479,11 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "The ATC class (code, name, level type); null when found=false."
               },
               "found": {
+                "description": "Whether RxClass knows the code at level 1-4; false for unknown and for 7-character substance codes.",
                 "type": "boolean"
               },
               "provenance": {
@@ -736,6 +741,7 @@
             "additionalProperties": false,
             "properties": {
               "atc_code": {
+                "description": "The ATC code as submitted.",
                 "type": "string"
               },
               "attribution": {
@@ -746,6 +752,7 @@
                 "type": "array"
               },
               "members": {
+                "description": "RxNorm drug concepts in the ATC class (all member substances for levels 1-4); empty when the code is unknown or has no RxNorm-mapped members.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -1068,12 +1075,15 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "The chapter (number, code range, Portuguese title); null when found=false."
               },
               "found": {
+                "description": "Whether the chapter exists in CID-10 V2008.",
                 "type": "boolean"
               },
               "groups": {
+                "description": "Groups (code-range blocks) of the chapter, each with its range and Portuguese title; empty when found=false.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -1101,6 +1111,7 @@
                 "type": "array"
               },
               "num": {
+                "description": "The chapter number as submitted.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
@@ -1359,6 +1370,7 @@
                 "type": "array"
               },
               "chapters": {
+                "description": "The 22 chapters of CID-10 V2008, each with its number, code range and Portuguese title.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -1651,9 +1663,11 @@
                 "type": "array"
               },
               "code": {
+                "description": "The CID-10 code as submitted.",
                 "type": "string"
               },
               "found": {
+                "description": "Whether the code exists in CID-10 V2008.",
                 "type": "boolean"
               },
               "hit": {
@@ -1733,7 +1747,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "The CID-10 entry (Portuguese title, chapter, group, restrictions); null when found=false."
               },
               "provenance": {
                 "additionalProperties": false,
@@ -2014,6 +2029,7 @@
                 "type": "array"
               },
               "hits": {
+                "description": "Matching CID-10 V2008 codes with their Portuguese titles, chapter and group.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -2089,6 +2105,7 @@
                 "type": "array"
               },
               "level": {
+                "description": "Code level searched: 3-char categories, 4-char subcategories, or all.",
                 "enum": [
                   "categories",
                   "subcategories",
@@ -2313,19 +2330,23 @@
                 "type": "object"
               },
               "query": {
+                "description": "The search terms as submitted.",
                 "type": "string"
               },
               "shown_count": {
+                "description": "Number of codes returned in hits (at most max_results).",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
               },
               "total_count": {
+                "description": "Number of CID-10 codes matching the query, before the max_results cap.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
               },
               "vocabulary_notes": {
+                "description": "Present only when a query word was translated to the CID-10's own wording (e.g. \"câncer\" → \"neoplasia maligna\"); says which.",
                 "items": {
                   "type": "string"
                 },
@@ -2694,6 +2715,7 @@
                 "type": "array"
               },
               "groups": {
+                "description": "Candidates from different terminologies whose normalized titles are identical, grouped as likely the same concept; best match_score first. Empty when nothing groups (not evidence of non-equivalence).",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -2979,12 +3001,15 @@
               },
               "ranking": {
                 "additionalProperties": false,
+                "description": "Self-description of the ranking: match_score, rank and groups are computed by this server, not upstream relevance.",
                 "properties": {
                   "method": {
                     "const": "lexical",
+                    "description": "Ranking method: lexical similarity computed by this server.",
                     "type": "string"
                   },
                   "note": {
+                    "description": "How match_score and rank are computed.",
                     "type": "string"
                   }
                 },
@@ -2996,20 +3021,25 @@
               },
               "results": {
                 "additionalProperties": false,
+                "description": "Per-terminology results, keyed by terminology. A key is absent when that terminology was not searched; found=false with empty items and error null means searched, no hits.",
                 "properties": {
                   "icd11": {
                     "additionalProperties": false,
+                    "description": "ICD-11 (WHO) candidates; present only when ICD-11 was searched.",
                     "properties": {
                       "error": {
+                        "description": "Failure message when the search in this terminology failed (timeout, server error); null when it answered.",
                         "type": [
                           "string",
                           "null"
                         ]
                       },
                       "found": {
+                        "description": "True when this terminology returned at least one candidate.",
                         "type": "boolean"
                       },
                       "items": {
+                        "description": "Candidates from this terminology, best first (by global rank), at most limit.",
                         "items": {
                           "additionalProperties": false,
                           "properties": {
@@ -3057,17 +3087,21 @@
                   },
                   "loinc": {
                     "additionalProperties": false,
+                    "description": "LOINC candidates; present only when LOINC was searched.",
                     "properties": {
                       "error": {
+                        "description": "Failure message when the search in this terminology failed (timeout, server error); null when it answered.",
                         "type": [
                           "string",
                           "null"
                         ]
                       },
                       "found": {
+                        "description": "True when this terminology returned at least one candidate.",
                         "type": "boolean"
                       },
                       "items": {
+                        "description": "Candidates from this terminology, best first (by global rank), at most limit.",
                         "items": {
                           "additionalProperties": false,
                           "properties": {
@@ -3115,17 +3149,21 @@
                   },
                   "mesh": {
                     "additionalProperties": false,
+                    "description": "MeSH candidates; present only when MeSH was searched.",
                     "properties": {
                       "error": {
+                        "description": "Failure message when the search in this terminology failed (timeout, server error); null when it answered.",
                         "type": [
                           "string",
                           "null"
                         ]
                       },
                       "found": {
+                        "description": "True when this terminology returned at least one candidate.",
                         "type": "boolean"
                       },
                       "items": {
+                        "description": "Candidates from this terminology, best first (by global rank), at most limit.",
                         "items": {
                           "additionalProperties": false,
                           "properties": {
@@ -3173,17 +3211,21 @@
                   },
                   "rxnorm": {
                     "additionalProperties": false,
+                    "description": "RxNorm candidates; present only when RxNorm was searched.",
                     "properties": {
                       "error": {
+                        "description": "Failure message when the search in this terminology failed (timeout, server error); null when it answered.",
                         "type": [
                           "string",
                           "null"
                         ]
                       },
                       "found": {
+                        "description": "True when this terminology returned at least one candidate.",
                         "type": "boolean"
                       },
                       "items": {
+                        "description": "Candidates from this terminology, best first (by global rank), at most limit.",
                         "items": {
                           "additionalProperties": false,
                           "properties": {
@@ -3233,6 +3275,7 @@
                 "type": "object"
               },
               "searched_terminologies": {
+                "description": "Terminologies actually searched: the targets minus source_terminology. Empty when nothing was left to search.",
                 "items": {
                   "enum": [
                     "icd11",
@@ -3258,9 +3301,11 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Terminology excluded from the search; null when none was given."
               },
               "term": {
+                "description": "The medical term as submitted.",
                 "type": "string"
               }
             },
@@ -3345,28 +3390,34 @@
               },
               "counts": {
                 "additionalProperties": false,
+                "description": "Submitted terms tallied by outcome (best-candidate match_type, no candidates, or error); the five counts add up to total.",
                 "properties": {
                   "error": {
+                    "description": "Terms whose lookup failed.",
                     "maximum": 9007199254740991,
                     "minimum": -9007199254740991,
                     "type": "integer"
                   },
                   "exact": {
+                    "description": "Terms whose best candidate is an exact match.",
                     "maximum": 9007199254740991,
                     "minimum": -9007199254740991,
                     "type": "integer"
                   },
                   "needs_review": {
+                    "description": "Terms whose best candidate needs review.",
                     "maximum": 9007199254740991,
                     "minimum": -9007199254740991,
                     "type": "integer"
                   },
                   "no_candidates": {
+                    "description": "Terms the source answered with no candidates.",
                     "maximum": 9007199254740991,
                     "minimum": -9007199254740991,
                     "type": "integer"
                   },
                   "strong": {
+                    "description": "Terms whose best candidate is a strong match.",
                     "maximum": 9007199254740991,
                     "minimum": -9007199254740991,
                     "type": "integer"
@@ -3603,12 +3654,15 @@
               },
               "ranking": {
                 "additionalProperties": false,
+                "description": "Self-description of the ranking: match_score and match_type are computed by this server, not upstream relevance.",
                 "properties": {
                   "method": {
                     "const": "lexical",
+                    "description": "Ranking method: lexical similarity computed by this server.",
                     "type": "string"
                   },
                   "note": {
+                    "description": "How match_score and match_type are computed.",
                     "type": "string"
                   }
                 },
@@ -3848,6 +3902,7 @@
                 "type": "array"
               },
               "chapters": {
+                "description": "Top-level ICD-11 MMS chapters in WHO order; a chapter the WHO failed to return keeps its number and URI, with error set and the other fields null.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -4186,9 +4241,11 @@
                 "type": "array"
               },
               "code": {
+                "description": "The code, block range or URI the walk started from, as submitted.",
                 "type": "string"
               },
               "direction": {
+                "description": "Direction walked: parents (ancestors) or children (subtypes).",
                 "enum": [
                   "parents",
                   "children"
@@ -4196,6 +4253,7 @@
                 "type": "string"
               },
               "entities": {
+                "description": "Direct parents or children of the entity; empty when it has none. Entries the WHO failed to return are left out.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -4509,54 +4567,63 @@
                 "type": "array"
               },
               "block_id": {
+                "description": "WHO block identifier for blocks; null otherwise.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "browser_url": {
+                "description": "Link to the entity in the WHO ICD-11 browser; null when the WHO returns none.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "class_kind": {
+                "description": "WHO class kind (e.g. \"chapter\", \"block\", \"category\"); null when the WHO does not state it.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "code": {
+                "description": "ICD-11 MMS code (e.g. \"BA00\"); null for blocks and chapters, which have a code_range instead.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "code_range": {
+                "description": "Code range of a block or chapter (e.g. \"BA00-BA0Z\"); null for coded categories.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "coding_note": {
+                "description": "Official coding note; null when the WHO publishes none.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "definition": {
+                "description": "Official short definition; null when the WHO publishes none.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "diagnostic_criteria": {
+                "description": "Official diagnostic criteria text; null when the WHO publishes none.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "exclusions": {
+                "description": "Exclusion entries (conditions coded elsewhere), each with its URI and label.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -4576,6 +4643,7 @@
                 "type": "array"
               },
               "inclusions": {
+                "description": "Inclusion entries (synonyms and terms included under this entity), each with its URI and label.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -4595,6 +4663,7 @@
                 "type": "array"
               },
               "index_terms": {
+                "description": "Index terms that lead to this entity, each with its URI and label.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -4614,6 +4683,7 @@
                 "type": "array"
               },
               "long_definition": {
+                "description": "Official detailed description; null when the WHO publishes none.",
                 "type": [
                   "string",
                   "null"
@@ -4836,9 +4906,11 @@
                 "type": "object"
               },
               "title": {
+                "description": "Official title in the requested language (\"Unknown\" when the WHO returns none).",
                 "type": "string"
               },
               "uri": {
+                "description": "WHO ICD-11 entity URI.",
                 "type": "string"
               }
             },
@@ -4898,6 +4970,7 @@
                 "type": "array"
               },
               "axes": {
+                "description": "Postcoordination axes the WHO allows for this code; empty when it has none or the WHO has no postcoordination info for it.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -4934,6 +5007,7 @@
                 "type": "array"
               },
               "code": {
+                "description": "The ICD-11 code as submitted.",
                 "type": "string"
               },
               "provenance": {
@@ -5221,6 +5295,7 @@
                 "type": "array"
               },
               "entities": {
+                "description": "Matching ICD-11 MMS entities in WHO relevance order, at most max_results.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -5498,9 +5573,11 @@
                 "type": "object"
               },
               "query": {
+                "description": "The search text as submitted.",
                 "type": "string"
               },
               "total_count": {
+                "description": "Number of entities the WHO search returned, before the max_results cap.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
@@ -5544,6 +5621,7 @@
             "additionalProperties": false,
             "properties": {
               "answers": {
+                "description": "Answer list of the question in display order; empty when the code exists but has no answer list.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -5586,6 +5664,7 @@
                 "type": "array"
               },
               "loinc_num": {
+                "description": "The LOINC number as submitted.",
                 "type": "string"
               },
               "provenance": {
@@ -5849,27 +5928,34 @@
                 "type": "array"
               },
               "class": {
+                "description": "LOINC class the term is grouped under (e.g. \"CHEM\").",
                 "type": "string"
               },
               "component": {
+                "description": "LOINC axis 1, Component: what is measured or observed (e.g. \"Glucose\").",
                 "type": "string"
               },
               "external_copyright_notice": {
+                "description": "Third-party copyright notice the term carries, served verbatim (LOINC License §10); null when it carries none.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "loinc_num": {
+                "description": "LOINC number (e.g. \"2339-0\").",
                 "type": "string"
               },
               "long_common_name": {
+                "description": "LOINC Long Common Name, the full human-readable name of the term.",
                 "type": "string"
               },
               "method_type": {
+                "description": "LOINC axis 6, Method; empty when the term specifies none.",
                 "type": "string"
               },
               "property": {
+                "description": "LOINC axis 2, Property: the kind of quantity (e.g. \"MCnc\" = mass concentration).",
                 "type": "string"
               },
               "provenance": {
@@ -6089,18 +6175,23 @@
                 "type": "object"
               },
               "scale_type": {
+                "description": "LOINC axis 5, Scale: Qn (quantitative), Ord, Nom, Nar, etc.",
                 "type": "string"
               },
               "short_name": {
+                "description": "LOINC short name; empty when the source has none.",
                 "type": "string"
               },
               "status": {
+                "description": "LOINC term status (e.g. \"ACTIVE\", \"DEPRECATED\"); empty when the source omits it.",
                 "type": "string"
               },
               "system": {
+                "description": "LOINC axis 4, System: the specimen or thing observed (e.g. \"Bld\", \"Ser/Plas\").",
                 "type": "string"
               },
               "time_aspect": {
+                "description": "LOINC axis 3, Time: point in time or interval of the observation (e.g. \"Pt\", \"24H\").",
                 "type": "string"
               }
             },
@@ -6158,6 +6249,7 @@
                 "type": "array"
               },
               "loinc_num": {
+                "description": "The LOINC number as submitted.",
                 "type": "string"
               },
               "panel": {
@@ -6216,7 +6308,8 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Panel/form definition with its member items; null when no panel structure is found for the code (not a panel, or no definition available)."
               },
               "provenance": {
                 "additionalProperties": false,
@@ -6486,46 +6579,59 @@
                 "type": "array"
               },
               "items": {
+                "description": "Matching LOINC terms in source relevance order.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
                     "class": {
+                      "description": "LOINC class the term is grouped under (e.g. \"CHEM\").",
                       "type": "string"
                     },
                     "component": {
+                      "description": "LOINC axis 1, Component: what is measured or observed (e.g. \"Glucose\").",
                       "type": "string"
                     },
                     "external_copyright_notice": {
+                      "description": "Third-party copyright notice the term carries, served verbatim (LOINC License §10); null when it carries none.",
                       "type": [
                         "string",
                         "null"
                       ]
                     },
                     "loinc_num": {
+                      "description": "LOINC number (e.g. \"2339-0\").",
                       "type": "string"
                     },
                     "long_common_name": {
+                      "description": "LOINC Long Common Name, the full human-readable name of the term.",
                       "type": "string"
                     },
                     "method_type": {
+                      "description": "LOINC axis 6, Method; empty when the term specifies none.",
                       "type": "string"
                     },
                     "property": {
+                      "description": "LOINC axis 2, Property: the kind of quantity (e.g. \"MCnc\" = mass concentration).",
                       "type": "string"
                     },
                     "scale_type": {
+                      "description": "LOINC axis 5, Scale: Qn (quantitative), Ord, Nom, Nar, etc.",
                       "type": "string"
                     },
                     "short_name": {
+                      "description": "LOINC short name; empty when the source has none.",
                       "type": "string"
                     },
                     "status": {
+                      "description": "LOINC term status (e.g. \"ACTIVE\", \"DEPRECATED\"); empty when the source omits it.",
                       "type": "string"
                     },
                     "system": {
+                      "description": "LOINC axis 4, System: the specimen or thing observed (e.g. \"Bld\", \"Ser/Plas\").",
                       "type": "string"
                     },
                     "time_aspect": {
+                      "description": "LOINC axis 3, Time: point in time or interval of the observation (e.g. \"Pt\", \"24H\").",
                       "type": "string"
                     }
                   },
@@ -6764,14 +6870,17 @@
                 "type": "object"
               },
               "query": {
+                "description": "The search term as submitted.",
                 "type": "string"
               },
               "shown_count": {
+                "description": "Number of terms returned in items (at most max_results).",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
               },
               "total_count": {
+                "description": "Total number of LOINC terms matching the query at the source, which may exceed the items returned.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
@@ -7170,6 +7279,7 @@
               },
               "source": {
                 "additionalProperties": false,
+                "description": "The bundled WHO ICD-10 → ICD-11 transition table release this answer comes from.",
                 "properties": {
                   "publisher": {
                     "description": "Authoritative publisher (e.g. \"WHO\").",
@@ -7257,6 +7367,7 @@
                 "type": "array"
               },
               "concepts": {
+                "description": "The preferred concept with its entry terms (synonyms); non-preferred concepts are not retrieved. Empty when the descriptor names no preferred concept.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -7287,9 +7398,11 @@
                 "type": "array"
               },
               "id": {
+                "description": "MeSH descriptor ID (e.g. \"D003920\").",
                 "type": "string"
               },
               "label": {
+                "description": "Descriptor heading, in the requested language when NLM publishes that translation.",
                 "type": "string"
               },
               "provenance": {
@@ -7509,6 +7622,7 @@
                 "type": "object"
               },
               "qualifiers": {
+                "description": "Allowable qualifiers (subheadings) for the descriptor.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -7532,9 +7646,11 @@
                 "type": "array"
               },
               "scope_note": {
+                "description": "Scope note (definition) of the descriptor's preferred concept; empty when it has none.",
                 "type": "string"
               },
               "tree_numbers": {
+                "description": "Tree numbers placing the descriptor in the MeSH hierarchy (e.g. \"C18.452.394.750\").",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -7554,6 +7670,7 @@
                 "type": "array"
               },
               "uri": {
+                "description": "NLM MeSH RDF URI of the descriptor.",
                 "type": "string"
               }
             },
@@ -7606,6 +7723,7 @@
                 "type": "array"
               },
               "mesh_id": {
+                "description": "The MeSH descriptor ID as submitted.",
                 "type": "string"
               },
               "provenance": {
@@ -7825,6 +7943,7 @@
                 "type": "object"
               },
               "qualifiers": {
+                "description": "Allowable qualifiers (subheadings) for the descriptor, each with its ID, URI and label.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -7926,6 +8045,7 @@
                 "type": "array"
               },
               "descriptors": {
+                "description": "Matching MeSH descriptors, each with its ID (e.g. \"D003920\"), URI and label.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -7949,6 +8069,7 @@
                 "type": "array"
               },
               "match": {
+                "description": "Match type applied to descriptor labels.",
                 "enum": [
                   "exact",
                   "contains",
@@ -8173,9 +8294,11 @@
                 "type": "object"
               },
               "query": {
+                "description": "The search term as submitted.",
                 "type": "string"
               },
               "total_count": {
+                "description": "Number of descriptors returned (the NLM lookup is capped at max_results, so this is not a total count of all matches).",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
@@ -8227,6 +8350,7 @@
                 "type": "array"
               },
               "mesh_id": {
+                "description": "The MeSH descriptor ID as submitted.",
                 "type": "string"
               },
               "provenance": {
@@ -8446,6 +8570,7 @@
                 "type": "object"
               },
               "tree_numbers": {
+                "description": "Tree numbers placing the descriptor in the MeSH hierarchy; a descriptor can sit in several branches.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -8518,6 +8643,7 @@
                 "type": "array"
               },
               "classes": {
+                "description": "Drug classes NLM RxClass links to the RxCUI (one entry per class and relationship); empty when none.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -8761,6 +8887,7 @@
                 "type": "object"
               },
               "rxcui": {
+                "description": "The RxCUI as submitted.",
                 "type": "string"
               }
             },
@@ -8836,12 +8963,14 @@
                 "type": "boolean"
               },
               "language": {
+                "description": "Language of the concept name as RxNav reports it (e.g. \"ENG\"); null when found=false.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "name": {
+                "description": "RxNorm normalized name of the concept; null when found=false.",
                 "type": [
                   "string",
                   "null"
@@ -9115,42 +9244,50 @@
                   {
                     "type": "null"
                   }
-                ]
+                ],
+                "description": "Related concepts (ingredients, brands, dose forms) grouped by term type; null unless include_related=true."
               },
               "remapped_to": {
+                "description": "RxCUIs a remapped concept was replaced by; empty otherwise.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "rxcui": {
+                "description": "The RxCUI looked up.",
                 "type": "string"
               },
               "status": {
+                "description": "RxNorm history status (e.g. \"Active\", \"Remapped\", \"Obsolete\"); \"Active\" when RxNav does not report one; null when found=false.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "suppress": {
+                "description": "RxNorm suppress flag (\"N\" = not suppressed, the default when RxNav omits it); null when found=false.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "synonym": {
+                "description": "RxNorm synonym (may be empty); null when found=false.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "tty": {
+                "description": "RxNorm term type (e.g. \"IN\" ingredient, \"SCD\" clinical drug, \"SBD\" branded drug); null when found=false.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "umlscui": {
+                "description": "UMLS Concept Unique Identifier linked to the concept (empty when none); null when found=false.",
                 "type": [
                   "string",
                   "null"
@@ -9219,6 +9356,7 @@
                 "type": "array"
               },
               "ingredients": {
+                "description": "Ingredient concepts (term types IN and MIN) RxNav relates to the RxCUI; empty when none.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -9462,6 +9600,7 @@
                 "type": "object"
               },
               "rxcui": {
+                "description": "The RxCUI as submitted.",
                 "type": "string"
               }
             },
@@ -9520,12 +9659,14 @@
                 "type": "array"
               },
               "ndc": {
+                "description": "rxcui_for_ndc: the NDC as submitted; null in ndcs_for_rxcui mode.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "ndcs": {
+                "description": "ndcs_for_rxcui: NDC codes RxNorm lists for the RxCUI (empty when none); always empty in rxcui_for_ndc mode.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -9757,6 +9898,7 @@
                 "type": "object"
               },
               "query_mode": {
+                "description": "Which lookup ran: ndcs_for_rxcui (rxcui given, list its NDCs) or rxcui_for_ndc (ndc given, find its RxCUI).",
                 "enum": [
                   "ndcs_for_rxcui",
                   "rxcui_for_ndc"
@@ -9764,6 +9906,7 @@
                 "type": "string"
               },
               "rxcui": {
+                "description": "ndcs_for_rxcui: the RxCUI as submitted. rxcui_for_ndc: the RxCUI the NDC belongs to, or null when RxNorm has none for it.",
                 "type": [
                   "string",
                   "null"
@@ -9823,6 +9966,7 @@
                 "type": "array"
               },
               "drugs": {
+                "description": "Matching RxNorm concepts, at most max_results. tty \"APPROX\" marks results of the approximate-match fallback, used when the name matched nothing exactly.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -10070,9 +10214,11 @@
                 "type": "object"
               },
               "query": {
+                "description": "The drug name as submitted.",
                 "type": "string"
               },
               "total_count": {
+                "description": "Number of concepts RxNav returned for the name, before the max_results cap.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
@@ -10429,12 +10575,14 @@
                 "type": "array"
               },
               "bundled_versions": {
+                "description": "Versions of this terminology bundled in the server; empty when the server queries the live upstream.",
                 "items": {
                   "type": "string"
                 },
                 "type": "array"
               },
               "changelog_url": {
+                "description": "Publisher's official changelog for the terminology; null when none is known.",
                 "type": [
                   "string",
                   "null"
@@ -10483,12 +10631,14 @@
                 "type": "boolean"
               },
               "from_version": {
+                "description": "The from_version requested (for icd10, the bundled ICD-10 release when not given); null when not given.",
                 "type": [
                   "string",
                   "null"
                 ]
               },
               "message": {
+                "description": "Explanation of the answer: what was computed, or why no diff is available and where to look instead.",
                 "type": "string"
               },
               "provenance": {
@@ -10708,6 +10858,7 @@
                 "type": "object"
               },
               "terminology": {
+                "description": "The terminology reported on, as submitted.",
                 "enum": [
                   "icd11",
                   "icd10",
@@ -10720,6 +10871,7 @@
                 "type": "string"
               },
               "to_version": {
+                "description": "The to_version requested; null when not given.",
                 "type": [
                   "string",
                   "null"
@@ -11001,6 +11153,7 @@
                 "type": "object"
               },
               "terminologies": {
+                "description": "Release this server queries for each terminology (all 7, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
@@ -11071,6 +11224,7 @@
                 "type": "array"
               },
               "total": {
+                "description": "Number of terminologies listed.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
@@ -11381,6 +11535,7 @@
                 "type": "array"
               },
               "results": {
+                "description": "One entry per submitted code, in request order.",
                 "items": {
                   "additionalProperties": false,
                   "properties": {
