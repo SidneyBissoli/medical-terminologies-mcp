@@ -32,6 +32,14 @@ on:
       - '.github/workflows/deploy-worker.yml'
   workflow_dispatch:
 
+# One deploy at a time, in push order. Production is a single target, so the group is
+# fixed (not per ref): two quick pushes used to run two deploys in parallel and the
+# OLDER one could finish last and leave old code live (ibge, 2026-11-02). A newer
+# pending run replaces an older pending one; a running deploy is never cancelled.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
