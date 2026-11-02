@@ -5,7 +5,7 @@
 [![node](https://img.shields.io/node/v/medical-terminologies-mcp)](https://www.npmjs.com/package/medical-terminologies-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP-Registry-blue)](https://registry.modelcontextprotocol.io)
 [![LobeHub](https://lobehub.com/badge/mcp/sidneybissoli-medical-terminologies-mcp)](https://lobehub.com/mcp/sidneybissoli-medical-terminologies-mcp)
-[![smithery badge](https://smithery.ai/badge/sidneybissoli/medical-terminologies-mcp)](https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp)
+[![LightNow capabilities](https://lightnow.ai/badge/io.github.SidneyBissoli/medical-terminologies-mcp)](https://lightnow.ai/servers/io.github.SidneyBissoli/medical-terminologies-mcp)
 [![Glama MCP server](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp/badges/score.svg)](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp)
 [![Available on CodeGuilds](https://img.shields.io/badge/Available_on-CodeGuilds-6366f1)](https://codeguilds.dev/packages/medical-terminologies-mcp)
 [![GitHub stars](https://img.shields.io/github/stars/SidneyBissoli/medical-terminologies-mcp?style=flat&logo=github)](https://github.com/SidneyBissoli/medical-terminologies-mcp)
