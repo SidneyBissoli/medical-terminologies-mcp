@@ -460,9 +460,11 @@ async function handleValidateCodes(args: Record<string, unknown>): Promise<CallT
           : '❌';
       const activeCell =
         r.active === true ? '✅' : r.active === false ? '❌' : '—';
-      const titleCell = (r.title ?? '').replace(/\|/g, '\\|');
-      const replacedCell = (r.replaced_by ?? '—').replace(/\|/g, '\\|');
-      const sourceCell = (r.error ?? r.source).replace(/\|/g, '\\|');
+      // Backslash first: a source text ending in `\` would otherwise undo the pipe escape.
+      const cell = (s: string): string => s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+      const titleCell = cell(r.title ?? '');
+      const replacedCell = cell(r.replaced_by ?? '—');
+      const sourceCell = cell(r.error ?? r.source);
       lines.push(
         `| ${r.code} | ${r.terminology} | ${validCell} | ${activeCell} | ${titleCell} | ${replacedCell} | ${sourceCell} |`,
       );

@@ -222,7 +222,8 @@ async function runPooled<T>(tasks: (() => Promise<T>)[], limit: number): Promise
   return results;
 }
 
-const cell = (s: string): string => s.replace(/\|/g, '\\|');
+// Backslash first: a source text ending in `\` would otherwise undo the pipe escape.
+const cell = (s: string): string => s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 
 async function handleHarmonizeTerms(args: Record<string, unknown>): Promise<CallToolResult> {
   try {

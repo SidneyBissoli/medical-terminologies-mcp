@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `validate_codes` and `harmonize_terms`: the Markdown table cells now escape `\` before `|`. A source text containing a backslash right before a pipe used to undo the pipe escape and break the table row (found by code scanning, `js/incomplete-sanitization`). The structured content is unchanged.
+
+### Security
+
+- Workflows `ci`, `integration`, `mcpscore` and `publish` declare a top-level `permissions: contents: read` (code scanning, `actions/missing-workflow-permissions`).
+
 ## [2.4.0] - 2026-10-27
 
 Renumbered from 2.3.1 (never published) to 2.4.0: the published surface changed (`outputSchema` descriptions), which by this repository's convention is a minor bump.
