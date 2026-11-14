@@ -27,6 +27,11 @@ concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
 
+# Menor privilégio: sem este bloco o token herda o padrão do repositório
+# (actions/missing-workflow-permissions). Um bloco no nível do job substitui este.
+permissions:
+  contents: read
+
 jobs:
   integration:
     # Runs on the owner's DESKTOP (self-hosted runner, label desktop-br), not

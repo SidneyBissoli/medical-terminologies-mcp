@@ -25,6 +25,11 @@ on:
         required: false
         type: string
 
+# Least privilege by default (actions/missing-workflow-permissions). A job-level
+# `permissions:` block replaces this one.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

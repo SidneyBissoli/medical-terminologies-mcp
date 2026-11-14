@@ -104,6 +104,8 @@ function mockUpstreams(): void {
   global.fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     void init;
+    // Exact host match: a substring test would also accept the name inside a path or another host.
+    const host = new URL(url).hostname;
 
     // ---- WHO OAuth ---------------------------------------------------
     if (url.includes('icdaccessmanagement.who.int')) {
@@ -169,7 +171,7 @@ function mockUpstreams(): void {
     }
 
     // ---- NLM Clinical Tables (LOINC) ---------------------------------
-    if (url.includes('clinicaltables.nlm.nih.gov')) {
+    if (host === 'clinicaltables.nlm.nih.gov') {
       if (url.includes('loinc_answers')) {
         // Live behavior (2026-10-03): 200 with the list for question codes,
         // 404 for codes without one (and for unknown codes).
@@ -192,7 +194,7 @@ function mockUpstreams(): void {
     }
 
     // ---- NLM RxNav (RxNorm + ATC/RxClass) ----------------------------
-    if (url.includes('rxnav.nlm.nih.gov')) {
+    if (host === 'rxnav.nlm.nih.gov') {
       if (url.includes('/rxclass/classMembers')) return jsonResponse(fixture('rxnorm/atc-members-A10BA.json'));
       if (url.includes('/rxclass/class/byId')) {
         if (url.includes('A99')) return jsonResponse(fixture('rxnorm/atc-byid-A10BA02-empty.json'));
