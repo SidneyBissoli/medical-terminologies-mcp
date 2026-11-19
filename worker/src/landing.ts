@@ -107,13 +107,13 @@ export function landingHtml(): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(c.title)}</title>
+<title>${esc(l.pageTitle)}</title>
 <meta name="description" content="${esc(l.resumo)}">
 <link rel="canonical" href="${esc(site)}/">
 <link rel="icon" href="/icon.png" type="image/png">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(c.title)}">
-<meta property="og:title" content="${esc(c.title)}">
+<meta property="og:title" content="${esc(l.pageTitle)}">
 <meta property="og:description" content="${esc(l.resumo)}">
 <meta property="og:url" content="${esc(site)}/">
 <meta property="og:image" content="${esc(site)}/icon.png">
