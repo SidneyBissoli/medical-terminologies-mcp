@@ -104,6 +104,12 @@ export const RATE_LIMIT = {
  */
 export const LANDING = {
   lang: "en" as "pt-BR" | "en",
+  /**
+   * `<title>` e `og:title` da landing: o nome do produto (`SERVER_CONFIG.title`,
+   * que não muda) mais o que ele entrega, em 50-60 caracteres. O Bing Webmaster
+   * acusou título curto no portfólio em 18/11/2026 ("Medical Terminologies MCP", 25).
+   */
+  pageTitle: "Medical Terminologies MCP — ICD-11, LOINC, RxNorm, MeSH",
   resumo:
     "MCP server for ICD-11, LOINC, RxNorm, MeSH, ATC and the Brazilian CID-10, with " +
     "the authoritative WHO ICD-10 to ICD-11 mapping. 33 tools, live from WHO and NLM.",

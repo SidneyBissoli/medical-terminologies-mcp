@@ -94,3 +94,17 @@ describe("landing page — superfície de descoberta", () => {
     }
   });
 });
+
+describe("título da página (Bing: 'title too short', 18/11/2026)", () => {
+  it("<title> e og:title vêm do pageTitle, que começa pelo nome do produto", () => {
+    expect(html).toContain(`<title>${esc(LANDING.pageTitle)}</title>`);
+    expect(html).toContain(`<meta property="og:title" content="${esc(LANDING.pageTitle)}">`);
+    expect(LANDING.pageTitle.startsWith(SERVER_CONFIG.title)).toBe(true);
+  });
+
+  it("o título tem entre 50 e 60 caracteres, a faixa que o Bing recomenda", () => {
+    const n = [...LANDING.pageTitle].length;
+    expect(n).toBeGreaterThanOrEqual(50);
+    expect(n).toBeLessThanOrEqual(60);
+  });
+});
