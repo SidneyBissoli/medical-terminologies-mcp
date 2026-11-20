@@ -1,967 +1,477 @@
 # Outreach Templates
 
-> Copy-paste-ready drafts for the channels listed in PROGRESS.md
-> Phase 12 (Content & Outreach). Originally drafted on 2026-05-09 as
-> part of `roadmap.md`; folded into this file when PROGRESS.md absorbed
-> roadmap.md as Phase 12.
+> Copy-paste-ready drafts for the channels still open in PROGRESS.md
+> Phase 12 (Content & Outreach), sub-tasks 12.2–12.10. **Rewritten on
+> 2026-11-20** for the server as it is today; the May/June 2026 drafts
+> described v1.x (SNOMED behind a flag, 28–31 tools) and were no longer
+> safe to paste. The directory submissions (12.x/11.x: awesome-mcp-servers,
+> Glama, mcpservers.org, Smithery) and the long-form post (12.1, published
+> 2026-05-11) are done; their templates live in git history
+> (`git show 738ec7f:outreach-templates.md`).
 >
-> **Tool counts and version numbers in these drafts reflect the project
-> state when each template was last refreshed.** Quick verification
-> before publishing: current state is **31 tools default / 37 with
-> SNOMED enabled, v1.4.0, 313 unit + contract tests + 11 integration
-> tests (gated by `INTEGRATION_TESTS=1`)**. The v1.4.0 "data integrity"
-> release (2026-05-11) bundles authoritative WHO ICD-10 → ICD-11
-> transition tables, adds `validate_codes`, `terminology_versions`,
-> `terminology_diff`, and a per-tool `language` parameter. Refresh
-> inline if any of these have changed.
+> **Every channel section has three parts:** what was measured about the
+> channel (with the page read and the date), the ready text, and what to do
+> after posting (record the URL in PROGRESS.md, Phase 12 table).
 >
-> Templates assume Phases 11.1 (server.json sync), 11.2 (Streamable
-> HTTP transport), 11.3 (README polish with output samples), 11.4
-> (per-tool language), 11.5 (Glama), 11.6 (mcpservers.org), 11.7
-> (punkpeye PR), 11.8 (Smithery), 11.9 Stage 1 (Cloudflare Workers
-> deploy), 11.10 (LobeHub), 13.1 (authoritative ICD-10 → ICD-11),
-> 13.2 (validate_codes), and 13.6 (terminology_versions + diff) are
-> all done. The hosted endpoint
-> `https://medical.sidneybissoli.com` is the
-> single most important asset to link in any submission that accepts
-> an HTTP endpoint.
+> **Nothing here is posted by the assistant.** Each post goes out from the
+> maintainer's own account, when and if he chooses. A channel he decides
+> not to use is recorded in PROGRESS.md as skipped, with the reason.
 
 ---
 
-## A.1 — PR to `awesome-mcp-servers`
+## Verified facts (2026-11-20) — use only these, re-check if a month old
 
-**Target:** `punkpeye/awesome-mcp-servers` only.
-**`wong2/awesome-mcp-servers` is PR-restricted** (verified 2026-05-11 — the
-maintainer disabled PR creation; 0 open / 0 closed PRs ever). It's a
-curated list, not a community list. The Phase 12 success criterion says
-"PR merged in at least one `awesome-mcp-servers` list", so punkpeye
-alone satisfies it.
+| Fact | Value | How it was checked |
+|------|-------|--------------------|
+| Version | 2.4.0 | `npm view`, `/health`, `/status` |
+| Tools | 33: 31 terminology tools + `search`/`fetch` (ChatGPT Deep Research) | `/health` `tool_count`, `tools/list` on the hosted endpoint |
+| Terminologies | ICD-11 (WHO ICD-API, release 2026-01), LOINC, RxNorm, MeSH (NLM), ATC (via NLM RxClass), Brazilian CID-10 (DataSUS V2008, bundled) | README; live calls |
+| ICD-10 → ICD-11 | WHO transition tables, release 2025-01, bundled; returns the WHO primary map plus documented alternatives, and "no mapping" instead of a fuzzy guess | live call `map_icd10_to_icd11("A07.8")`: primary 1A3Z + 4 alternatives |
+| Batch harmonization | `harmonize_terms`: up to 50 free-text terms → ICD-11 / RxNorm (+ATC) / LOINC, each with `exact` / `strong` / `needs_review` | live call (below) |
+| Provenance | every successful response carries source, data vintage, real retrieval time, citation and license | live calls |
+| Hosted endpoint | `https://medical.sidneybissoli.com/mcp` — Streamable HTTP, no account, no API key | `initialize` + `tools/list` |
+| Local | `npx -y medical-terminologies-mcp` (stdio); the ICD-11 tools need free WHO API credentials locally | README |
+| Annotations | all 33 tools have `title` and `readOnlyHint` | `tools/list` |
+| Privacy | no query content logged; aggregate counters only | `PRIVACY.md` |
+| License | MIT | GitHub API |
 
-**Section:** `### Biology, Medicine and Bioinformatics` (line ~269 in
-the live README). Insert alphabetically — `SidneyBissoli` falls
-case-insensitively between `pkotecha-eng/aria-mcp-server` and
-`the-momentum/apple-health-mcp-server`.
+**Live examples you can quote (called on 2026-11-20 against the hosted server):**
 
-**Emoji legend** (verified from punkpeye README "## Legend" section):
-- 📇 TypeScript/JavaScript codebase
-- ☁️ Cloud Service (hosted) — Cloudflare Workers
-- 🏠 Local Service — stdio mode
-- 🍎 🪟 🐧 macOS / Windows / Linux support
+- `harmonize_terms(["type 2 diabetes", "metformin", "hemoglobin a1c", "MI"])` →
+  `type 2 diabetes` = ICD-11 **5A11**, exact; `metformin` = RxNorm **6809**,
+  exact, with ATC **A10BA** (biguanides); `hemoglobin a1c` → LOINC **4548-4**,
+  but marked `needs_review` (it is a lab name without specimen); `MI` →
+  `needs_review`, because the two candidates are **mitral insufficiency** and
+  **acute myocardial infarction**. The tool asks a person instead of picking.
+- `map_icd10_to_icd11("A07.8")` → primary **1A3Z** plus four WHO alternatives
+  (blastocystosis, sarcocystosis, *Entamoeba*, *Trichomonas*), with the WHO
+  notice that the tables are not meant for direct data conversion.
+- `cid10_search("pressão alta")` → **I10** Hipertensão essencial: everyday
+  Portuguese is resolved to the CID-10's own wording, and the response says so.
 
-**PR title:** *🤖🤖🤖 Add SidneyBissoli/medical-terminologies-mcp to Biology, Medicine and Bioinformatics*
-
-(The `🤖🤖🤖` prefix opts into punkpeye's [streamlined agent-PR
-process](https://github.com/punkpeye/awesome-mcp-servers/blob/main/CONTRIBUTING.md)
-for fast-track merging.)
-
-**Branch:** `add-medical-terminologies-mcp`
-
-**Entry to insert** (single line in the bio section):
-
-```markdown
-- [SidneyBissoli/medical-terminologies-mcp](https://github.com/SidneyBissoli/medical-terminologies-mcp) [![SidneyBissoli/medical-terminologies-mcp MCP server](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp/badges/score.svg)](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp) 📇 ☁️ 🏠 🍎 🪟 🐧 - Unified MCP server for ICD-11 (WHO), LOINC, RxNorm, MeSH (NLM), ATC, CID-10 (Brazilian DataSUS), and optional SNOMED CT. 28 tools (34 with SNOMED) with `structuredContent` + `outputSchema` on every default tool. Hosted on Cloudflare Workers, listed on Smithery, and on npm.
-```
-
-**PR body:**
-
-> Adding `medical-terminologies-mcp` to the Biology, Medicine and
-> Bioinformatics section. Open-source MCP server wrapping seven major
-> medical terminology APIs:
->
-> - **ICD-11** (WHO) — 5 tools, free OAuth credentials required
-> - **LOINC** (NLM Clinical Tables) — 4 tools, no auth
-> - **RxNorm** (NIH) — 5 tools, no auth
-> - **MeSH** (NLM Linked Data) — 4 tools, no auth
-> - **ATC** (via NLM RxClass) — 3 tools, no auth
-> - **CID-10** (Brazilian Portuguese ICD-10, bundled DataSUS V2008) — 4 tools, no HTTP
-> - **SNOMED CT** — 5 tools, gated behind a feature flag, IHTSDO license + self-hosted Snowstorm required
->
-> 28 tools active by default; 34 with SNOMED enabled. `structuredContent`
-> + `outputSchema` on every default tool. 247 unit + contract tests
-> using `nock` for HTTP fixtures, plus 11 live-API integration tests
-> gated by `INTEGRATION_TESTS=1`. Daily integration cron in CI catches
-> upstream API drift.
->
-> Hosted production endpoint: `https://medical.sidneybissoli.com/mcp`
-> (Cloudflare Workers, Streamable HTTP transport).
-> Smithery: `https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp`
-> Glama: `https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp`
-> MCP Registry: `io.github.SidneyBissoli/medical-terminologies-mcp`
-> npm: `https://www.npmjs.com/package/medical-terminologies-mcp`
->
-> MIT licensed. Inserted alphabetically between `pkotecha-eng` and
-> `the-momentum`.
+**Do not put in any post:** download counts (raw npm is inflated by release
+mirroring — see the 60-day review), star counts, third-party users or
+catalogs (not re-verified for public text), anything about features not
+shipped, or any suggestion of clinical-care use.
 
 ---
 
-## A.2 — Glama.ai submission
+## 12.2 — LinkedIn (personal feed)
 
-**Name:** Medical Terminologies MCP
+**Channel (measured):** high tolerance for self-promotion; likes are an
+anti-metric in this phase. Post in English (the audience is international);
+a Portuguese variant is optional.
 
-**One-line description:**
+**Text (~260 words):**
 
-> Unified MCP server providing LLMs with reliable lookup access to
-> ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10, and (optionally) SNOMED CT.
-
-**Long description (300–500 words):**
-
-> `medical-terminologies-mcp` is a Model Context Protocol server that
-> exposes 28 ready-to-use tools (34 with SNOMED enabled) wrapping
-> seven major medical terminology APIs and datasets. Built for LLM
-> agents that need reliable, verified terminology lookup instead of
-> hallucinated codes.
+> Language models are good at sounding sure about medical codes. They are
+> not good at being right about them.
 >
-> **Coverage:**
+> Ask one for the ICD-11 code of "MI" and it will answer. The honest answer
+> is that "MI" is ambiguous: mitral insufficiency or acute myocardial
+> infarction.
 >
-> - **ICD-11** (WHO) — 5 tools: search, lookup, hierarchy, chapters,
->   postcoordination axes. Free OAuth credentials required from
->   icd.who.int/icdapi.
-> - **LOINC** (NLM Clinical Tables) — 4 tools: search, details,
->   answers, panels. No auth.
-> - **RxNorm** (NIH) — 5 tools: search, concept lookup, ingredients,
->   therapeutic classes, NDC mapping. No auth.
-> - **MeSH** (NLM Linked Data) — 4 tools: search, descriptor details
->   with scope notes, tree hierarchy, allowed qualifiers. No auth.
-> - **ATC** (WHO Anatomical Therapeutic Chemical, served via NLM
->   RxClass) — 3 tools: classify a drug, lookup an ATC code (levels
->   1-4), list class members. No auth.
-> - **CID-10** (Brazilian Portuguese ICD-10, DataSUS V2008) — 4 tools:
->   diacritic-insensitive search, code lookup, chapter listing, chapter
->   detail with constituent groups. Bundled dataset, no HTTP.
-> - **SNOMED CT** — 5 tools, gated behind `ENABLE_SNOMED_TOOLS=true`.
->   Requires IHTSDO license and self-hosted Snowstorm. Off by default
->   because the public IHTSDO endpoint was retired in 2026.
-> - **Crosswalk** — 4 tools including a cross-terminology search
->   (`find_equivalent`). Crosswalk descriptions are explicit about
->   which return real mappings vs. text-search guidance.
+> I maintain an open-source MCP server (Model Context Protocol, the standard
+> AI assistants use to call tools) that answers terminology questions from
+> the official sources instead of from memory: ICD-11 (WHO), LOINC, RxNorm
+> and MeSH (NLM), ATC, and the Brazilian CID-10.
 >
-> **Engineering details:**
+> Three things it does that I care about:
 >
-> - TypeScript, Node 20+, esbuild bundle.
-> - Token-bucket rate limiting per API (WHO 5/s, NLM 10/s, RxNorm 20/s).
-> - Exponential backoff with ±25% jitter, retry on network errors and
->   408/429/500/502/503/504.
-> - WHO OAuth2 with proper `expires_in` cache TTL.
-> - `structuredContent` + `outputSchema` on every default tool (MCP spec
->   2024-11-05).
-> - `annotations` (`readOnlyHint`, `idempotentHint`, `openWorldHint`)
->   declared on every tool.
-> - 247 unit + contract tests (using `nock` for HTTP fixtures) + 11
->   live-API integration tests (gated by `INTEGRATION_TESTS=1`), gating
->   CI on PR. Daily integration cron catches upstream API drift.
-> - **Hosted production endpoint:**
->   `https://medical.sidneybissoli.com/mcp`
->   (Cloudflare Workers, Streamable HTTP transport, stateless mode).
->   Also listed on Smithery at
->   `https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp`.
+> • It maps ICD-10 to ICD-11 with the WHO transition tables, alternatives
+> included, and says "no mapping" when there is none.
+> • It harmonizes a list of free-text terms (up to 50) to codes and labels
+> each one exact, strong or needs review. "MI" comes back as needs review.
+> • Every answer carries its provenance: source, version, retrieval time,
+> citation and license.
 >
-> **What it deliberately does not do:**
+> It is for researchers, public-health analysts, informatics developers and
+> educators who need codes they can audit. It is not a clinical decision
+> tool.
 >
-> - No authoritative ICD-10 → ICD-11 mapping today (`map_icd10_to_icd11`
->   does text search; descriptions are explicit). Real WHO transition
->   tables planned.
-> - No LOINC ↔ SNOMED mapping (`map_loinc_to_snomed` returns guidance
->   only — UMLS license required for the actual relationships).
-> - No clinical decision support. This is a lookup layer.
+> It runs hosted, with no account or API key: medical.sidneybissoli.com/mcp
+> (Streamable HTTP), or locally with npx. MIT licensed.
 >
-> MIT licensed. The medical terminology content has its own licenses,
-> documented in the README.
+> Code and docs: https://github.com/SidneyBissoli/medical-terminologies-mcp
+>
+> If you work with coded health data, I'd like to hear what is missing.
+>
+> #HealthInformatics #MedicalCoding #ModelContextProtocol #OpenSource
 
-**Categories/tags:** healthcare, medical, terminology, ICD-11, LOINC,
-RxNorm, MeSH, SNOMED, ATC, CID-10, NIH, WHO, NLM, DataSUS,
-clinical-informatics, medical-coding, public-data.
-
-**Repository URL:** https://github.com/SidneyBissoli/medical-terminologies-mcp
-
-**npm package:** medical-terminologies-mcp
+**After posting:** record the post URL in PROGRESS.md 12.2. Crosspost to
+groups only where the group rules allow tool announcements.
 
 ---
 
-## A.3 — `mcpservers.org` submission
+## 12.3 — Reddit (three subreddits)
 
-**Submission form:** https://mcpservers.org/submit (free Standard tier;
-the $39 Premium tier is unnecessary).
+**Channel (measured 2026-11-20 — incomplete):** Reddit refused every
+automated read of the rules pages, so **read the rules by hand before each
+post**:
+<https://www.reddit.com/r/healthIT/about/rules>,
+<https://www.reddit.com/r/MedicalCoding/about/rules>,
+<https://www.reddit.com/r/medicine/about/rules>. A search snippet of
+r/MedicalCoding lists "No advertising/self promotion"; r/medicine's current
+rules could not be seen. Space the posts at least 48 h apart; if a post is
+removed, do not repost. The official Claude community page also names
+**r/ClaudeAI** as a place for project showcases (claude.com/community) — an
+option if the medical subs are closed.
 
-**Server Name:** Medical Terminologies MCP
+**Recommendation:** r/healthIT first. r/MedicalCoding and r/medicine only if
+their rules, read by hand, allow it; otherwise record them as skipped.
 
-**Category:** **Other** — verified 2026-05-11 that the dropdown does
-NOT include Healthcare even though `mcpservers.org/category/healthcare`
-exists as a page. Submit under Other; the admin may recategorize during
-review. (If they don't, the listing still counts toward the Phase 12
-"≥3 of 4 directories" success criterion.)
+### 12.3.a — r/healthIT
 
-**Link (Repository URL):** https://github.com/SidneyBissoli/medical-terminologies-mcp
+**Title:** *Open-source MCP server for ICD-11, LOINC, RxNorm, MeSH lookups — looking for feedback from people who work with coded data*
 
-**Contact email:** sbissoli76@gmail.com (mailbox you check)
+> I maintain an open-source MCP server (the protocol AI assistants use to
+> call tools) that answers terminology lookups from the official APIs and
+> bundled WHO/DataSUS tables instead of the model's memory: ICD-11, LOINC,
+> RxNorm (+ATC), MeSH, and the Brazilian CID-10.
+>
+> The parts that might matter to health IT work:
+>
+> - ICD-10 → ICD-11 with the WHO transition tables (release 2025-01),
+>   alternatives included; "no mapping" when the table has none.
+> - `harmonize_terms`: a list of up to 50 free-text terms → codes, each
+>   labelled exact / strong / needs_review. "MI" comes back needs_review
+>   (mitral insufficiency vs myocardial infarction) instead of a guess.
+> - Every response carries provenance: source, version, retrieval time,
+>   citation, license.
+> - Read-only, no PHI handling; terms you send go to the WHO/NLM APIs, so
+>   de-identify first.
+>
+> Hosted endpoint, no account: https://medical.sidneybissoli.com/mcp — or
+> `npx -y medical-terminologies-mcp`. MIT.
+> Repo: https://github.com/SidneyBissoli/medical-terminologies-mcp
+>
+> Question for this sub: where does terminology lookup actually hurt in your
+> pipelines — mapping between revisions, harmonizing legacy free text, or
+> something else?
 
-**Short Description** (~280 chars — pick this if the field accepts it):
+### 12.3.b — r/MedicalCoding (only if the rules allow)
 
-> Unified MCP server with 28 tools for ICD-11 (WHO), LOINC, RxNorm, MeSH (NLM), ATC, CID-10 (Brazilian DataSUS), and optional SNOMED CT. `structuredContent` on every tool, OAuth + retry + rate limiting baked in. Hosted on Cloudflare Workers and listed on Smithery. MIT.
+**Title:** *Question: would an ICD-10→ICD-11 lookup that shows WHO's alternative codes be useful to you?*
 
-**Short Description fallback** (~150 chars — use if the field truncates above):
+> Not selling anything — it's a free, open-source tool. When ICD-10 codes
+> are mapped to ICD-11, one code often splits into several. A07.8, for
+> example, maps in WHO's 2025 transition tables to 1A3Z with four documented
+> alternatives.
+>
+> I built a lookup (an MCP server for AI assistants) that returns the WHO
+> primary map plus every alternative, and says "no mapping" when the table
+> has none, instead of guessing. Repo:
+> https://github.com/SidneyBissoli/medical-terminologies-mcp
+>
+> For people who code for a living: is ICD-11 on your horizon yet, and what
+> would a mapping tool have to show for you to trust it?
 
-> Unified MCP server for 7 medical terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10, optional SNOMED CT). 28 tools, hosted on Workers + npm.
+### 12.3.c — r/medicine (only if the rules allow; default = skip)
 
-**Install:** `npm install -g medical-terminologies-mcp`
+> Same as 12.3.b, framed as a question, with the explicit line "This is not
+> a clinical decision tool; it is for coding and research data." If the
+> rules restrict posting to clinicians or forbid tools, record the channel
+> as skipped.
 
-**License:** MIT
-
----
-
-## A.4 — Smithery.ai submission (after Phase 11.2 — HTTP transport)
-
-**Critical:** Smithery requires Streamable HTTP transport. **Do not
-submit before Phase 11.2 is complete and published.**
-
-**Server name:** medical-terminologies
-
-**Display name:** Medical Terminologies (ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10, SNOMED)
-
-**Description:**
-
-> Open-source MCP server providing unified lookup across major medical
-> terminologies. ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 out of the box
-> (28 tools); SNOMED CT optional with valid IHTSDO license. Real API
-> calls and bundled datasets, not LLM-invented codes.
-
-**`smithery.yaml`** (place at repo root after Phase 11.2):
-
-```yaml
-startCommand:
-  type: http
-  configSchema:
-    type: object
-    properties:
-      whoClientId:
-        type: string
-        description: WHO ICD-11 API Client ID (optional; required only for ICD-11 tools)
-      whoClientSecret:
-        type: string
-        description: WHO ICD-11 API Client Secret
-      whoIcd11ReleaseId:
-        type: string
-        default: "2024-01"
-        description: ICD-11 release ID (e.g. 2024-01, 2025-01)
-      enableSnomedTools:
-        type: boolean
-        default: false
-        description: Enable SNOMED CT tools (requires IHTSDO license + self-hosted Snowstorm)
-      snomedBaseUrl:
-        type: string
-        description: Base URL for self-hosted Snowstorm instance
-      snomedLanguage:
-        type: string
-        default: "en"
-        description: Accept-Language tag for SNOMED responses
-      logLevel:
-        type: string
-        default: "info"
-        enum: [debug, info, warn, error, fatal]
-```
-
-(Validate against the current Smithery spec before commit; the format
-may have evolved.)
+**After posting:** record each post URL (or "skipped: rule X") in
+PROGRESS.md 12.3.
 
 ---
 
-## A.5 — Early-adopter outreach email
+## 12.4 — Mastodon + Bluesky
 
-**Subject (template):** *Quick question on [specific thing they wrote/built]*
+**Channel (measured 2026-11-20):** Bluesky allows **300 graphemes** per post
+(atproto lexicon `app.bsky.feed.post`); mastodon.social allows **500
+characters**, each URL counting as 23 (`/api/v2/instance`). Every variant
+below fits both (≤ 300, URL included).
 
-**Body — personalize the opener, keep the rest:**
+**Research angle:**
+
+> Free-text diagnoses, drugs, lab names → ICD-11, RxNorm+ATC, LOINC, 50 at
+> a time, each labelled exact / strong / needs review. "MI" comes
+> back needs review: mitral insufficiency or myocardial infarction?
+> Open-source MCP server, MIT:
+> https://github.com/SidneyBissoli/medical-terminologies-mcp
+
+**Informatics angle:**
+
+> ICD-10 → ICD-11 from WHO's transition tables, alternatives included, and
+> "no mapping" when there is none. One of 33 read-only tools in an
+> open-source MCP server; every answer cites its source and version.
+> https://github.com/SidneyBissoli/medical-terminologies-mcp
+
+**Developer angle:**
+
+> Remote MCP server for medical terminologies: ICD-11, LOINC, RxNorm, MeSH,
+> ATC, Brazilian CID-10. No account, no key, provenance on every response.
+> https://medical.sidneybissoli.com/mcp — MIT, repo on GitHub:
+> SidneyBissoli/medical-terminologies-mcp
+
+**After posting:** record the post URLs in PROGRESS.md 12.4.
+
+---
+
+## 12.5 — Show HN
+
+**Channel (measured 2026-11-20, news.ycombinator.com/showhn.html):** for
+something people can try, ideally without sign-up — the hosted endpoint and
+`npx` both qualify. Title must start with "Show HN". Version-bump posts
+don't qualify (this would be the project's first Show HN). Be around to
+answer comments for the first hours; never ask anyone to upvote. Best
+window per the original plan: Tuesday or Wednesday morning (US Eastern).
+
+**Title:** *Show HN: Medical terminologies for AI assistants – ICD-11, LOINC, RxNorm, MeSH (MCP)*
+
+**Text:**
+
+> I maintain an open-source MCP server that lets AI assistants look up
+> medical codes in the official sources instead of generating them: ICD-11
+> (WHO ICD-API), LOINC, RxNorm and MeSH (NLM), ATC (via RxClass), and the
+> Brazilian CID-10 (DataSUS, bundled).
+>
+> You can try it without signing up: point any MCP client at
+> https://medical.sidneybissoli.com/mcp (Streamable HTTP, no key), or run
+> `npx -y medical-terminologies-mcp` locally (ICD-11 then needs free WHO
+> credentials).
+>
+> Things I tried to get right:
+>
+> - Saying "I don't know" honestly. ICD-10 → ICD-11 uses WHO's transition
+>   tables and returns "no mapping" when there is none, instead of a fuzzy
+>   search. `harmonize_terms` labels each free-text term exact / strong /
+>   needs_review; "MI" is needs_review because it is either mitral
+>   insufficiency or myocardial infarction.
+> - Provenance on every response: source, data version, the real retrieval
+>   time (cache hits keep the original), citation and license, in
+>   structured content and in a text footer.
+> - Typed output: every tool declares an outputSchema and returns
+>   structuredContent; a test calls every tool through a real MCP client
+>   and validates the result against the advertised schema.
+> - Upstream drift: contract tests replay captured responses, and a daily
+>   job calls the live APIs.
+>
+> It is not a clinical decision tool; the audience is research, public
+> health, informatics and teaching. MIT licensed.
+>
+> Repo: https://github.com/SidneyBissoli/medical-terminologies-mcp
+>
+> I'd especially like to hear from people who harmonize coded health data:
+> what would you need to trust a tool like this in a pipeline?
+
+**After posting:** record the HN item URL in PROGRESS.md 12.5.
+
+---
+
+## 12.6 — chat.fhir.org (HL7 Zulip)
+
+**Channel (measured 2026-11-20, "Chat.fhir.org Community Expectations",
+HL7 Confluence, updated 2024-09-24):** "No unsolicited promotions,
+marketing, or business solicitation"; disclose affiliation; open-source
+community solutions are preferred; **product releases may be announced in
+#social if concise and simple**. #terminology (stream 179202) is for
+technical discussion of terminology services — answer there only when a
+thread is about this exact problem. Never use @all.
+
+**#social post (concise, the only proactive one):**
+
+> Sharing an open-source (MIT) MCP server I maintain, in case it is useful
+> to terminology folks: it gives AI assistants read-only lookup of ICD-11,
+> LOINC, RxNorm, MeSH, ATC and the Brazilian CID-10, maps ICD-10 → ICD-11
+> with the WHO transition tables, and returns provenance (source, version,
+> license) with every answer. Not a FHIR terminology server. Disclosure: I'm
+> the author. https://github.com/SidneyBissoli/medical-terminologies-mcp
+
+**#terminology:** no proactive post. Reply only where a thread asks how to
+give an LLM or agent access to these code systems; answer the question
+first, mention the server last, disclose authorship.
+
+**After posting:** record the #social message link in PROGRESS.md 12.6.
+
+---
+
+## 12.7 — Early-adopter emails (≤ 10, over three weeks)
+
+**Channel:** direct email; the opener tied to something the person wrote or
+built is mandatory. No more than 4 per day, one reminder at most, none if
+there is no reply. The maintainer picks the recipients; the assistant can
+then draft each email as a Gmail draft, never sends.
+
+**Where to find recipients (public work only):** authors of open-source
+health/terminology MCP servers or FHIR terminology tooling on GitHub;
+authors of recent posts on LLMs and coded clinical data; clinical
+informatics researchers who publish on ICD-11 transition.
+
+**Template:**
+
+**Subject:** *Question about [specific thing they wrote or built]*
 
 > Hi [Name],
 >
-> [Specific opener tied to something they wrote or built — e.g.,
-> "I read your post on running Claude alongside Epic queries last
-> month and the part about terminology drift stuck with me." This line
-> is mandatory, no exceptions.]
+> [One specific line about their work — mandatory.]
 >
-> I've been working on a small open-source project — a Model Context
-> Protocol server that wraps ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10
-> (and optionally SNOMED CT) so LLM agents can look up codes against
-> the real APIs instead of inventing them. v1.1.0, ~160 monthly
-> downloads, mostly organic.
+> I maintain a small open-source MCP server that lets AI assistants look up
+> ICD-11, LOINC, RxNorm, MeSH, ATC and the Brazilian CID-10 in the official
+> sources, map ICD-10 to ICD-11 with WHO's transition tables, and label
+> free-text terms exact / strong / needs review, with provenance on every
+> answer.
 >
-> I'm specifically interested in feedback from people doing real
-> clinical or research informatics work — not "is the code clean"
-> feedback (the README and repo are the public answer to that), but
-> "would this actually be useful in the workflow you run?"
->
-> If you have 5 minutes to look at one or two of the use cases in the
-> README and tell me what's missing or wrong for your work, I'd be
-> genuinely grateful. No expectation, no follow-up if you don't reply.
+> Given your work on [their topic], I'd value one honest reaction: would
+> this fit a workflow you run, and what would be missing? Five minutes at
+> most; no follow-up if you don't reply.
 >
 > https://github.com/SidneyBissoli/medical-terminologies-mcp
 >
-> Thanks for your time.
->
+> Thanks,
 > Sidney Bissoli
-> https://github.com/SidneyBissoli
 
-**Usage notes:**
-
-- The opener line is non-negotiable. Without it, the email is spam.
-- Don't send more than one reminder; no reply = no reply.
-- Don't send to ≥5 people the same day (avoid spam-pattern detection).
-
-**Targets:**
-
-1. **Clinical Informatics fellows** at MIT, Stanford, Vanderbilt,
-   Columbia, OHSU, Utah, Pittsburgh, UTHealth — fellow listings public
-   on each program's site, institutional emails available.
-2. **Devs who published health-related MCP servers on GitHub** —
-   search `topic:mcp-server health` or `topic:mcp medical`. Contact
-   authors of correlated projects for genuine peer exchange (not
-   spam — for feedback).
-3. **Authors of recent (last 3 months) blog posts on LLM in digital
-   health** — Hacker News, Towards Data Science, Substack health-tech.
-   Identify 5–10.
+**After sending:** record count and date (not names) in PROGRESS.md 12.7.
 
 ---
 
-## A.6 — Show HN
+## 12.8 — Discord
 
-**Title:** *Show HN: Medical-Terminologies-MCP – ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 lookup for LLMs*
+**Channel (measured 2026-11-20):** the **official MCP Discord is a
+contributor server** (working groups, SDKs) and says "Do not market products
+or services on the server" (modelcontextprotocol.io/community/communication)
+— **do not post there**; that page points announcements to GitHub
+Discussions. The **official Claude Discord** is listed on
+claude.com/community as "real-time help, project sharing"; its channel list
+and rules can only be seen after joining. The same page offers a form for
+projects to be featured on Claude's channels.
 
-**Body:**
+**Recommendation:** join the Claude Discord, read its rules and post in the
+project-sharing channel if there is one; otherwise record it as skipped.
 
-> I built an open-source MCP server that gives LLMs reliable lookup
-> access to seven medical terminologies: ICD-11 (WHO), LOINC, RxNorm,
-> MeSH (all NLM), ATC (via NLM RxClass), CID-10 (Brazilian DataSUS,
-> bundled), and optionally SNOMED CT.
->
-> 28 tools work without any setup beyond the npx command in the MCP
-> client config; ICD-11 needs free WHO API credentials (5-min signup).
-> SNOMED is gated behind a flag because the public IHTSDO endpoint
-> was retired in 2026 — operators with a license run it against a
-> self-hosted Snowstorm instance.
->
-> What I tried to get right:
-> - structuredContent + outputSchema on every default tool, so MCP
->   clients that consume typed data don't have to re-parse markdown.
-> - Token-bucket rate limiting per upstream API (WHO 5/s, NLM 10/s,
->   RxNorm 20/s). Retry with exponential backoff and jitter.
-> - WHO OAuth2 with actual expires_in handling (not a hardcoded TTL).
-> - 243-test Vitest suite (unit + contract using nock + integration
->   against live APIs gated by env flag) gating CI on PR. Daily
->   integration cron surfaces upstream API drift close to when it
->   happens — that work caught three silent production regressions
->   that had been masking degraded data for an unknown duration.
-> - Honest crosswalk tools — `map_icd10_to_icd11` says explicitly in
->   its description that it does text search, not authoritative
->   mapping. `map_loinc_to_snomed` says it returns guidance, not a
->   mapping, because the real mapping requires UMLS or LOINC
->   Expression Association files.
->
-> The use case I keep returning to: an LLM working alongside research
-> or coding work that needs to pin down "the LOINC for procalcitonin
-> in serum" gets `33959-8` from the actual NLM API, not whatever the
-> model would have invented.
->
-> MIT licensed. Repo:
-> https://github.com/SidneyBissoli/medical-terminologies-mcp
->
-> Feedback specifically welcome on what's missing for clinical
-> informatics, biomedical research, and public-health data workflows.
+**Text (short):**
+
+> Built an open-source remote MCP server for medical terminologies: ICD-11,
+> LOINC, RxNorm, MeSH, ATC and the Brazilian CID-10, with WHO ICD-10→ICD-11
+> mapping and provenance on every answer. Add it as a custom connector with
+> https://medical.sidneybissoli.com/mcp — no account or key. Feedback
+> welcome: https://github.com/SidneyBissoli/medical-terminologies-mcp
+
+**After posting:** record the channel and date in PROGRESS.md 12.8.
 
 ---
 
-## A.7 — Long-form post (Medium + Dev.to)
-
-**Title:** *Five medical terminologies, one MCP server: a practical walkthrough for clinical and research use*
-
-**Platforms:** Medium (general digital-health audience) and Dev.to
-(technical audience). Same text; on Medium add a cover image (suggestion:
-screenshot of MCP Inspector showing the tool list); on Dev.to use tags
-`#mcp #healthcare #ai #typescript`.
-
-**Medium hashtags:** `Medical Coding`, `Health Informatics`, `MCP`,
-`Claude AI`, `Open Source`.
-
-**Dev.to tags:** `mcp`, `healthcare`, `ai`, `typescript`, `opensource`.
-
-**FULL DRAFT — copy-paste ready:**
-
----
-
-# Seven medical terminologies, one MCP server: a practical walkthrough for clinical and research use
-
-If you've ever asked an LLM to "find the LOINC code for procalcitonin" or "list the active ingredients in Janumet," you've probably watched it confidently invent a code that doesn't exist. Medical terminologies are exactly the kind of structured, frequently-updated reference data that language models are bad at memorizing and good at *looking up* — if you give them the right tool.
-
-`medical-terminologies-mcp` is a Model Context Protocol server that gives any MCP-compatible client (Claude Desktop, Claude Code, Continue, and others) unified access to seven medical terminology systems:
-
-- **ICD-11** (WHO International Classification of Diseases, 11th Revision)
-- **LOINC** (Logical Observation Identifiers Names and Codes)
-- **RxNorm** (NIH normalized clinical drug names)
-- **MeSH** (NLM Medical Subject Headings)
-- **ATC** (WHO Anatomical Therapeutic Chemical, served via NLM RxClass)
-- **CID-10** (Brazilian Portuguese translation of ICD-10, DataSUS V2008 — bundled)
-- **SNOMED CT** (Systematized Nomenclature of Medicine, optional, license required)
-
-Twenty-six tools work out of the box with no authentication for LOINC, RxNorm, MeSH, ATC, CID-10, plus a bundled authoritative ICD-10 → ICD-11 mapping, a cross-terminology batch validator, and versioning + cross-revision diff. ICD-11 live lookup needs free WHO API credentials (a five-minute signup), bringing the default count to 31. SNOMED is gated behind an explicit feature flag and requires an IHTSDO license plus a self-hosted Snowstorm instance — more on why below.
-
-The server also exposes 3 MCP **Prompts** that orchestrate tool calls into named user actions (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) and 3 **Resources** for in-process reference content (server metadata, CID-10 chapter listing, per-terminology license disclaimers) — MCP clients render Prompts as one-click actions and read Resources by URI.
-
-This post walks through three concrete clinical and research workflows where the server earns its place in the toolbelt.
-
-## Setup in 60 seconds
-
-```json
-{
-  "mcpServers": {
-    "medical-terminologies": {
-      "command": "npx",
-      "args": ["-y", "medical-terminologies-mcp"],
-      "env": {
-        "WHO_CLIENT_ID": "your-who-id",
-        "WHO_CLIENT_SECRET": "your-who-secret"
-      }
-    }
-  }
-}
-```
-
-Drop that into your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS), restart Claude, and 31 tools appear. WHO credentials are optional — without them the 5 ICD-11 live-lookup tools throw a clear configuration error and the other 26 work fine (including the authoritative ICD-10 → ICD-11 mapping, which uses bundled WHO data and needs no auth).
-
-**Prefer a hosted endpoint?** The server runs on Cloudflare Workers at the edge — point any Streamable-HTTP MCP client at `https://medical.sidneybissoli.com/mcp` and skip the local install. Also listed on [Smithery](https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp), [Glama](https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp), and [mcpservers.org](https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp).
-
-## Use case 1: sepsis triage — finding the right LOINC for procalcitonin
-
-A clinical scenario. An ED resident is documenting a sepsis workup and needs the LOINC code for serum procalcitonin to attach to the lab order in the EMR. They could open loinc.org, run a search, scroll through results, and copy the code. Or they could ask their LLM-powered scribe.
-
-```
-You: What's the LOINC code for procalcitonin in serum?
-
-Claude (calling loinc_search):
-## LOINC Search Results for "procalcitonin"
-Found 23 total results (showing 10):
-
-1. **33959-8** - Procalcitonin [Mass/volume] in Serum or Plasma
-   Component: Procalcitonin | Property: MCnc | Timing: Pt | System: Ser/Plas
-   Class: CHEM | Status: ACTIVE
-2. **75241-0** - Procalcitonin [Mass/volume] in Body fluid
-...
-```
-
-The LLM picks `33959-8` and proposes it. The clinician confirms or asks for details:
-
-```
-You: Give me the full LOINC details for 33959-8.
-
-Claude (calling loinc_details):
-# 33959-8 - Procalcitonin [Mass/volume] in Serum or Plasma
-
-| Attribute | Value |
-|-----------|-------|
-| Component | Procalcitonin |
-| Property  | MCnc |
-| Timing    | Pt |
-| System    | Ser/Plas |
-| Scale Type| Qn |
-| Method    | (none) |
-| Class     | CHEM |
-| Status    | ACTIVE |
-```
-
-What this replaces in practice: a 30-second context switch from EMR to a browser tab, every time a clinician needs to pin down a specific code. Multiplied across the day, across a team, that's real time.
-
-The same workflow applies to any biomarker, vital sign, or observation: lactate (`2524-7`), troponin I high-sensitivity (`67151-1`), SpO₂ (`59408-5`). The tool is `loinc_search` for the discovery step, `loinc_details` for the verification step. Both are deterministic API calls against NLM Clinical Tables — the LLM doesn't memorize codes, it looks them up.
-
-## Use case 2: medication reconciliation — breaking down a combination product
-
-A scenario familiar to any inpatient pharmacist or hospitalist: a patient is admitted on Janumet (a brand combo of sitagliptin and metformin), and the team needs to reconcile this against the formulary, check for class-level interactions, and document the active ingredients separately.
-
-```
-You: I need to break down Janumet for the admission med rec.
-What are the active ingredients and their drug classes?
-
-Claude (calling rxnorm_search, then rxnorm_ingredients, then atc_classify):
-
-Step 1 — search for Janumet:
-**860975** - Janumet (sitagliptin 50 MG / metformin hydrochloride 500 MG Oral Tablet)
-   Type: SBD | Synonym: sitagliptin/metformin
-
-Step 2 — get the ingredients:
-| RxCUI | Name | Type |
-|-------|------|------|
-| 593411 | sitagliptin | Single Ingredient |
-| 6809 | metformin | Single Ingredient |
-
-Step 3 — get ATC classes for each ingredient:
-For sitagliptin (593411): A10BH (Dipeptidyl-Peptidase IV Inhibitors)
-For metformin (6809):     A10BA (Biguanides)
-                          A10BD (Combinations of oral blood glucose lowering drugs)
-```
-
-Three tool calls, structured data, no hallucination risk. The LLM can compose this into a med rec note, flag that both ingredients sit in the same A10B (oral glucose-lowering) ATC bucket, and surface the ATC codes for any pharmacy system that uses ATC.
-
-What this enables that bare LLMs don't: the chain `brand → ingredients → ATC classes` is a graph traversal across a real database. The model isn't recalling that sitagliptin is a DPP-4 inhibitor; it's *looking it up* against the same source the FDA uses.
-
-## Use case 3: evidence synthesis — building a precise PubMed search with MeSH
-
-A scenario for a researcher running a systematic review on the impact of primary health care interventions on avoidable hospitalizations. The quality of a literature search hinges on hitting the right MeSH descriptors and qualifiers — not on free-text keyword guesswork.
-
-```
-You: I'm building a search strategy for a systematic review on
-primary health care and avoidable hospitalizations. Help me find
-the right MeSH descriptors and applicable qualifiers.
-
-Claude (calling mesh_search):
-| MeSH ID | Label |
-|---------|-------|
-| D011320 | Primary Health Care |
-| D006297 | Health Services Accessibility |
-| D004472 | Hospitalization |
-| D006308 | Health Services Misuse |
-
-You: Get me the tree position and allowed qualifiers for Primary Health Care.
-
-Claude (calling mesh_tree, then mesh_qualifiers):
-# Tree Numbers for D011320
-
-### Health Care
-- `N04.590.233.727`
-- `N02.421.143.827`
-
-# Allowed Qualifiers for D011320
-
-| Qualifier ID | Label |
-|--------------|-------|
-| Q000208 | ethics |
-| Q000379 | methods |
-| Q000523 | organization & administration |
-| Q000592 | standards |
-| Q000656 | trends |
-| Q000706 | statistics & numerical data |
-| Q000941 | utilization |
-
-*Use qualifiers with descriptors like: "Primary Health Care/utilization"*
-```
-
-That last detail — the seven allowed qualifiers, with `/utilization` and `/statistics & numerical data` highlighted — is exactly what a precise PubMed search needs. The model now has enough to draft `("Primary Health Care/utilization"[MeSH] OR "Primary Health Care/statistics & numerical data"[MeSH]) AND "Hospitalization/prevention and control"[MeSH]` and explain why each leg matters.
-
-The use case generalizes: any research informatics workflow that needs controlled vocabulary mapping (PubMed, Cochrane, OVID) benefits from `mesh_search` + `mesh_qualifiers` + `mesh_tree`. For systematic reviews specifically, the qualifier list is the part that's hardest to remember and easiest to get wrong.
-
-## What's new in 1.4.0 (data-integrity release)
-
-Three additions that change the depth of what the server can answer:
-
-- **`map_icd10_to_icd11` now returns an authoritative WHO mapping**, not a text-search heuristic. The 2025-01 release of the WHO transition tables is bundled (5.4 MB raw / 0.95 MB gzipped) covering 11,243 ICD-10 categories. 1,461 of those have multiple WHO-documented ICD-11 candidates — the tool surfaces the primary mapping plus all alternatives, with Foundation/Linearization URIs ready to navigate into ICD-11.
-- **`validate_codes`** is a new batch validator. Pass up to 50 `{ code, terminology }` pairs and get back per-item `{ valid, active, title, replaced_by, source, error }`. Designed for retrospective database analysis: flag codes that no longer exist, surface ICD-10 → ICD-11 replacements at scale, grade activity status where the source terminology exposes it (SNOMED's active flag, LOINC's STATUS field).
-- **`terminology_versions` + `terminology_diff`** for pipeline maintainers. The first lists current version, release date, publisher, and update cadence across all 8 terminologies. The second is guidance-only for terminologies without bundled history — except for ICD-10, where the bundled transition tables let it surface a real cross-revision summary (1:1 mappings vs splits vs average alternatives when split).
-
-Together with the per-tool `language` parameter added to SNOMED + MeSH, that's four sub-tasks shipped as one data-integrity release. The earlier 1.3.0 added MCP Prompts (orchestration templates) and Resources (in-process reference content) — both visible in clients like LobeChat and Claude Desktop as one-click actions.
-
-## What the server doesn't claim to do
-
-A few things worth being explicit about, because the README is honest about them and the LLM should be too:
-
-- **`map_loinc_to_snomed` returns guidance**, not a mapping. Direct LOINC ↔ SNOMED CT mappings live in UMLS Metathesaurus (license required) or the LOINC SNOMED CT Expression Association files (LOINC license required).
-- **`map_snomed_to_icd10`** also returns guidance only today. The authoritative source is SNOMED International's ICD-10 Complex Map refset (447562003), which needs a Snowstorm instance with the refset loaded — planned as Phase 13.7 once that's tractable.
-- **SNOMED tools are off by default** because the historical public IHTSDO Snowstorm endpoint was retired (HTTP 410 Gone). Operators with an IHTSDO license and a self-hosted Snowstorm instance flip them on with `ENABLE_SNOMED_TOOLS=true SNOMED_BASE_URL=...`.
-- **None of this is a substitute for clinical judgment.** It's a lookup layer for already-known codes, not a diagnostic tool.
-
-## Under the hood, briefly
-
-For developers curious about the engineering: TypeScript on Node 20+, bundled with esbuild, built around a token-bucket rate limiter (5 req/s for WHO, 10 req/s for NLM, 20 req/s for RxNorm) and exponential-backoff retry with ±25% jitter. WHO OAuth tokens are cached using the actual `expires_in` from the API response, not a hardcoded TTL. Every default tool declares `outputSchema` and returns `structuredContent` alongside markdown — so MCP clients that consume structured data get typed objects, not parsed prose. The 313-test Vitest suite (unit + contract via nock + integration against live APIs gated by env flag) gates CI on PR. A daily integration cron catches upstream API drift — work that already caught three silent production regressions where the API had drifted and the client gracefully returned empty data.
-
-Two transports: stdio (default — Claude Desktop, IDE clients) and Streamable HTTP. The HTTP path runs on Cloudflare Workers at the edge by default — single web-standard fetch handler, ~0.95 MB gzipped including the bundled CID-10 (DataSUS V2008) and ICD-10 → ICD-11 (WHO 2025-01) datasets, well within Cloudflare's 3 MB compressed script limit. Same source tree; per-isolate cache + rate limiter (KV + Durable Object swap available when traffic crosses the threshold).
-
-It's MIT licensed. The medical terminology content has its own licenses, all linked in the README and surfaced as the `info://licenses` Resource.
-
-## Try it
-
-- **npm:** https://www.npmjs.com/package/medical-terminologies-mcp
-- **GitHub:** https://github.com/SidneyBissoli/medical-terminologies-mcp
-- **Hosted endpoint:** https://medical.sidneybissoli.com/mcp (Streamable HTTP, Cloudflare Workers)
-- **Smithery:** https://smithery.ai/servers/sidneybissoli/medical-terminologies-mcp
-- **Glama:** https://glama.ai/mcp/servers/SidneyBissoli/medical-terminologies-mcp
-- **mcpservers.org:** https://mcpservers.org/servers/sidneybissoli/medical-terminologies-mcp
-- **MCP Registry:** `io.github.SidneyBissoli/medical-terminologies-mcp`
-
-WHO API credentials (free): https://icd.who.int/icdapi.
-
-Issues, PRs, and use-case reports welcome — especially from clinical informatics teams, research informatics groups, and public-health data analysts using LLMs in real workflows. There's a real gap between "LLM as scribe" and "LLM with reliable terminology access," and closing it is what this server is for.
-
----
-
-**End of long-form draft.**
-
-### Platform-specific adaptation notes
-
-- **Medium:** add cover image (MCP Inspector screenshot or simple
-  diagram of the seven terminologies). Tags above. Reading time ~7 min.
-- **Dev.to:** publish with the listed tags. Add canonical URL pointing
-  to Medium (or vice versa). Dev.to renders code blocks with syntax
-  highlight automatically.
-- **GitHub Discussions:** crosspost the same text under
-  https://github.com/SidneyBissoli/medical-terminologies-mcp/discussions
-  in the "Show and tell" category — works as a permanent link and
-  helps repo-page SEO.
-
----
-
-## A.8 — LinkedIn post (~700 words)
-
-**Platform:** LinkedIn personal feed (then crosspost to Healthcare
-Informatics / Clinical Informatics / Health IT Pros groups, see Phase
-12.2).
-
-**FULL DRAFT — copy-paste ready:**
-
----
-
-If you've watched an LLM confidently invent a LOINC or ICD-11 code that doesn't exist, you know the gap I'm trying to close.
-
-Over the past months I've been building `medical-terminologies-mcp`, an open-source Model Context Protocol server that gives Claude (and any other MCP-compatible client) unified access to seven medical terminology systems:
-
-→ ICD-11 (WHO)
-→ LOINC (NLM)
-→ RxNorm (NIH)
-→ MeSH (NLM)
-→ ATC (via NLM RxClass)
-→ CID-10 (Brazilian Portuguese, bundled DataSUS V2008)
-→ SNOMED CT (optional, license-gated)
-
-31 tools work out of the box. The model doesn't memorize codes — it looks them up against the same APIs the WHO and NLM publish for everyone else.
-
-Three concrete examples of what changes when an LLM has reliable terminology access:
-
-🩺 ED triage. A resident asks "what's the LOINC for procalcitonin in serum?" and gets `33959-8` with full attributes (component, property, system, scale, method) — verified against NLM, not invented. Same workflow for any lab, vital sign, or observation.
-
-💊 Medication reconciliation. Janumet → break it down into sitagliptin (RxCUI 593411) and metformin (RxCUI 6809), get the ATC classes for each (DPP-4 inhibitor A10BH; biguanide A10BA), surface the codes for the pharmacy system. Three tool calls, zero hallucination.
-
-📚 Systematic reviews. "Primary Health Care" → MeSH D011320, tree position N02.421.143.827, allowed qualifiers including /utilization and /statistics & numerical data. The qualifier list is exactly what makes a precise PubMed search precise.
-
-The v1.4.0 release shipped this week adds authoritative WHO ICD-10 → ICD-11 mapping (bundled transition tables, 11,243 categories), a cross-terminology batch validator for retrospective database analysis, and version-tracking tools for pipeline maintainers.
-
-What's deliberately not in scope:
-
-❌ LOINC ↔ SNOMED mapping (requires UMLS or LOINC Expression Association files — neither is freely accessible via API)
-❌ Authoritative SNOMED → ICD-10 mapping today (needs IHTSDO Complex Map refset — planned)
-❌ Clinical decision-making (this is a lookup layer, not a diagnostic tool)
-
-The server is honest about each of these in its tool descriptions. I'd rather it return "this tool returns guidance, not curated mapping" than pretend to do something it doesn't.
-
-For the engineering-minded: TypeScript on Node 20+, OAuth2 with proper expires_in handling, token-bucket rate limiting (5/10/20 req/s per API), exponential backoff with jitter, structuredContent on every default tool, 313-test Vitest suite (unit + contract + integration) gating CI. Daily integration cron caught three silent upstream regressions during the last sweep. Also runs as a hosted endpoint on Cloudflare Workers — point any Streamable HTTP MCP client at the URL and skip the local install. MIT licensed.
-
-If you work in clinical informatics, EMR integration, biomedical research, or health-tech and you're experimenting with LLM agents, I'd genuinely value your feedback — especially on what's missing for the workflows you actually run.
-
-📖 Full walkthrough with screenshots: https://medium.com/@sbissoli76/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-a6c46de9c83b
-🔗 npm: https://www.npmjs.com/package/medical-terminologies-mcp
-🔗 GitHub: https://github.com/SidneyBissoli/medical-terminologies-mcp
-☁️ Hosted: https://medical.sidneybissoli.com/mcp
-
-#HealthInformatics #ClinicalInformatics #MedicalCoding #LLM #ModelContextProtocol #OpenSource #DigitalHealth #ClaudeAI
-
----
-
-**End of LinkedIn draft.**
-
-### LinkedIn-specific notes
-
-- Short paragraph breaks (LinkedIn truncates posts with >3 continuous
-  lines in preview).
-- Bullet emojis, not markdown — LinkedIn doesn't render markdown.
-- Hashtags grouped at the end. Mix specific (HealthInformatics,
-  ClinicalInformatics) with broader (LLM, OpenSource).
-- No "Read more" or artificial cliffhanger — LinkedIn truncates
-  naturally; the first 3 paragraphs need to read well.
-
----
-
-## A.9 — Reddit posts (3 versions)
-
-**ATTENTION:** read the *Risks and what NOT to do* section at the
-bottom of this file before posting to any subreddit. r/medicine has
-strict rules against self-promotion; the title and framing need to be
-careful.
-
-### A.9.a — r/medicalcoding
-
-**Title:** *Open-source MCP server for ICD-11, LOINC, RxNorm, MeSH, ATC lookup from LLMs*
-
-**Flair:** "Resources" or "Tools" (verify what's available).
-
-**Body:**
-
-> I built a small MCP (Model Context Protocol) server that lets LLMs
-> like Claude do reliable lookups against ICD-11, LOINC, RxNorm, MeSH,
-> ATC, CID-10, and optionally SNOMED CT. It's not a diagnostic or
-> coding-suggestion tool — it's a lookup layer that calls the actual
-> NLM and WHO APIs (or, for CID-10, a bundled DataSUS dataset) so the
-> model stops inventing codes.
->
-> Specifically useful if you're experimenting with LLM-assisted chart
-> review or trying to keep your team's documentation grounded in real
-> codes. 23 tools work without any authentication; ICD-11 needs free
-> WHO API credentials.
->
-> A few things it deliberately doesn't do (yet):
-> - No authoritative ICD-10 → ICD-11 mapping (it's text search; the
->   WHO transition tables are the real source — implementing real
->   mapping is on the roadmap).
-> - No LOINC ↔ SNOMED mapping (UMLS or LOINC Expression Association
->   files; neither is freely API-accessible).
-> - No SNOMED browser by default — public IHTSDO Snowstorm endpoint
->   was retired; tools gated behind a flag for self-hosted instances.
->
-> MIT licensed, npm: https://www.npmjs.com/package/medical-terminologies-mcp
->
-> Genuinely interested in feedback from people doing real coding work —
-> what's missing? What would make it actually useful in your workflow?
-
-### A.9.b — r/medicine
-
-**SPECIAL ATTENTION:** r/medicine has a rule against self-promotion.
-This version is more cautious, framing-first. Post ONLY if a
-"Resource" or "Other" flair is available, and be ready for the post
-to be removed. Consider asking via modmail first.
-
-**Title:** *Has anyone tried using MCP servers to ground LLM outputs in real medical terminology APIs?*
-
-**Body:**
-
-> Genuine question, not a sales pitch. There's an emerging pattern in
-> the LLM space called Model Context Protocol — a standard way to
-> connect language models to external data sources, kind of like a
-> universal plugin interface. For medical use, it's interesting because
-> it could (in principle) make LLMs much more reliable for terminology
-> lookup: instead of the model guessing what the LOINC code for
-> procalcitonin is, it makes a real API call to NLM Clinical Tables
-> and gets back a verified code.
->
-> I built one such server (links below — happy to take it down if this
-> crosses self-promotion lines, just let me know) wrapping ICD-11,
-> LOINC, RxNorm, MeSH, ATC, and a Brazilian CID-10 dataset. The
-> interesting question for me is: is this actually useful for any of
-> you running LLMs alongside clinical work, or is the bottleneck
-> somewhere else entirely (regulatory, EMR integration, trust)?
->
-> What would actually make this useful in your day-to-day, if anything?
->
+## 12.9 — ResearchGate
+
+**Channel (measured 2026-11-20):** ResearchGate's help pages no longer
+mention "Projects" (user reports since Aug 2023 say the feature was
+removed). Software can be added as a **"Code"** research item, which
+**requires an attached file** (help.researchgate.net, "How to add
+research"). Low priority, as planned.
+
+**What to attach:** the source archive of release v2.4.0
+(<https://github.com/SidneyBissoli/medical-terminologies-mcp/releases/tag/v2.4.0>,
+"Source code (zip)").
+
+**Title:** *medical-terminologies-mcp: an MCP server for ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 (v2.4.0)*
+
+**Description:**
+
+> Open-source (MIT) Model Context Protocol server that gives AI assistants
+> read-only access to medical terminologies from their official sources:
+> ICD-11 (WHO ICD-API), LOINC, RxNorm and MeSH (U.S. National Library of
+> Medicine), ATC (via NLM RxClass) and the Brazilian CID-10 (DataSUS
+> V2008). It maps ICD-10 to ICD-11 with the WHO transition tables (release
+> 2025-01), harmonizes free-text terms to codes with an explicit review
+> label, and returns a provenance record (source, version, retrieval time,
+> citation, license) with every response. Intended for research,
+> public-health analysis, health-informatics development and teaching; not
+> a clinical decision tool. Code and documentation:
 > https://github.com/SidneyBissoli/medical-terminologies-mcp
 
-**Suggested flair:** "Resources" or "Other"; **NOT** clinical flairs.
-If removed, do not recreate.
-
-### A.9.c — r/healthIT
-
-**Title:** *Open-source MCP server: unified API access to ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10 for LLM agents*
-
-**Flair:** "Open Source" if available, else "Discussion".
-
-**Body:**
-
-> Sharing a project that might be useful if your team is exploring
-> LLM agents for clinical, research, or public-health data workflows.
->
-> `medical-terminologies-mcp` is a Model Context Protocol server that
-> exposes 28 default tools (34 with optional SNOMED) for terminology
-> lookup. Built on the standard MCP spec, so it works with Claude
-> Desktop, Claude Code, Continue, and other MCP-compatible clients —
-> drop in a config snippet, restart the client, the tools appear.
->
-> What it does well:
-> - Real API calls (no LLM-invented codes); CID-10 served from a
->   bundled DataSUS dataset
-> - structuredContent + outputSchema on every default tool (typed
->   objects, not just markdown)
-> - Token-bucket rate limiting per upstream API
-> - WHO OAuth2 with actual expires_in handling
-> - 243-test Vitest suite (unit + contract + integration) gating CI
-> - Daily integration cron catches upstream API drift
->
-> What it doesn't do (deliberately):
-> - No authoritative cross-terminology mapping yet (LOINC↔SNOMED needs
->   UMLS license; ICD-10→ICD-11 currently text-search, real mapping
->   on roadmap)
-> - No clinical decision support — it's a lookup layer
-> - SNOMED gated by default (public IHTSDO endpoint retired; needs
->   self-hosted Snowstorm + IHTSDO license)
->
-> MIT, free, no telemetry. Feedback specifically welcome from anyone
-> running LLMs alongside production EMR or research workflows.
->
-> https://www.npmjs.com/package/medical-terminologies-mcp
-> https://github.com/SidneyBissoli/medical-terminologies-mcp
-
-### Variants worth considering
-
-- **r/HealthInformatics** — same text as r/healthIT works; smaller but
-  more focused community.
-- **r/Bioinformatics** — only with a specific framing on MeSH +
-  scientific literature search; don't post without that angle.
+**After posting:** record the item URL in PROGRESS.md 12.9.
 
 ---
 
-## A.10 — Mastodon / Bluesky (3 variants ≤500 chars)
+## 12.10 — Claude Connectors Directory (Anthropic)
 
-All three variants link to the Medium walkthrough as the canonical
-read-more (centralizes traffic + helps Medium's algorithm).
+**Channel (measured 2026-11-20, claude.com/docs/connectors/building/
+submission.md and review-criteria.md):** open to third parties through the
+portal **https://claude.ai/directory/manage** → "MCP connector"; any paid
+Claude plan can submit. Remote HTTPS servers only (this one qualifies).
+Requirements checked against the live server on 2026-11-20: every tool has
+`title` and `readOnlyHint` ✅; public data may use no auth ✅; docs, privacy,
+support and icon URLs exist ✅ (below). Listing goes out as "Community"
+after an automated scan.
 
-**Variant A — clinical use** (~480 chars):
+**Two points the maintainer must judge before submitting:**
 
-> New: medical-terminologies-mcp — open-source MCP server giving LLMs
-> reliable lookup access to ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10,
-> optionally SNOMED CT. 31 tools out of the box. Now with authoritative
-> WHO ICD-10 → ICD-11 mapping (bundled transition tables). The model
-> stops inventing codes and starts looking them up.
+1. **API ownership.** The criteria say the server "must call your own
+   first-party APIs, or APIs you legitimately proxy". This server calls the
+   WHO ICD-API (with registered client credentials) and NLM's public APIs
+   under their terms of service. Whether that counts as "legitimately
+   proxy" is the maintainer's call — read the WHO ICD-API and NLM terms
+   first.
+2. **Health data question.** The form asks whether the connector handles
+   personal health data. Facts for the answer: it serves public reference
+   vocabularies, logs no query content (PRIVACY.md), but the terms a user
+   sends are forwarded to WHO/NLM APIs — the README and tool descriptions
+   tell users to de-identify.
+
+**Field values (limits: name 100, one-liner 200, description 2,000):**
+
+- **Name:** Medical Terminologies
+- **One-liner (≤ 200):** Look up ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 codes in the official sources, map ICD-10 to ICD-11, and harmonize free-text terms, with provenance.
+- **Server URL:** https://medical.sidneybissoli.com/mcp
+- **Authentication:** none
+- **Docs URL:** https://github.com/SidneyBissoli/medical-terminologies-mcp#readme
+- **Privacy policy URL:** https://github.com/SidneyBissoli/medical-terminologies-mcp/blob/main/PRIVACY.md
+- **Support:** https://github.com/SidneyBissoli/medical-terminologies-mcp/issues
+- **Icon:** https://raw.githubusercontent.com/SidneyBissoli/medical-terminologies-mcp/main/assets/icon-light.png (512×512; dark variant `icon-dark.png`)
+- **Description (≤ 2,000):**
+
+> Medical Terminologies gives Claude read-only access to the standard
+> medical code systems, answered from their official sources rather than
+> from the model's memory.
 >
-> https://medium.com/@sbissoli76/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-a6c46de9c83b
+> Code systems: ICD-11 (WHO ICD-API), LOINC, RxNorm and MeSH (U.S. National
+> Library of Medicine), ATC (WHO Collaborating Centre, via NLM RxClass) and
+> the Brazilian Portuguese CID-10 (DataSUS V2008).
 >
-> #healthinformatics #medicalcoding #mcp #opensource
-
-**Variant B — research** (~430 chars):
-
-> If you're using LLMs for systematic reviews and tired of made-up
-> MeSH terms: medical-terminologies-mcp lets the model do real lookups
-> against NLM, get tree numbers, allowed qualifiers, the whole graph.
-> Also: cross-terminology batch validator for legacy databases.
-> Open source, MIT.
+> What it does:
+> - Search and look up codes in each system, with hierarchy, answers and
+>   panels where the source has them.
+> - Map ICD-10 to ICD-11 with WHO's transition tables, including the
+>   alternative codes WHO documents, and say "no mapping" when there is
+>   none.
+> - Harmonize up to 50 free-text diagnoses, drugs or lab names at once;
+>   each term is labelled exact, strong or needs review, so ambiguous terms
+>   go to a person.
+> - Validate lists of existing codes and report which terminology versions
+>   are in use.
 >
-> https://medium.com/@sbissoli76/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-a6c46de9c83b
+> Every answer includes its provenance: source, data version, retrieval
+> time, citation and license.
 >
-> #systematicreview #pubmed #ai4health
+> Intended for researchers, public-health analysts, health-informatics
+> developers and educators. It is not a clinical decision tool and does not
+> store your queries. Terms you send are forwarded to the WHO and NLM APIs,
+> so de-identify data first.
 
-**Variant C — devs** (~470 chars):
-
-> Built an MCP server for medical terminologies (ICD-11, LOINC, RxNorm,
-> MeSH, ATC, CID-10, SNOMED). TypeScript, Vitest (313 tests),
-> structuredContent on every default tool, token-bucket rate limiting,
-> OAuth handled properly. Runs on Cloudflare Workers. MIT.
->
-> Drop into Claude Desktop, get 31 tools. Or hit the hosted endpoint.
->
-> https://medium.com/@sbissoli76/seven-medical-terminologies-one-mcp-server-a-practical-walkthrough-for-clinical-and-research-use-a6c46de9c83b
->
-> #mcp #typescript #healthtech
-
-**Recommended instances:**
-
-- `mastodon.social` — broad reach; default for Variant A (clinical) and
-  Variant C (devs) since instance audience matters less than hashtags
-  on Mastodon. Space the two posts 3-4h apart so they don't read as spam
-- `fediscience.org` — science generally; default for Variant B
-  (research). Approval-required, so create the account first and wait
-- (optional) `infosec.exchange` — variant C also works here on the
-  engineering angle
-
-> Note (2026-05-12): an earlier draft of this file recommended
-> `academic.social` for Variant A. That instance doesn't exist
-> (ECONNREFUSED, absent from instance directories) — replaced by
-> `mastodon.social`. `scholar.social` and `med-mastodon.com` were
-> checked as alternatives and ruled out (closed registrations / expired
-> cert respectively).
-
-**Bluesky crosspost:** same content, same hashtags. Bluesky has a 300-char
-limit, so the Medium link is too long for inline. Use a shortened
-form or pin a comment with the link:
-
-> medical-terminologies-mcp: open-source MCP server giving LLMs
-> reliable lookup access to 7 medical terminologies. 31 tools, MIT.
-> v1.4.0 ships authoritative WHO ICD-10 → ICD-11 mapping.
->
-> Repo + writeup link in replies. github.com/SidneyBissoli/medical-terminologies-mcp
->
-> #healthinformatics #mcp #opensource
-
----
-
-## A.11 — GitHub Discussions / repo announcement
-
-For crosspost at https://github.com/SidneyBissoli/medical-terminologies-mcp/discussions:
-
-**Category:** Show and tell (create if it doesn't exist)
-
-**Title:** *v1.1.0 — what's new and what's coming*
-
-**Body:** short version of the long-form post focusing on (a) what's
-in 1.1.0 (reference CHANGELOG), (b) the 3 use cases, (c) the visible
-roadmap (Phase 11 HTTP transport, Phase 13 expanded coverage).
+**After submitting:** record the submission date and status in PROGRESS.md
+12.10.
 
 ---
 
 ## Risks and what NOT to do
 
-### What can burn reputation
-
-1. **Posting to r/medicine without reading the rules.** The
-   self-promotion rule is strict. If posted and removed, the sub-mod
-   may ban repeat offenders. Safe strategy: framing as a genuine
-   question (variant A.9.b), offer voluntary removal if it crosses
-   the line, **don't recreate if removed.**
-
-2. **Spam at chat.fhir.org.** The HL7 community detects drive-by
-   self-promo in seconds. **Post only in response to context.** Don't
-   create a "look what I built" thread. If posting proactively, do it
-   in `#tooling` or similar with a technical, not promotional, framing.
-
-3. **Generic cold email to AMIA membership.** AMIA listserv has clear
-   rules. Generic email = bounce + reputation hit. Use the A.5
-   template and personalize the opener **always**.
-
-4. **Cross-posting to 5 subreddits the same day.** Reddit admin tools
-   detect this and mark you as a spammer. Spread ≥48h between subs.
-
-5. **Inflated promotional language.** "Revolutionary," "Game-changing,"
-   "The first-ever" — any of these attracts backlash on HN, Reddit,
-   and dev Mastodon. The drafts in this file deliberately avoid that
-   register. **Don't edit it back.**
-
-6. **Claim of clinical use in production.** The server isn't
-   certified for production clinical use, and the README says so.
-   **No outreach piece should suggest otherwise.** "Useful for
-   clinical informatics workflows" is OK; "ready for production EHR
-   integration" is not.
-
-7. **Inventing capabilities.** Everything described in the drafts
-   above is in the verified code. If during adaptation you feel the
-   urge to add "and also does X," verify in `src/tools/` first. Real
-   differentiators (structuredContent, annotations, OAuth, rate
-   limiting, retry, contract+integration tests, three regression
-   discoveries) are already strong; no need to inflate.
-
-### Communities where self-promotion is poorly received
-
-| Community | Tolerance | How to navigate |
-|-----------|-----------|------------------|
-| r/medicine | Very low | Frame as a question; offer removal; don't push |
-| r/MedicalSchool | Very low | Don't post; not the audience |
-| chat.fhir.org | Low for self-promo, high for technical reply | Only in response to a relevant thread |
-| AMIA forums (membership) | Medium | Personalization mandatory; specific channel |
-| HN front page | High intolerance to marketing-speak | But Show HN is the right channel if the tone is technical |
-| Mastodon academic.social | Medium; tolerates honest announcements | Direct tone, no hype |
-| LinkedIn | High self-promo tolerance | But overdose causes unfollow |
-| Discord MCP communities | High | It's the channel; just follow server rules |
-| ResearchGate | Medium | Project announcement = OK; DM spam = no |
-
-### What NOT to include in posts
-
-- **Empty metrics.** "1000+ downloads in 24 hours" only works after it
-  happened. Don't predict.
-- **Direct competitor comparisons.** No direct equivalent exists in the
-  health-MCP space. Comparing to loinc.org or icd.who.int is absurd
-  (those are upstream sources). Comparing to proprietary tools (3M,
-  Wolters Kluwer) is out of scale. Focus on what the server does, not
-  on who it "beats".
-- **Future features as if they shipped.** Phase 13 expansions, hosted
-  HTTP — mention as "upcoming" if relevant, never as "supports".
-- **Vague marketing terms.** "Comprehensive," "robust,"
-  "enterprise-ready," "scalable" — if you mean rate limiting, "5 req/s
-  for WHO" says it. If you mean tests, "243-test Vitest suite" says it.
-- **AI comparisons.** Don't compare Claude to other LLMs in the
-  context of using this server — the server is client-agnostic.
-
-### When to stop
-
-If 30 days in zero of the target metrics move, **stop outreach and
-diagnose the product**. Likely:
-
-- HTTP transport is still the main gap (if Phase 11.2 wasn't done).
-- Real demand is smaller than estimated — in which case marginal
-  outreach effort has low return.
-
-Don't scale volume chasing conversion; scale channel quality, or go
-back to product.
+1. **Never suggest clinical-care use.** "Useful for coding and research
+   data" is fine; "ready for clinical use" is not. The README says so.
+2. **No inflated language** ("revolutionary", "comprehensive",
+   "enterprise-ready"). Say the specific thing: "33 read-only tools",
+   "WHO transition tables, release 2025-01".
+3. **No unverified numbers or third parties.** Re-check the facts table if
+   it is more than a month old.
+4. **Reddit:** rules by hand first; ≥ 48 h between subreddits; a removed
+   post is not reposted.
+5. **chat.fhir.org:** #social only, concise, with disclosure; #terminology
+   only in reply to a relevant thread.
+6. **MCP Discord:** contributor server — no product posts.
+7. **Email:** mandatory specific opener, ≤ 4 per day, ≤ 1 reminder.
+8. **Anti-metrics** (from PROGRESS.md): likes, boosts and hours spent are
+   not success. The 60-day review (2026-10-03) already met 3 of 5 criteria;
+   this round is about reaching the research and informatics audience, not
+   volume.
