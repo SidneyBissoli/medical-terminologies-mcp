@@ -38,6 +38,7 @@ const serverInfoHandler: ResourceHandler = async (uri): Promise<ReadResourceResu
     tool_count: tools.length,
     terminologies: [
       'ICD-11 (WHO)',
+      'ICF (WHO)',
       'LOINC (NLM)',
       'RxNorm (NIH)',
       'MeSH (NLM)',
@@ -130,6 +131,15 @@ NOTICE.md in the npm package.
   terminate the license at any time by notice (§4.7).
 - Requires free OAuth credentials (\`WHO_CLIENT_ID\` / \`WHO_CLIENT_SECRET\`)
   from icd.who.int/icdapi.
+
+## ICF (WHO)
+- Licensed under Creative Commons Attribution-NoDerivatives 3.0 IGO
+  (CC BY-ND 3.0 IGO), per WHO's licensing of WHO Classifications
+  (https://www.who.int/about/policies/publishing/copyright): commercial and
+  non-commercial use, provided there is no adaptation of the codes and the
+  work is appropriately cited.
+- Same WHO ICD-API, credentials and release as ICD-11; codes and titles
+  served with their URIs, verbatim.
 
 ## WHO ICD-10 → ICD-11 transition tables (bundled dataset)
 - Format conversion (TSV → JSON, content unaltered) of the tables WHO

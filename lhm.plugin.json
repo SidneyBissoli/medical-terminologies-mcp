@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Unified MCP server for global medical terminologies - ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney da Silva Pereira Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -5554,6 +5554,746 @@
         "type": "object"
       },
       "title": "Search ICD-11"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get the official details of ONE ICF category you already have a code or URI for: title, definition, inclusions, exclusions, component and WHO browser link.\n\nProvide `code` (a component letter b/s/d/e and 1-5 digits, e.g. \"d450\", \"b28013\") or `uri` (an ICF URI a previous answer returned) — at least one is required. Qualifiers such as \".qp8\" are not part of the code. Set `language` for WHO's official translations (e.g. `language: \"pt\"`).\n\nReturns a single entity. A code WHO does not know comes back as a \"not found\" error, never an empty record.\n\nWhen NOT to use: to find a code from words, use icf_search first; for ICD-11 diagnosis codes (like \"5A11\"), use icd11_lookup.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "ICF category code (e.g. \"d450\", \"b28013\")",
+            "pattern": "^[bsde]\\d{1,5}$",
+            "type": "string"
+          },
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          },
+          "uri": {
+            "description": "ICF entity URI as returned by icf_search or a previous icf_lookup",
+            "pattern": "^https?:\\/\\/id\\.who\\.int\\/icd\\/release\\/11\\/[^/]+\\/icf(\\/|$)",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "icf_lookup",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "browser_url": {
+            "description": "Link to the entity in the WHO ICF browser; null when the WHO returns none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "class_kind": {
+            "description": "WHO class kind (e.g. \"chapter\", \"block\", \"category\"); null when the WHO does not state it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code": {
+            "description": "ICF code (e.g. \"d450\"); null for chapters and blocks, which have a code_range instead.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_range": {
+            "description": "Code range of a block (e.g. \"d450-d469\"); null for coded categories.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "component": {
+            "anyOf": [
+              {
+                "enum": [
+                  "body_functions",
+                  "body_structures",
+                  "activities_participation",
+                  "environmental_factors"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ICF component, read from the code letter (b, s, d, e); null when the entity has no code (chapters and blocks)."
+          },
+          "definition": {
+            "description": "Official definition; null when the WHO publishes none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exclusions": {
+            "description": "Exclusion entries (coded elsewhere in ICF), each with its URI and label.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "inclusions": {
+            "description": "Inclusion entries (what this category covers), each with its URI and label.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
+              "field_sources": {
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
+                  "properties": {
+                    "data_vintage": {
+                      "description": "Vintage/competência da sub-fonte",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dataset_id": {
+                      "description": "Identificador do conjunto da sub-fonte",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fields": {
+                      "description": "Campos do payload atribuídos a esta sub-fonte",
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "retrieved_at": {
+                      "description": "ISO-8601 da extração desta sub-fonte na origem",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "served_from_cache": {
+                      "description": "true se esta sub-fonte veio do cache do servidor (retrieved_at é o da extração original); false se foi buscada nesta chamada; null se o servidor não distingue",
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "source_url": {
+                      "description": "URL canônica da sub-fonte que originou estes campos",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fields",
+                    "source_url",
+                    "dataset_id",
+                    "data_vintage",
+                    "retrieved_at"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notices": {
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "retrieval": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "anomalies": {
+                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "count": {
+                              "description": "Ocorrências desta classe na chamada",
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "kind": {
+                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
+                              "enum": [
+                                "timeout",
+                                "network",
+                                "http_4xx",
+                                "http_5xx",
+                                "rate_limited",
+                                "malformed_body"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "count"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "attempts": {
+                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "requests": {
+                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "unstable": {
+                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "requests",
+                      "attempts",
+                      "anomalies",
+                      "unstable"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "retrieval",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "title": {
+            "description": "Official title in the requested language (\"Unknown\" when the WHO returns none).",
+            "type": "string"
+          },
+          "uri": {
+            "description": "WHO ICF entity URI.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "code_range",
+          "uri",
+          "title",
+          "component",
+          "class_kind",
+          "definition",
+          "exclusions",
+          "inclusions",
+          "browser_url",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "ICF Category Details"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Search the WHO ICF (International Classification of Functioning, Disability and Health) for functioning and disability concepts: body functions (b), body structures (s), activities and participation (d), environmental factors (e).\n\nUse this tool to:\n- Find the ICF code for a function or activity (\"walking\" → d450 Walking)\n- Code rehabilitation, home-care or disability findings, which ICD-11 (diagnoses) does not cover\n- Search in WHO's official translations — e.g. `language: \"pt\"` (\"andar\" → d450 Andar). Never machine-translated.\n\nReturns matching categories with code, title, ICF component, relevance score and URI, in WHO relevance order. ICF has no category for every measurement: \"walking speed\" returns d450 Walking (the activity), not a speed category, because ICF classifies functioning, not test results — use loinc_search for the measured observation.\n\nWhen NOT to use: for diseases and diagnoses use icd11_search; for lab tests and clinical measurements use loinc_search.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          },
+          "max_results": {
+            "default": 25,
+            "description": "Maximum number of results (1-100). Default: 25",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Search text (a function, activity, body structure or environmental factor, e.g. \"walking\")",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "icf_search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "entities": {
+            "description": "Matching ICF entities in WHO relevance order, at most max_results.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "description": "ICF code (e.g. \"d450\"); null for entries without a code.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "component": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "body_functions",
+                        "body_structures",
+                        "activities_participation",
+                        "environmental_factors"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "ICF component, read from the code letter (b, s, d, e); null when the entity has no code (chapters and blocks)."
+                },
+                "is_leaf": {
+                  "description": "True when the category has no subcategories.",
+                  "type": "boolean"
+                },
+                "score": {
+                  "description": "WHO search relevance score.",
+                  "type": "number"
+                },
+                "title": {
+                  "description": "Official title in the requested language.",
+                  "type": "string"
+                },
+                "uri": {
+                  "description": "WHO ICF entity URI; pass it to icf_lookup.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "title",
+                "component",
+                "score",
+                "uri",
+                "is_leaf"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
+              "field_sources": {
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
+                  "properties": {
+                    "data_vintage": {
+                      "description": "Vintage/competência da sub-fonte",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dataset_id": {
+                      "description": "Identificador do conjunto da sub-fonte",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fields": {
+                      "description": "Campos do payload atribuídos a esta sub-fonte",
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "retrieved_at": {
+                      "description": "ISO-8601 da extração desta sub-fonte na origem",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "served_from_cache": {
+                      "description": "true se esta sub-fonte veio do cache do servidor (retrieved_at é o da extração original); false se foi buscada nesta chamada; null se o servidor não distingue",
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "source_url": {
+                      "description": "URL canônica da sub-fonte que originou estes campos",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fields",
+                    "source_url",
+                    "dataset_id",
+                    "data_vintage",
+                    "retrieved_at"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notices": {
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "retrieval": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "anomalies": {
+                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "count": {
+                              "description": "Ocorrências desta classe na chamada",
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "kind": {
+                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
+                              "enum": [
+                                "timeout",
+                                "network",
+                                "http_4xx",
+                                "http_5xx",
+                                "rate_limited",
+                                "malformed_body"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "count"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "attempts": {
+                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "requests": {
+                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "unstable": {
+                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "requests",
+                      "attempts",
+                      "anomalies",
+                      "unstable"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "retrieval",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "query": {
+            "description": "The search text as submitted.",
+            "type": "string"
+          },
+          "total_count": {
+            "description": "Number of entities the WHO search returned, before the max_results cap.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "total_count",
+          "entities",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Search ICF"
     },
     {
       "annotations": {

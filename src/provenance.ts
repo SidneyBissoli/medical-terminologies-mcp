@@ -177,6 +177,36 @@ export const MEDICAL_SOURCES = {
     defaultVintage: () => getEnv('WHO_ICD11_RELEASE_ID') ?? WHO_ICD11_DEFAULT_RELEASE,
     revision: { status: 'current', note: 'WHO publishes a new ICD-11 release annually (usually Jan-Feb); this server queries one pinned release.' },
   },
+  // ICF (PROGRESS.md 24.3): same API, credential and pinned release as ICD-11
+  // (measured 2026-11-23), its own cache prefix so a mixed answer keeps one
+  // block per linearization. License read 2026-11-23 at the WHO copyright page,
+  // "Licensing of WHO Classifications": ICF is CC BY-ND 3.0 IGO, commercial and
+  // non-commercial use "provided there is no adaptation of the codes and the
+  // work is appropriately cited".
+  WHO_ICF_API: {
+    name: 'WHO ICD-API (ICF)',
+    agency: 'WHO',
+    database: 'ICF (International Classification of Functioning, Disability and Health)',
+    endpoint: 'https://id.who.int/icd',
+    sourceUrl: () => 'https://id.who.int/icd',
+    license: {
+      id: 'CC-BY-ND-3.0-IGO',
+      name: 'Creative Commons Attribution-NoDerivatives 3.0 IGO (WHO licensing of WHO Classifications)',
+      url: 'https://creativecommons.org/licenses/by-nd/3.0/igo/',
+      terms_url: 'https://www.who.int/about/policies/publishing/copyright',
+      verified_at: '2026-11-23',
+    },
+    citation: (date: string) =>
+      'International Classification of Functioning, Disability and Health (ICF), World Health ' +
+      'Organization (WHO). https://icd.who.int/browse/' +
+      `${getEnv('WHO_ICD11_RELEASE_ID') ?? WHO_ICD11_DEFAULT_RELEASE}/icf/en. Licensed under the ` +
+      'Creative Commons Attribution-NoDerivatives 3.0 IGO licence (CC BY-ND 3.0 IGO). ' +
+      `Retrieved via the WHO ICD-API on ${date}.`,
+    notices: [],
+    cachePrefixes: ['icf'],
+    defaultVintage: () => getEnv('WHO_ICD11_RELEASE_ID') ?? WHO_ICD11_DEFAULT_RELEASE,
+    revision: { status: 'current', note: 'WHO publishes ICF inside the annual ICD-11 release; this server queries the same pinned release.' },
+  },
   WHO_TRANSITION_TABLES: {
     name: 'WHO ICD-10 → ICD-11 transition tables (bundled)',
     agency: 'WHO',

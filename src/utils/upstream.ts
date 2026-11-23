@@ -103,6 +103,7 @@ export const UPSTREAM_POLICY = {
   /** Ceiling of ONE attempt (headers + body) per origin, in ms. */
   timeoutMs: {
     [CACHE_PREFIX.ICD11]: 30_000,
+    [CACHE_PREFIX.ICF]: 30_000,
     [CACHE_PREFIX.LOINC]: 30_000,
     [CACHE_PREFIX.RXNORM]: 30_000,
     [CACHE_PREFIX.MESH]: 30_000,

@@ -53,7 +53,7 @@ const GROUPS: CatalogGroup[] = [
 ];
 
 /**
- * Primary area per tool — a PARTITION of the 33 tools by
+ * Primary area per tool — a PARTITION of the 35 tools by
  * terminology cluster (map of the `src/tools/` files). The per-cluster
  * top-1 of the paid run is the empirical criterion for the mcp-builder
  * premise "prefix by terminology" (renaming is breaking — only with
@@ -65,6 +65,8 @@ export const AREA_BY_TOOL: Record<string, string> = {
   icd11_hierarchy: 'icd11',
   icd11_chapters: 'icd11',
   icd11_postcoordination: 'icd11',
+  icf_search: 'icf',
+  icf_lookup: 'icf',
   cid10_search: 'cid10',
   cid10_lookup: 'cid10',
   cid10_chapters: 'cid10',

@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Version 2.5.0: the published surface of two tools changed (new output field), which by this repository's convention is a minor bump.
+Version 2.6.0 (ICF, two new tools) on top of 2.5.0 (FHIR `Coding`, new output field); neither was published to npm or the MCP Registry yet. Both are minor bumps by this repository's convention.
 
 ### Added
+
+- **ICF: `icf_search` and `icf_lookup` (35 tools).** The WHO International Classification of Functioning, Disability and Health — body functions (b), body structures (s), activities and participation (d), environmental factors (e) — for rehabilitation and home-care coding, which ICD-11 (diagnoses) does not cover. Served by the same WHO ICD-API, OAuth credential and pinned release (2026-01) as ICD-11; measured before any code (CI integration run of 2026-11-23: "walking" → d450, "andar" in Portuguese → d450 Andar, release list 2024-01/2025-01/2026-01). Official translations via `language` (e.g. `pt`), never machine-translated. Each result carries the ICF `component`. Its own provenance preset (`WHO ICD-API (ICF)`) and cache prefix, so an answer never mixes ICD-11 and ICF diagnostics. License read at WHO's licensing of WHO Classifications: CC BY-ND 3.0 IGO (NOTICE.md, README, LEIA-ME, `info://licenses`). The server instructions now route functioning and disability questions to ICF. Requested by a clinical terminology practitioner (Phase 24.3).
 
 - **FHIR `Coding` on confirmed codes (`validate_codes`, `harmonize_terms`).** Each `validate_codes` result now carries `coding` (`system`, `code`, `display`, and `version` when the call knows the release it read), ready to store in a FHIR resource. It is `null` when the code was not confirmed, so an unconfirmed code never reaches a FHIR resource. Each `harmonize_terms` candidate carries the same `coding` for the code as the source returned it; it is still a candidate, and `needs_review` rows need a person before storing. System URIs were read at their publishers: FHIR R4 (LOINC, RxNorm, ATC, ICD-10), WHO ICD-API and the HL7 terminology guide (ICD-11 MMS: the code is the entity id, the short code travels in the WHO `classificationCode` extension), HL7 THO 7.5.0 (MeSH) and the RNDS `BRCID10` NamingSystem (Brazilian CID-10, status draft; codes keep the DataSUS undotted form). FHIR JSON forbids `null`, so `version` and `extension` are omitted when unknown. Requested by a clinical terminology practitioner (Phase 24.1).
 

@@ -10,6 +10,9 @@ import {
   FindEquivalentParamsSchema,
   ValidateCodesParamsSchema,
   ValidateCodesOutputSchema,
+  ICFLookupParamsSchema,
+  ICFSearchOutputSchema,
+  ICFLookupOutputSchema,
   FhirCodingSchema,
   TerminologyVersionsParamsSchema,
   ATCByCodeParamsSchema,
@@ -1271,5 +1274,42 @@ describe('FHIR Coding (Phase 24.1)', () => {
   it('validate_codes: coding is required (null, never absent)', () => {
     const { coding: _omit, ...missing } = confirmed;
     expect(ValidateCodesOutputSchema.safeParse(envelope(missing)).success).toBe(false);
+  });
+});
+
+describe('ICF schemas (Phase 24.3)', () => {
+  it('lookup params: ICF code accepted (trimmed, any case); ICD-11 code and qualifier refused', () => {
+    expect(ICFLookupParamsSchema.safeParse({ code: ' D450 ' }).success).toBe(true);
+    expect(ICFLookupParamsSchema.safeParse({ code: 'b28013' }).success).toBe(true);
+    expect(ICFLookupParamsSchema.safeParse({ code: '5A11' }).success).toBe(false);
+    expect(ICFLookupParamsSchema.safeParse({ code: 'd4509.qp8' }).success).toBe(false);
+    expect(ICFLookupParamsSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('lookup params: only ICF URIs (an ICD-11 MMS URI goes to icd11_lookup)', () => {
+    expect(ICFLookupParamsSchema.safeParse({ uri: 'http://id.who.int/icd/release/11/2026-01/icf/1550548595' }).success).toBe(true);
+    expect(ICFLookupParamsSchema.safeParse({ uri: 'http://id.who.int/icd/release/11/2026-01/mms/119724091' }).success).toBe(false);
+  });
+
+  it('search output: coded hit and uncoded block (code/component null)', () => {
+    expect(
+      ICFSearchOutputSchema.safeParse({
+        query: 'walking',
+        total_count: 2,
+        entities: [
+          { code: 'd450', title: 'Walking', component: 'activities_participation', score: 0.9, uri: 'u1', is_leaf: false },
+          { code: null, title: 'Walking and moving', component: null, score: 0.5, uri: 'u2', is_leaf: false },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('lookup output: optional fields null; an unknown component is refused', () => {
+    const base = {
+      code: 'd450', code_range: null, uri: 'u', title: 'Walking', component: 'activities_participation',
+      class_kind: null, definition: null, exclusions: [], inclusions: [], browser_url: null,
+    };
+    expect(ICFLookupOutputSchema.safeParse(base).success).toBe(true);
+    expect(ICFLookupOutputSchema.safeParse({ ...base, component: 'diagnoses' }).success).toBe(false);
   });
 });

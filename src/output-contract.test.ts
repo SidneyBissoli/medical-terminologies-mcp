@@ -114,6 +114,27 @@ function mockUpstreams(): void {
 
     // ---- WHO ICD-11 --------------------------------------------------
     if (url.includes('id.who.int')) {
+      // ---- ICF linearization (24.3): live shapes measured 2026-11-23.
+      if (url.includes('/icf/')) {
+        const ICF_BASE = `https://id.who.int/icd/release/11/${RELEASE}/icf`;
+        if (url.includes('/icf/search')) {
+          return jsonResponse({
+            error: false,
+            resultChopped: false,
+            words: ['walking'],
+            destinationEntities: [
+              { id: `${ICF_BASE}/1550548595`, theCode: 'd450', title: 'Walking', score: 0.9, isLeaf: false, matchingPVs: [] },
+              // An uncoded block ("Walking and moving") — the code/component-null path.
+              { id: `${ICF_BASE}/2000000`, title: "<em class='found'>Walking</em> and moving", score: 0.5, isLeaf: false, matchingPVs: [] },
+            ],
+          });
+        }
+        if (url.includes('/icf/codeinfo/')) {
+          return jsonResponse({ '@id': `${ICF_BASE}/codeinfo/d450`, stemId: `${ICF_BASE}/1550548595`, code: 'd450' });
+        }
+        // The entity, with definition/inclusions/browserUrl absent (null/empty paths).
+        return jsonResponse({ '@id': `${ICF_BASE}/1550548595`, code: 'd450', title: { '@language': 'en', '@value': 'Walking' } });
+      }
       if (url.includes('/postcoordination')) {
         return jsonResponse({
           '@id': `${ICD_BASE}/1234/postcoordination`,
@@ -269,6 +290,10 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['icd11_chapters', 'chapter list', {}],
   ['icd11_postcoordination', 'axis without scaleEntity (value_count null)', { code: '5A11' }],
 
+  ['icf_search', 'coded hit and uncoded block (code/component null)', { query: 'walking' }],
+  ['icf_lookup', 'category by code with the optional fields absent', { code: 'd450' }],
+  ['icf_lookup', 'category by URI', { uri: `https://id.who.int/icd/release/11/${RELEASE}/icf/1550548595` }],
+
   ['loinc_search', 'search with hits', { query: 'glucose' }],
   ['loinc_search', 'search without hits', { query: 'zzzznaoexiste' }],
   ['loinc_details', 'code whose fields the source leaves null', { loinc_num: '2339-0' }],
@@ -371,7 +396,7 @@ describe('structuredContent obeys the advertised outputSchema', () => {
     for (const tool of tools) {
       expect(tool.outputSchema, `${tool.name} has no outputSchema`).toBeDefined();
     }
-    expect(tools).toHaveLength(33);
+    expect(tools).toHaveLength(35);
   });
 
   it('every listed tool is covered by at least one case', async () => {

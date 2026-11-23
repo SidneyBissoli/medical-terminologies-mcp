@@ -270,6 +270,25 @@ export const FIXTURES: EvalFixture[] = [
     expectedTools: ['harmonize_terms'],
     note: 'Batch of free-text TERMS (not codes) with a review flag → harmonize_terms (1.18.0); validate_codes starts from codes, find_equivalent from one term.',
   },
+  // ── icf — WHO ICF (functioning and disability; 24.3) ─────────────────────
+  {
+    id: 'icf-01',
+    query: 'My rehab patient has trouble walking. Which ICF category should I record?',
+    expectedTools: ['icf_search'],
+    note: 'Functioning/activity (not a diagnosis) → ICF; icd11_search covers diseases, loinc_search the measured observation.',
+  },
+  {
+    id: 'icf-02',
+    query: 'Show me the official definition, inclusions and exclusions of ICF code d450.',
+    expectedTools: ['icf_lookup'],
+    note: 'A known ICF code wanting detail → icf_lookup; d450 is not an ICD-11 code.',
+  },
+  {
+    id: 'icf-03',
+    query: 'Qual o código da CIF para dificuldade de locomoção dentro de casa?',
+    expectedTools: ['icf_search'],
+    note: 'pt-BR: CIF is the Portuguese name of ICF; search with language pt (official WHO translation).',
+  },
   // ── versioning — release metadata ────────────────────────────────────────
   {
     id: 'ver-01',

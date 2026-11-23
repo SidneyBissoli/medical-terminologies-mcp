@@ -1,5 +1,5 @@
 /**
- * Provenance release gate (contract v1.0): every tool (33; the SNOMED
+ * Provenance release gate (contract v1.0): every tool (35; the SNOMED
  * tools and their env-gated twin of this file were retired in 2.0.0) must
  * attach the provenance channel on
  * its success path:
@@ -49,6 +49,13 @@ vi.mock('./clients/who-client.js', async (importOriginal) => ({
       ],
     }),
     lookup: async () => icd11Entity,
+    searchICF: async () => ({
+      error: false,
+      destinationEntities: [
+        { id: 'http://id.who.int/icd/release/11/2026-01/icf/1550548595', theCode: 'd450', title: 'Walking', score: 0.9, isLeaf: false, matchingPVs: [] },
+      ],
+    }),
+    lookupICF: async () => ({ '@id': 'http://id.who.int/icd/release/11/2026-01/icf/1550548595', code: 'd450', title: { '@language': 'en', '@value': 'Walking' }, classKind: 'category' }),
     getParents: async () => [icd11Entity],
     getChildren: async () => [icd11Entity],
     getChapters: async () => ({ child: ['http://id.who.int/icd/entity/1'] }),
@@ -178,6 +185,9 @@ const casos: Caso[] = [
   { nome: 'icd11_hierarchy', args: { code: '5A11', direction: 'parents' }, sourceContains: 'WHO ICD-API' },
   { nome: 'icd11_chapters', args: {}, sourceContains: 'WHO ICD-API' },
   { nome: 'icd11_postcoordination', args: { code: '5A11' }, sourceContains: 'WHO ICD-API' },
+  // icf — WHO ICD-API, ICF linearization (24.3)
+  { nome: 'icf_search', args: { query: 'walking' }, sourceContains: 'WHO ICD-API (ICF)' },
+  { nome: 'icf_lookup', args: { code: 'd450' }, sourceContains: 'WHO ICD-API (ICF)' },
   // loinc — Clinical Tables
   { nome: 'loinc_search', args: { query: 'glucose' }, sourceContains: 'Clinical Tables' },
   { nome: 'loinc_details', args: { loinc_num: '2339-0' }, sourceContains: 'Clinical Tables' },
@@ -257,10 +267,10 @@ async function executar(nome: string, args: Record<string, unknown>): Promise<Ca
   return handler!(args);
 }
 
-describe('provenance — wiring across the 33 default tools (release gate)', () => {
-  it('covers exactly the 33 default tools', () => {
-    expect(toolRegistry.getTools()).toHaveLength(33);
-    expect(new Set(casos.map((c) => c.nome)).size).toBe(33);
+describe('provenance — wiring across the 35 default tools (release gate)', () => {
+  it('covers exactly the 35 default tools', () => {
+    expect(toolRegistry.getTools()).toHaveLength(35);
+    expect(new Set(casos.map((c) => c.nome)).size).toBe(35);
     const registered = new Set(toolRegistry.getTools().map((t) => t.name));
     for (const caso of casos) expect(registered.has(caso.nome), caso.nome).toBe(true);
   });

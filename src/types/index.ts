@@ -209,6 +209,89 @@ export type ICD11ChaptersOutput = z.infer<typeof ICD11ChaptersOutputSchema>;
 export type ICD11PostcoordinationOutput = z.infer<typeof ICD11PostcoordinationOutputSchema>;
 
 // ============================================================================
+// ICF (PROGRESS.md 24.3) — WHO International Classification of Functioning,
+// Disability and Health, served by the same ICD-API as ICD-11.
+// ============================================================================
+
+/**
+ * ICF category code: the component letter (b body functions, s body
+ * structures, d activities and participation, e environmental factors) and
+ * 1-5 digits (`b280`, `b28013`, `d450`, `e1101`, chapter `d4`). Qualifiers
+ * (`d4509.qp8`) are not lookup keys.
+ */
+const ICFCodeSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^[bsde]\d{1,5}$/i,
+    'Invalid ICF code; expected a component letter (b, s, d, e) and 1-5 digits, e.g. "d450" or "b28013" (qualifiers such as ".qp8" are not part of the code)',
+  );
+
+export const ICFSearchParamsSchema = z.object({
+  query: z.string().min(1).describe('Search text (a function, activity, body structure or environmental factor, e.g. "walking")'),
+  language: SupportedLanguageSchema.optional().default('en'),
+  max_results: maxResults(25),
+}).strict();
+
+export const ICFLookupParamsSchema = z
+  .object({
+    code: ICFCodeSchema.optional().describe('ICF category code (e.g. "d450", "b28013")'),
+    uri: z
+      .string()
+      .url()
+      .regex(
+        /^https?:\/\/id\.who\.int\/icd\/release\/11\/[^/]+\/icf(\/|$)/,
+        'Not an ICF URI; expected http://id.who.int/icd/release/11/<release>/icf/<id> (ICD-11 URIs go to icd11_lookup)',
+      )
+      .optional()
+      .describe('ICF entity URI as returned by icf_search or a previous icf_lookup'),
+    language: SupportedLanguageSchema.optional().default('en'),
+  })
+  .strict()
+  .refine((data) => Boolean(data.code) || Boolean(data.uri), {
+    message: 'Either "code" or "uri" must be provided',
+  });
+
+const ICFComponentSchema = z
+  .enum(['body_functions', 'body_structures', 'activities_participation', 'environmental_factors'])
+  .nullable()
+  .describe('ICF component, read from the code letter (b, s, d, e); null when the entity has no code (chapters and blocks).');
+
+export const ICFSearchOutputSchema = z.object({
+  query: z.string().describe('The search text as submitted.'),
+  total_count: z
+    .number()
+    .int()
+    .describe('Number of entities the WHO search returned, before the max_results cap.'),
+  entities: z.array(
+    z.object({
+      code: z.string().nullable().describe('ICF code (e.g. "d450"); null for entries without a code.'),
+      title: z.string().describe('Official title in the requested language.'),
+      component: ICFComponentSchema,
+      score: z.number().describe('WHO search relevance score.'),
+      uri: z.string().describe('WHO ICF entity URI; pass it to icf_lookup.'),
+      is_leaf: z.boolean().describe('True when the category has no subcategories.'),
+    }),
+  ).describe('Matching ICF entities in WHO relevance order, at most max_results.'),
+});
+
+export const ICFLookupOutputSchema = z.object({
+  code: z.string().nullable().describe('ICF code (e.g. "d450"); null for chapters and blocks, which have a code_range instead.'),
+  code_range: z.string().nullable().describe('Code range of a block (e.g. "d450-d469"); null for coded categories.'),
+  uri: z.string().describe('WHO ICF entity URI.'),
+  title: z.string().describe('Official title in the requested language ("Unknown" when the WHO returns none).'),
+  component: ICFComponentSchema,
+  class_kind: z.string().nullable().describe('WHO class kind (e.g. "chapter", "block", "category"); null when the WHO does not state it.'),
+  definition: z.string().nullable().describe('Official definition; null when the WHO publishes none.'),
+  exclusions: z.array(ICD11LabelRefSchema).describe('Exclusion entries (coded elsewhere in ICF), each with its URI and label.'),
+  inclusions: z.array(ICD11LabelRefSchema).describe('Inclusion entries (what this category covers), each with its URI and label.'),
+  browser_url: z.string().nullable().describe('Link to the entity in the WHO ICF browser; null when the WHO returns none.'),
+});
+
+export type ICFSearchOutput = z.infer<typeof ICFSearchOutputSchema>;
+export type ICFLookupOutput = z.infer<typeof ICFLookupOutputSchema>;
+
+// ============================================================================
 // LOINC params
 // ============================================================================
 

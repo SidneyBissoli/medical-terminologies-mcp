@@ -21,7 +21,7 @@ export const SERVER_CONFIG = {
   title: "Medical Terminologies MCP",
   /** Uma frase: o que o servidor serve e de qual fonte (produto English-facing). */
   description:
-    "Unified MCP server for six medical terminologies — ICD-11, LOINC, RxNorm, " +
+    "Unified MCP server for seven medical terminologies — ICD-11, ICF, LOINC, RxNorm, " +
     "MeSH, ATC and the Brazilian CID-10 — with the authoritative WHO " +
     "ICD-10→ICD-11 mapping. Live data from WHO and NLM APIs.",
   /**
@@ -111,8 +111,8 @@ export const LANDING = {
    */
   pageTitle: "Medical Terminologies MCP — ICD-11, LOINC, RxNorm, MeSH",
   resumo:
-    "MCP server for ICD-11, LOINC, RxNorm, MeSH, ATC and the Brazilian CID-10, with " +
-    "the authoritative WHO ICD-10 to ICD-11 mapping. 33 tools, live from WHO and NLM.",
+    "MCP server for ICD-11, ICF, LOINC, RxNorm, MeSH, ATC and the Brazilian CID-10, with " +
+    "the authoritative WHO ICD-10 to ICD-11 mapping. 35 tools, live from WHO and NLM.",
   exemplos: [
     "“What’s the ICD-11 code for type 2 diabetes?”",
     "“Map ICD-10 code E11 to ICD-11.”",
