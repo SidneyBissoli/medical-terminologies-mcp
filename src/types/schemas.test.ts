@@ -9,6 +9,8 @@ import {
   RxNormNDCParamsSchema,
   FindEquivalentParamsSchema,
   ValidateCodesParamsSchema,
+  ValidateCodesOutputSchema,
+  FhirCodingSchema,
   TerminologyVersionsParamsSchema,
   ATCByCodeParamsSchema,
   ATCMembersParamsSchema,
@@ -1228,5 +1230,46 @@ describe('CID-10 schemas', () => {
         ],
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('FHIR Coding (Phase 24.1)', () => {
+  const confirmed = {
+    code: '5A11',
+    terminology: 'icd11',
+    valid: true,
+    active: true,
+    title: 'Type 2 diabetes mellitus',
+    replaced_by: null,
+    coding: {
+      system: 'http://id.who.int/icd/release/11/mms',
+      version: '2026-01',
+      code: '1691003785',
+      display: 'Type 2 diabetes mellitus',
+      extension: [{ url: 'http://id.who.int/icd/schema/extension/classificationCode', valueCode: '5A11' }],
+    },
+    source: 'WHO ICD-11 MMS 2026-01',
+    error: null,
+  };
+  const envelope = (r: object) => ({ total: 1, valid_count: 1, invalid_count: 0, error_count: 0, results: [r] });
+
+  it('accepts a minimal Coding (version/display/extension omitted, as FHIR JSON requires)', () => {
+    expect(FhirCodingSchema.safeParse({ system: 'http://loinc.org', code: '41950-7' }).success).toBe(true);
+  });
+
+  it('rejects null version: FHIR JSON forbids null, the field must be omitted', () => {
+    expect(FhirCodingSchema.safeParse({ system: 'http://loinc.org', code: '41950-7', version: null }).success).toBe(false);
+  });
+
+  it('validate_codes: confirmed code with Coding, and unconfirmed code with coding null', () => {
+    expect(ValidateCodesOutputSchema.safeParse(envelope(confirmed)).success).toBe(true);
+    expect(
+      ValidateCodesOutputSchema.safeParse(envelope({ ...confirmed, valid: false, active: null, title: null, coding: null })).success,
+    ).toBe(true);
+  });
+
+  it('validate_codes: coding is required (null, never absent)', () => {
+    const { coding: _omit, ...missing } = confirmed;
+    expect(ValidateCodesOutputSchema.safeParse(envelope(missing)).success).toBe(false);
   });
 });

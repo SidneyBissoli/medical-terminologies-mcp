@@ -54,6 +54,7 @@ import {
   type MedicalSourceKey,
   type Provenance,
 } from '../provenance.js';
+import { toFhirCoding } from '../utils/fhir-coding.js';
 
 /**
  * Source preset per terminology, for the multi-source tools. One block PER
@@ -116,6 +117,7 @@ For each input \`{ code, terminology }\`, returns:
 - **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; LOINC returns a real boolean).
 - **title**: the official label/name when available.
 - **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.
+- **coding**: the confirmed code as a FHIR Coding (system, code, display, version when the call knows the release), ready to store in a FHIR resource; null when the code was not confirmed. ICD-11 follows the HL7 terminology guide: the code is the entity id and the short code travels in the WHO classificationCode extension. Hand on a code only when \`coding\` is non-null.
 - **source**: human-readable provenance of the validation (terminology + release/version).
 - **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). \`valid: false\` + \`error: null\` means "code not found"; \`valid: false\` + \`error: set\` means "couldn't validate".
 
@@ -261,6 +263,7 @@ function notFoundResult(
     active: null,
     title: null,
     replaced_by: null,
+    coding: null,
     source,
     error: null,
   };
@@ -278,6 +281,7 @@ function errorResult(
     active: null,
     title: null,
     replaced_by: null,
+    coding: null,
     source,
     error: message,
   };
@@ -299,6 +303,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: entry.icd10.title,
           replaced_by: `${entry.primary.code} (ICD-11: ${entry.primary.title})`,
+          coding: toFhirCoding('icd10', entry.icd10.code, entry.icd10.title),
           source,
           error: null,
         };
@@ -320,6 +325,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
             active: null,
             title,
             replaced_by: null,
+            coding: toFhirCoding('icd11', entity.code ?? item.code, title, entity['@id']),
             source,
             error: null,
           };
@@ -344,6 +350,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: hit.title,
           replaced_by: null,
+          coding: toFhirCoding('cid10', hit.code, hit.title),
           source,
           error: null,
         };
@@ -365,6 +372,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active,
           title: details.LONG_COMMON_NAME ?? null,
           replaced_by: null,
+          coding: toFhirCoding('loinc', details.LOINC_NUM, details.LONG_COMMON_NAME ?? null),
           source,
           error: null,
         };
@@ -385,6 +393,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: concept.name,
           replaced_by: null,
+          coding: toFhirCoding('rxnorm', concept.rxcui, concept.name),
           source,
           error: null,
         };
@@ -403,6 +412,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: desc.label,
           replaced_by: null,
+          coding: toFhirCoding('mesh', desc.id, desc.label),
           source,
           error: null,
         };
@@ -420,6 +430,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: atc.atc_name,
           replaced_by: null,
+          coding: toFhirCoding('atc', atc.atc_code, atc.atc_name),
           source,
           error: null,
         };

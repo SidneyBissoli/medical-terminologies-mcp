@@ -297,6 +297,17 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['map_icd10_to_icd11', 'code absent from the table (null mapping)', { icd10_code: 'ZZZ' }],
   ['validate_codes', 'bundled branches', { codes: [{ code: 'E11', terminology: 'icd10' }, { code: 'A00', terminology: 'cid10' }] }],
   ['validate_codes', 'invalid code (title/active null)', { codes: [{ code: 'ZZZZ', terminology: 'icd10' }] }],
+  ['validate_codes', 'every terminology (coding with and without version/extension)', {
+    codes: [
+      { code: '5A11', terminology: 'icd11' },
+      { code: 'E11', terminology: 'icd10' },
+      { code: 'A00.1', terminology: 'cid10' },
+      { code: '2345-7', terminology: 'loinc' },
+      { code: '6809', terminology: 'rxnorm' },
+      { code: 'D006973', terminology: 'mesh' },
+      { code: 'A10BA', terminology: 'atc' },
+    ],
+  }],
   ['find_equivalent', 'fan-out without source_terminology (echo null)', { term: 'glucose', target_terminologies: ['loinc', 'rxnorm'] }],
   ['find_equivalent', 'fan-out with source_terminology', { term: 'glucose', source_terminology: 'loinc', target_terminologies: ['rxnorm', 'mesh'] }],
   ['harmonize_terms', 'one term per domain (atc array on drug, null elsewhere; uri null off ICD-11)', {
@@ -466,5 +477,43 @@ describe('the listed schema accepts a contract 1.3 block (step one of 1.3)', () 
     await expect(
       callWithInjected('cid10_lookup', { code: 'A00' }, { revision: { status: 'maybe', note: null } }),
     ).rejects.toThrow();
+  });
+});
+
+describe('FHIR Coding on the wire (Phase 24.1)', () => {
+  type Coding = { system: string; version?: string; code: string; display?: string; extension?: { url: string; valueCode: string }[] };
+  type Row = { terminology: string; valid: boolean; coding: Coding | null };
+
+  it('validate_codes: confirmed codes carry a Coding, an unconfirmed one carries null', async () => {
+    const s = await callAsClient('validate_codes', {
+      codes: [
+        { code: '5A11', terminology: 'icd11' },
+        { code: 'A00.1', terminology: 'cid10' },
+        { code: 'ZZZZ', terminology: 'icd10' },
+      ],
+    });
+    const [icd11, cid10, missing] = s.results as Row[];
+    expect(icd11.coding?.system).toBe('http://id.who.int/icd/release/11/mms');
+    expect(icd11.coding?.code).toMatch(/^\d+/); // entity id, not the short code
+    expect(icd11.coding?.extension?.[0].valueCode).toBe('5A11');
+    expect(cid10.coding).toMatchObject({ system: 'https://rnds-fhir.saude.gov.br/CodeSystem/BRCID10', code: 'A001', version: 'V2008' });
+    expect(missing.valid).toBe(false);
+    expect(missing.coding).toBeNull();
+  });
+
+  it('harmonize_terms: every ICD-11 and LOINC candidate carries its Coding', async () => {
+    const s = await callAsClient('harmonize_terms', {
+      terms: [
+        { term: 'type 2 diabetes mellitus', domain: 'diagnosis' },
+        { term: 'glucose', domain: 'lab' },
+      ],
+    });
+    const results = s.results as { terminology: string; candidates: { coding: Coding | null }[] }[];
+    for (const r of results) {
+      for (const c of r.candidates) {
+        expect(c.coding).not.toBeNull();
+        expect(c.coding).not.toHaveProperty('version', null);
+      }
+    }
   });
 });

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Version 2.5.0: the published surface of two tools changed (new output field), which by this repository's convention is a minor bump.
+
+### Added
+
+- **FHIR `Coding` on confirmed codes (`validate_codes`, `harmonize_terms`).** Each `validate_codes` result now carries `coding` (`system`, `code`, `display`, and `version` when the call knows the release it read), ready to store in a FHIR resource. It is `null` when the code was not confirmed, so an unconfirmed code never reaches a FHIR resource. Each `harmonize_terms` candidate carries the same `coding` for the code as the source returned it; it is still a candidate, and `needs_review` rows need a person before storing. System URIs were read at their publishers: FHIR R4 (LOINC, RxNorm, ATC, ICD-10), WHO ICD-API and the HL7 terminology guide (ICD-11 MMS: the code is the entity id, the short code travels in the WHO `classificationCode` extension), HL7 THO 7.5.0 (MeSH) and the RNDS `BRCID10` NamingSystem (Brazilian CID-10, status draft; codes keep the DataSUS undotted form). FHIR JSON forbids `null`, so `version` and `extension` are omitted when unknown. Requested by a clinical terminology practitioner (Phase 24.1).
+
 ### Fixed
 
 - `validate_codes` and `harmonize_terms`: the Markdown table cells now escape `\` before `|`. A source text containing a backslash right before a pipe used to undo the pipe escape and break the table row (found by code scanning, `js/incomplete-sanitization`). The structured content is unchanged.

@@ -734,6 +734,32 @@ export const ValidateCodesParamsSchema = z.object({
     .describe('List of code+terminology pairs to validate. Hard cap of 50 per call to keep total latency under ~10 s given upstream rate limits.'),
 }).strict();
 
+// FHIR Coding (Phase 24.1) — see src/utils/fhir-coding.ts for where each
+// system URI was read. FHIR JSON forbids null: version/extension are omitted
+// when unknown, never null.
+export const FhirCodingSchema = z
+  .object({
+    system: z.string().describe('Canonical FHIR system URI of the terminology (e.g. http://loinc.org).'),
+    version: z
+      .string()
+      .optional()
+      .describe('Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).'),
+    code: z.string().describe('The code in FHIR form. ICD-11: the entity id (e.g. "257068234"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form ("A001").'),
+    display: z.string().optional().describe('Official label from the source. Omitted when the source returned none.'),
+    extension: z
+      .array(
+        z.object({
+          url: z.string().describe('Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).'),
+          valueCode: z.string().describe('ICD-11 short classification code (e.g. "5A11").'),
+        }),
+      )
+      .optional()
+      .describe('ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.'),
+  })
+  .describe('FHIR Coding for this code, ready to store in a FHIR resource.');
+
+export type FhirCoding = z.infer<typeof FhirCodingSchema>;
+
 const ValidateCodesResultSchema = z.object({
   code: z.string().describe('The code as submitted.'),
   terminology: ValidateCodesTerminologyEnum,
@@ -753,6 +779,9 @@ const ValidateCodesResultSchema = z.object({
     .describe(
       'When the code has been superseded by another code, this holds the replacement. Populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables; null otherwise.',
     ),
+  coding: FhirCodingSchema.nullable().describe(
+    'FHIR Coding for the confirmed code (system, code, display, version where known). Null when the code was not confirmed (valid=false), so an unconfirmed code never reaches a FHIR resource.',
+  ),
   source: z
     .string()
     .describe('Human-readable identifier of the data source used for validation (terminology + release/version where applicable).'),
@@ -835,6 +864,9 @@ const HarmonizeCandidateSchema = z.object({
     .string()
     .nullable()
     .describe('The synonym that produced the score when it beat the title (ICD-11 only, e.g. "hypertension NOS" for BA00.Z); null when the title scored best.'),
+  coding: FhirCodingSchema.nullable().describe(
+    'FHIR Coding for this candidate as the source returned it. A candidate is not a confirmed match: store it only after review when match_type is needs_review. Null for an ICD-11 candidate without an entity URI.',
+  ),
 });
 
 const HarmonizeATCSchema = z.object({

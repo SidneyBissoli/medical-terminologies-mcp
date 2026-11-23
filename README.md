@@ -276,9 +276,9 @@ If a source has no official translation for an entry, you get the source languag
 | Tool | Description | Example |
 |------|-------------|---------|
 | `map_icd10_to_icd11` | Authoritative ICD-10 → ICD-11 mapping via bundled WHO transition tables; returns primary code + chapter + URIs and any WHO-documented alternatives | `icd10_code: "E11"` |
-| `validate_codes` | Batch-validate up to 50 codes across ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10; returns per-code valid/invalid + display name | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
+| `validate_codes` | Batch-validate up to 50 codes across ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10; returns per-code valid/invalid + display name, and a FHIR `Coding` (system, code, display, version) for each confirmed code | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
 | `find_equivalent` | Ranked unified search across terminologies: server-computed `match_score`/`rank` per candidate plus cross-terminology `groups` of lexically identical titles | `term: "diabetes"` |
-| `harmonize_terms` | Batch-map up to 50 free-text terms to standard codes: diagnosis → ICD-11, drug → RxNorm (+ ATC classes), lab → LOINC. Per term: ranked candidates with `match_score` and `match_type` (`exact` / `strong` / `needs_review`), one provenance block per source. The term-first companion of `validate_codes` | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
+| `harmonize_terms` | Batch-map up to 50 free-text terms to standard codes: diagnosis → ICD-11, drug → RxNorm (+ ATC classes), lab → LOINC. Per term: ranked candidates with `match_score` and `match_type` (`exact` / `strong` / `needs_review`), a FHIR `Coding` per candidate, one provenance block per source. The term-first companion of `validate_codes` | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
 
 ### ATC Tools (3)
 

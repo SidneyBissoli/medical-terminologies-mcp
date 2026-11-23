@@ -276,9 +276,9 @@ Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma d
 | Ferramenta | Descrição | Exemplo |
 |------------|-----------|---------|
 | `map_icd10_to_icd11` | Mapeamento oficial ICD-10 → ICD-11 pelas tabelas de transição da OMS embutidas; devolve código primário + capítulo + URIs e as alternativas documentadas pela OMS | `icd10_code: "E11"` |
-| `validate_codes` | Valida em lote até 50 códigos em ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10; devolve válido/inválido + nome de exibição por código | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
+| `validate_codes` | Valida em lote até 50 códigos em ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10; devolve válido/inválido + nome de exibição por código, e um `Coding` FHIR (system, code, display, version) para cada código confirmado | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
 | `find_equivalent` | Busca unificada e ranqueada entre terminologias: `match_score`/`rank` calculados no servidor por candidato, mais `groups` de títulos lexicalmente idênticos entre terminologias | `term: "diabetes"` |
-| `harmonize_terms` | Mapeia em lote até 50 termos em texto livre para códigos padrão: diagnóstico → ICD-11, medicamento → RxNorm (+ classes ATC), exame → LOINC. Por termo: candidatos ranqueados com `match_score` e `match_type` (`exact` / `strong` / `needs_review`), um bloco de proveniência por fonte. É o par do `validate_codes` que parte do termo, não do código | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
+| `harmonize_terms` | Mapeia em lote até 50 termos em texto livre para códigos padrão: diagnóstico → ICD-11, medicamento → RxNorm (+ classes ATC), exame → LOINC. Por termo: candidatos ranqueados com `match_score` e `match_type` (`exact` / `strong` / `needs_review`), um `Coding` FHIR por candidato, um bloco de proveniência por fonte. É o par do `validate_codes` que parte do termo, não do código | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
 
 ### Ferramentas ATC (3)
 

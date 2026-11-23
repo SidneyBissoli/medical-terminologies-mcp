@@ -38,6 +38,11 @@ const WHO_CONFIG = {
   linearization: 'mms',
 } as const;
 
+/** The ICD-11 release every request of this process queries (pin or env override). */
+export function getICD11ReleaseId(): string {
+  return WHO_CONFIG.releaseId;
+}
+
 /**
  * Cache key for OAuth token
  */
