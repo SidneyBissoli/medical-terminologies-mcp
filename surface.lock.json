@@ -1,8 +1,8 @@
 {
   "$comentario": "Impressão digital da superfície (@sbissoli/mcp-surface). Não editar à mão: `npm run surface:lock` regrava, e só aceita superfície nova sob versão nova.",
   "declarada": {
-    "versao": "2.4.0",
-    "sha256": "b505f162af09b05dda4226394311c3823e937bdd0fdcdf4532fa0055b35d8604",
+    "versao": "2.5.0",
+    "sha256": "39248c6f49164a7f317939b50e50db5dea45b9ff39bcb7df9022159360538fe3",
     "conteudo": {
       "initialize": {
         "capabilities": {
@@ -3330,7 +3330,7 @@
             "openWorldHint": true,
             "readOnlyHint": true
           },
-          "description": "Map a LIST of free-text clinical terms to standard codes in one call, with ranked candidates and a confidence label for each — the building block of a reviewable crosswalk.\n\nUse this tool to:\n- Harmonize a column of diagnoses, drugs or lab names from a dataset to ICD-11 / RxNorm (+ ATC) / LOINC\n- Triage which terms map cleanly (exact / strong) and which need a person (needs_review)\n- Build a crosswalk you can audit: every row keeps its candidates, scores and sources\n\nGive each term its `domain`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to 50 terms per call — a longer list is refused with a validation error: split it into batches of 50. Repeated term+domain pairs are looked up once. `max_candidates` keeps 1-5 per term (default 3).\n\nEvery candidate carries `match_score` (lexical, 0-1, the find_equivalent formula) and `match_type`: exact = same words after normalization; strong = every term word is in the title (or the matched synonym) and score ≥ 0.85; needs_review = anything else. A one-word term is exact or needs_review, never strong (\"Tylenol\" vs \"Tylenol PM\" is a different product). Synonyms, abbreviations (\"MI\", \"HbA1c\") and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named \"Deprecated\". For diagnoses, a candidate is also scored against the synonyms WHO matched (e.g. \"hypertension NOS\" for Essential hypertension), reported in `matched_label`; postcoordinated clusters (codes with \"/\" or \"&\") are left out — build those with icd11_postcoordination. Lab names are ambiguous without specimen and property: \"glucose\" matches over a thousand LOINC codes, so write \"glucose serum\" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status \"error\".\n\nTerms are searched in English and sent to the WHO and NLM APIs — de-identify the list first. For Brazilian Portuguese diagnoses use cid10_search; to check codes you already have, use validate_codes; for one term across every terminology, use find_equivalent. Record the vocabulary versions with the provenance blocks (one per source) and terminology_versions.",
+          "description": "Map a LIST of free-text clinical terms to standard codes in one call, with ranked candidates and a confidence label for each — the building block of a reviewable crosswalk.\n\nUse this tool to:\n- Harmonize a column of diagnoses, drugs or lab names from a dataset to ICD-11 / RxNorm (+ ATC) / LOINC\n- Triage which terms map cleanly (exact / strong) and which need a person (needs_review)\n- Build a crosswalk you can audit: every row keeps its candidates, scores and sources\n\nGive each term its `domain`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to 50 terms per call — a longer list is refused with a validation error: split it into batches of 50. Repeated term+domain pairs are looked up once. `max_candidates` keeps 1-5 per term (default 3).\n\nEvery candidate carries `match_score` (lexical, 0-1, the find_equivalent formula) and `match_type`: exact = same words after normalization; strong = every term word is in the title (or the matched synonym) and score ≥ 0.85; needs_review = anything else. A one-word term is exact or needs_review, never strong (\"Tylenol\" vs \"Tylenol PM\" is a different product). Synonyms, abbreviations (\"MI\", \"HbA1c\") and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named \"Deprecated\". For diagnoses, a candidate is also scored against the synonyms WHO matched (e.g. \"hypertension NOS\" for Essential hypertension), reported in `matched_label`; postcoordinated clusters (codes with \"/\" or \"&\") are left out — build those with icd11_postcoordination. Lab names are ambiguous without specimen and property: \"glucose\" matches over a thousand LOINC codes, so write \"glucose serum\" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status \"error\".\n\nEvery candidate also carries `coding`, the FHIR Coding of that code as the source returned it — a candidate, not a confirmed match: confirm needs_review rows with a person (and codes from elsewhere with validate_codes) before storing them.\n\nTerms are searched in English and sent to the WHO and NLM APIs — de-identify the list first. For Brazilian Portuguese diagnoses use cid10_search; to check codes you already have, use validate_codes; for one term across every terminology, use find_equivalent. Record the vocabulary versions with the provenance blocks (one per source) and terminology_versions.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -3713,6 +3713,63 @@
                             "description": "Code in the target terminology (ICD-11 code, RxCUI, or LOINC number).",
                             "type": "string"
                           },
+                          "coding": {
+                            "anyOf": [
+                              {
+                                "additionalProperties": false,
+                                "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                                "properties": {
+                                  "code": {
+                                    "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                                    "type": "string"
+                                  },
+                                  "display": {
+                                    "description": "Official label from the source. Omitted when the source returned none.",
+                                    "type": "string"
+                                  },
+                                  "extension": {
+                                    "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "url": {
+                                          "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                          "type": "string"
+                                        },
+                                        "valueCode": {
+                                          "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "url",
+                                        "valueCode"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "type": "array"
+                                  },
+                                  "system": {
+                                    "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "system",
+                                  "code"
+                                ],
+                                "type": "object"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "FHIR Coding for this candidate as the source returned it. A candidate is not a confirmed match: store it only after review when match_type is needs_review. Null for an ICD-11 candidate without an entity URI."
+                          },
                           "match_score": {
                             "description": "Lexical similarity to the term, 0-1 (same formula as find_equivalent), against the title or the best synonym the source matched.",
                             "maximum": 1,
@@ -3752,7 +3809,8 @@
                           "uri",
                           "match_score",
                           "match_type",
-                          "matched_label"
+                          "matched_label",
+                          "coding"
                         ],
                         "type": "object"
                       },
@@ -11248,7 +11306,7 @@
             "openWorldHint": true,
             "readOnlyHint": true
           },
-          "description": "Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.\n\nFor each input `{ code, terminology }`, returns:\n- **valid**: whether the code exists in the source terminology.\n- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; LOINC returns a real boolean).\n- **title**: the official label/name when available.\n- **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.\n- **source**: human-readable provenance of the validation (terminology + release/version).\n- **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). `valid: false` + `error: null` means \"code not found\"; `valid: false` + `error: set` means \"couldn't validate\".\n\nTerminology is **required per code** — auto-detection isn't supported because category codes like \"A00\" exist in both ICD-10 and CID-10. Accepted values: `icd11`, `icd10`, `loinc`, `rxnorm`, `mesh`, `atc`, `cid10`.\n\nHard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).",
+          "description": "Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.\n\nFor each input `{ code, terminology }`, returns:\n- **valid**: whether the code exists in the source terminology.\n- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; LOINC returns a real boolean).\n- **title**: the official label/name when available.\n- **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.\n- **coding**: the confirmed code as a FHIR Coding (system, code, display, version when the call knows the release), ready to store in a FHIR resource; null when the code was not confirmed. ICD-11 follows the HL7 terminology guide: the code is the entity id and the short code travels in the WHO classificationCode extension. Hand on a code only when `coding` is non-null.\n- **source**: human-readable provenance of the validation (terminology + release/version).\n- **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). `valid: false` + `error: null` means \"code not found\"; `valid: false` + `error: set` means \"couldn't validate\".\n\nTerminology is **required per code** — auto-detection isn't supported because category codes like \"A00\" exist in both ICD-10 and CID-10. Accepted values: `icd11`, `icd10`, `loinc`, `rxnorm`, `mesh`, `atc`, `cid10`.\n\nHard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -11550,6 +11608,63 @@
                       "description": "The code as submitted.",
                       "type": "string"
                     },
+                    "coding": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                          "properties": {
+                            "code": {
+                              "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                              "type": "string"
+                            },
+                            "display": {
+                              "description": "Official label from the source. Omitted when the source returned none.",
+                              "type": "string"
+                            },
+                            "extension": {
+                              "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "url": {
+                                    "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                    "type": "string"
+                                  },
+                                  "valueCode": {
+                                    "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "url",
+                                  "valueCode"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "system": {
+                              "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                              "type": "string"
+                            },
+                            "version": {
+                              "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "system",
+                            "code"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "FHIR Coding for the confirmed code (system, code, display, version where known). Null when the code was not confirmed (valid=false), so an unconfirmed code never reaches a FHIR resource."
+                    },
                     "error": {
                       "description": "When the upstream call failed (timeout, server error, feature flag off), this holds the failure message. Distinct from valid=false: valid=false + error=null means \"code not found\"; valid=false + error set means \"couldn't validate\".",
                       "type": [
@@ -11599,6 +11714,7 @@
                     "active",
                     "title",
                     "replaced_by",
+                    "coding",
                     "source",
                     "error"
                   ],
