@@ -47,6 +47,7 @@ import { getRxNormClient } from '../clients/rxnorm-client.js';
 import { getMeSHClient } from '../clients/mesh-client.js';
 import { getCID10Client } from '../clients/cid10-client.js';
 import { getWHOClient, WHOClient, WHO_ICD11_DEFAULT_RELEASE } from '../clients/who-client.js';
+import { plainTitle } from '../tools/icf.js';
 import { cache } from '../utils/cache.js';
 import { UPSTREAM_POLICY } from '../utils/upstream.js';
 
@@ -358,7 +359,7 @@ describeIntegration('Integration: live API contracts', () => {
     const topCodes = (r: { destinationEntities: { theCode?: string; title: string }[] }, n = 5) =>
       r.destinationEntities
         .slice(0, n)
-        .map((e) => `${e.theCode ?? '-'} ${e.title.replace(/<[^>]+>/g, '')}`)
+        .map((e) => `${e.theCode ?? '-'} ${plainTitle(e.title)}`)
         .join(' | ');
 
     aoVivo(
