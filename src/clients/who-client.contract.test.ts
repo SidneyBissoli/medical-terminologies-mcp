@@ -186,6 +186,52 @@ describe('WHOClient — contract tests', () => {
     });
   });
 
+  // PROGRESS.md 24.3 — ICF (same API, credential and release as MMS; the
+  // codeinfo → stemId shape below is the one measured in production on
+  // 2026-11-23 for d450 "Walking").
+  describe('ICF linearization', () => {
+    it('lookupICF resolves /icf/codeinfo/{code} and follows stemId', async () => {
+      nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
+      nock(API_HOST)
+        .get('/icd/release/11/2026-01/icf/codeinfo/d450')
+        .reply(200, {
+          '@id': 'http://id.who.int/icd/release/11/2026-01/icf/codeinfo/d450',
+          stemId: 'http://id.who.int/icd/release/11/2026-01/icf/1550548595',
+          code: 'd450',
+        });
+      nock(API_HOST)
+        .get('/icd/release/11/2026-01/icf/1550548595')
+        .reply(200, {
+          '@id': 'http://id.who.int/icd/release/11/2026-01/icf/1550548595',
+          code: 'd450',
+          title: { '@language': 'en', '@value': 'Walking' },
+          classKind: 'category',
+        });
+
+      const e = await client.lookupICF(' D450 ', 'en');
+      expect(e['@id']).toBe('http://id.who.int/icd/release/11/2026-01/icf/1550548595');
+      expect(e.title?.['@value']).toBe('Walking');
+    });
+
+    it('searchICF hits /icf/search with medicalCodingMode off, and never shares the MMS cache entry', async () => {
+      nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());
+      const icf = nock(API_HOST)
+        .get('/icd/release/11/2026-01/icf/search')
+        .query((q) => q.q === 'walking' && q.medicalCodingMode === 'false')
+        .reply(200, { error: false, resultChopped: false, words: [], destinationEntities: [{ id: 'icf-x', theCode: 'd450', title: 'Walking', isLeaf: true, postcoordinationAvailability: '', hasCodingNote: false, matchingPVs: [], score: 1 }] });
+      const mms = nock(API_HOST)
+        .get('/icd/release/11/2026-01/mms/search')
+        .query((q) => q.q === 'walking' && q.medicalCodingMode === 'true')
+        .reply(200, { error: false, resultChopped: false, words: [], destinationEntities: [] });
+
+      const r = await client.searchICF('walking', 'en', 10);
+      const m = await client.search('walking', 'en', 10);
+      expect(r.destinationEntities[0]?.theCode).toBe('d450');
+      expect(m.destinationEntities).toHaveLength(0);
+      expect(icf.isDone() && mms.isDone()).toBe(true);
+    });
+  });
+
   describe('lookup and getEntity', () => {
     it('lookup by code uses /codeinfo path', async () => {
       nock(TOKEN_HOST).post(TOKEN_PATH).reply(200, tokenResponse());

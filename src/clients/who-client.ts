@@ -38,6 +38,15 @@ const WHO_CONFIG = {
   linearization: 'mms',
 } as const;
 
+/**
+ * The WHO linearizations this client reads. `mms` is ICD-11 for Mortality and
+ * Morbidity Statistics; `icf` is the International Classification of
+ * Functioning, Disability and Health, served by the same ICD-API, the same
+ * OAuth credential and the same release (measured in production 2026-11-23,
+ * PROGRESS.md 24.2: /release/11/2026-01/icf/codeinfo/d450 → "Walking").
+ */
+export type WhoLinearization = 'mms' | 'icf';
+
 /** The ICD-11 release every request of this process queries (pin or env override). */
 export function getICD11ReleaseId(): string {
   return WHO_CONFIG.releaseId;
@@ -274,7 +283,31 @@ export class WHOClient {
     language: string = 'en',
     maxResults: number = 25
   ): Promise<ICD11SearchResponse> {
-    const cacheKey = `search:${query}:${language}:${maxResults}`;
+    return this.searchLinearization('mms', query, language, maxResults);
+  }
+
+  /**
+   * Searches the ICF linearization (same release and credential as ICD-11).
+   * `medicalCodingMode` stays off: it exists to steer MMS coding (residual
+   * categories, postcoordination) and has no documented meaning for ICF.
+   */
+  async searchICF(
+    query: string,
+    language: string = 'en',
+    maxResults: number = 25
+  ): Promise<ICD11SearchResponse> {
+    return this.searchLinearization('icf', query, language, maxResults);
+  }
+
+  private async searchLinearization(
+    linearization: WhoLinearization,
+    query: string,
+    language: string,
+    maxResults: number
+  ): Promise<ICD11SearchResponse> {
+    // MMS keys keep their pre-ICF shape; ICF keys are namespaced.
+    const prefix = linearization === 'mms' ? 'search' : `search:${linearization}`;
+    const cacheKey = `${prefix}:${query}:${language}:${maxResults}`;
     const cached = cache.get<ICD11SearchResponse>(CACHE_PREFIX.ICD11, cacheKey);
     
     if (cached) {
@@ -287,7 +320,7 @@ export class WHOClient {
       CACHE_PREFIX.ICD11,
       cacheKey,
       () => this.request<ICD11SearchResponse>(
-        `/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/search`,
+        `/release/11/${WHO_CONFIG.releaseId}/${linearization}/search`,
         {
           q: query,
           subtreeFilterUsesFoundationDescendants: false,
@@ -295,7 +328,7 @@ export class WHOClient {
           useFlexisearch: true,
           flatResults: true,
           highlightingEnabled: false,
-          medicalCodingMode: true,
+          medicalCodingMode: linearization === 'mms',
         },
         language
       ),
@@ -356,6 +389,31 @@ export class WHOClient {
       },
       DEFAULT_TTL.LOOKUP
       )
+    );
+  }
+
+  /**
+   * Looks up an ICF category by code (`d450`, `b28013`): `/icf/codeinfo/{code}`
+   * resolves to the entity at `stemId`, exactly as the MMS resolver does.
+   */
+  async lookupICF(code: string, language: string = 'en'): Promise<ICD11EntityResponse> {
+    const c = code.trim().toLowerCase();
+    return cache.getOrSet(
+      CACHE_PREFIX.ICD11,
+      `lookup:icf:${c}:${language}`,
+      async () => {
+        const info = await this.request<ICD11EntityResponse>(
+          `/release/11/${WHO_CONFIG.releaseId}/icf/codeinfo/${encodeURIComponent(c)}`,
+          {},
+          language,
+        );
+        if (info.title === undefined && typeof info.stemId === 'string' && info.stemId.startsWith('http')) {
+          const stemPath = new URL(info.stemId).pathname.replace(/^\/icd/, '');
+          return this.request<ICD11EntityResponse>(stemPath, {}, language);
+        }
+        return info;
+      },
+      DEFAULT_TTL.LOOKUP,
     );
   }
 
