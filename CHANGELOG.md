@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Version **3.2.0** (rankings use the synonyms the sources publish) on top of **3.1.0** (`match_value_set`, a new tool, additive), on top of **3.0.0** (ICF in the cross-terminology tools), on top of 2.6.0 (ICF, two new tools) and 2.5.0 (FHIR `Coding`, new output field). None of them was published to npm or the MCP Registry yet; npm is still at 2.4.0.
+Version **3.2.1** (fix: `icd11_lookup`/`icf_lookup` rejected by strict clients) on top of **3.2.0** (rankings use the synonyms the sources publish) on top of **3.1.0** (`match_value_set`, a new tool, additive), on top of **3.0.0** (ICF in the cross-terminology tools), on top of 2.6.0 (ICF, two new tools) and 2.5.0 (FHIR `Coding`, new output field). None of them was published to npm or the MCP Registry yet; npm is still at 2.4.0.
 
 ### Breaking
 
 - **`validate_codes` and `find_equivalent` responses can now carry the value `"icf"`** in `results[].terminology` (`validate_codes`) and in `searched_terminologies`, `groups[].terminologies` and `groups[].members[].terminology` (`find_equivalent`). A client that switches exhaustively over the old values must handle `icf`. `find_equivalent` also searches ICF **by default**: callers who want the old four-terminology fan-out pass `target_terminologies: ["icd11", "loinc", "rxnorm", "mesh"]`. Nothing else changed shape; `terminology_versions` and `terminology_diff` keep their seven terminologies on purpose (their enum is now their own, so they never accept a value they cannot answer for).
+
+### Fixed
+
+- **`icd11_lookup` and `icf_lookup` broke their own output schema whenever the entity had inclusions, exclusions or index terms (3.2.1)** — almost every entity. The server read an `@id` on those terms, but the WHO `Term` object has none (ICD-API swagger v2: a label plus `foundationReference`/`linearizationReference` when the term comes from another entity). So every `uri` was missing from the wire, and a client that validates `structuredContent` (claude.ai does) rejected the whole response. Each term's `uri` is now the entity it comes from: the referenced entity when the WHO names one, otherwise the entity being looked up. The type is unchanged. The output-contract gate now mocks terms in the WHO's real shape; before, its mock had no terms at all.
 
 ### Changed
 

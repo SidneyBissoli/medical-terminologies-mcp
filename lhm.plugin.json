@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "Unified MCP server for global medical terminologies - ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney da Silva Pereira Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -4700,6 +4700,7 @@
                   "type": "string"
                 },
                 "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
                   "type": "string"
                 }
               },
@@ -4720,6 +4721,7 @@
                   "type": "string"
                 },
                 "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
                   "type": "string"
                 }
               },
@@ -4740,6 +4742,7 @@
                   "type": "string"
                 },
                 "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
                   "type": "string"
                 }
               },
@@ -5776,6 +5779,7 @@
                   "type": "string"
                 },
                 "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
                   "type": "string"
                 }
               },
@@ -5796,6 +5800,7 @@
                   "type": "string"
                 },
                 "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
                   "type": "string"
                 }
               },

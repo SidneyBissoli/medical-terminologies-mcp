@@ -750,20 +750,11 @@ export interface ICD11EntityResponse {
     '@value': string;
   };
   /** Exclusions */
-  exclusion?: Array<{
-    '@id': string;
-    label?: { '@language': string; '@value': string };
-  }>;
+  exclusion?: WhoTerm[];
   /** Inclusions */
-  inclusion?: Array<{
-    '@id': string;
-    label?: { '@language': string; '@value': string };
-  }>;
+  inclusion?: WhoTerm[];
   /** Index terms */
-  indexTerm?: Array<{
-    '@id': string;
-    label?: { '@language': string; '@value': string };
-  }>;
+  indexTerm?: WhoTerm[];
   /** Postcoordination scales */
   postcoordinationScale?: Array<{
     axisName: string;
@@ -777,6 +768,39 @@ export interface ICD11EntityResponse {
     label?: { '@language': string; '@value': string };
     linearizationReference?: string;
   }>;
+}
+
+/**
+ * A term inside an entity (inclusion, exclusion, index term) — the WHO
+ * `Term` schema (ICD-API swagger v2, read 2026-11-24): a label and, when the
+ * term comes from another entity, that entity's references. It has NO
+ * '@id'; until 3.2.1 the server read one, so every `uri` vanished and strict
+ * clients rejected icd11_lookup/icf_lookup outright.
+ */
+export interface WhoTerm {
+  label?: { '@language': string; '@value': string };
+  foundationReference?: string | null;
+  linearizationReference?: string | null;
+  deprecated?: boolean;
+}
+
+/**
+ * Terms projected to { uri, label }, where uri is the entity the term COMES
+ * FROM: the referenced entity (release URI first) when the source names one,
+ * otherwise the entity that carries it — the swagger defines the references
+ * as present exactly when "the term itself could be coming from another
+ * entity". A term with no label is dropped.
+ */
+export function termRefs(
+  terms: WhoTerm[] | undefined,
+  ownerUri: string,
+): { uri: string; label: string }[] {
+  return (terms ?? [])
+    .filter((t) => t.label?.['@value'])
+    .map((t) => ({
+      uri: t.linearizationReference ?? t.foundationReference ?? ownerUri,
+      label: t.label!['@value'],
+    }));
 }
 
 /**

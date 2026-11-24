@@ -133,7 +133,12 @@ function mockUpstreams(): void {
           return jsonResponse({ '@id': `${ICF_BASE}/codeinfo/d450`, stemId: `${ICF_BASE}/1550548595`, code: 'd450' });
         }
         // The entity, with definition/inclusions/browserUrl absent (null/empty paths).
-        return jsonResponse({ '@id': `${ICF_BASE}/1550548595`, code: 'd450', title: { '@language': 'en', '@value': 'Walking' } });
+        return jsonResponse({
+          '@id': `${ICF_BASE}/1550548595`, code: 'd450', title: { '@language': 'en', '@value': 'Walking' },
+          // WHO `Term` shape: label only, no '@id' (2026-11-24).
+          inclusion: [{ label: { '@language': 'en', '@value': 'walking short or long distances' } }],
+          exclusion: [{ label: { '@language': 'en', '@value': 'transferring oneself' }, linearizationReference: `${ICF_BASE}/3000` }],
+        });
       }
       if (url.includes('/postcoordination')) {
         return jsonResponse({
@@ -177,7 +182,21 @@ function mockUpstreams(): void {
         });
       }
       if (url.endsWith('/mms/1234')) {
-        return jsonResponse(icdEntity('1234', { code: '5A11', withChildren: true }));
+        return jsonResponse({
+          ...icdEntity('1234', { code: '5A11', withChildren: true }),
+          // WHO `Term` shape (swagger v2, read 2026-11-24): NO '@id' — only a
+          // label and, when the term comes from another entity, references.
+          inclusion: [{ label: { '@language': 'en', '@value': 'adult-onset diabetes' } }],
+          exclusion: [{
+            label: { '@language': 'en', '@value': 'Diabetes mellitus in pregnancy' },
+            foundationReference: 'http://id.who.int/icd/entity/1000',
+            linearizationReference: `http://id.who.int/icd/release/11/${RELEASE}/mms/1000`,
+          }],
+          indexTerm: [
+            { label: { '@language': 'en', '@value': 'type 2 diabetes' } },
+            { label: { '@language': 'en', '@value': 'NIDDM' }, foundationReference: 'http://id.who.int/icd/entity/2000' },
+          ],
+        });
       }
       // The linearization root — chapters.
       if (/\/mms\/?(\?|$)/.test(url)) {
