@@ -75,6 +75,7 @@ Use this tool to:
 - Find the ICF code for a function or activity ("walking" → d450 Walking)
 - Code rehabilitation, home-care or disability findings, which ICD-11 (diagnoses) does not cover
 - Search in WHO's official translations — e.g. \`language: "pt"\` ("andar" → d450 Andar). Never machine-translated.
+- Search only some branches with \`within\` (category codes such as "d450", or ICF URIs; up to 10). The WHO search subtree filter does the bounding; a branch that does not exist is an error, never a silent unbounded search.
 
 Returns matching categories with code, title, ICF component, relevance score and URI, in WHO relevance order. ICF has no category for every measurement: "walking speed" returns d450 Walking (the activity), not a speed category, because ICF classifies functioning, not test results — use loinc_search for the measured observation.
 
@@ -137,7 +138,29 @@ function formatEntity(entity: ICD11EntityResponse): string {
 async function handleICFSearch(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const params = ICFSearchParamsSchema.parse(args);
-    const results = await getWHOClient().searchICF(params.query, params.language, params.max_results);
+    // PROGRESS.md 24.4b: each branch resolved at the WHO (code or ICF URI);
+    // one that does not exist stops the call — never an unbounded search.
+    const within: ICFSearchOutput['within'] = [];
+    for (const value of params.within ?? []) {
+      let entity: ICD11EntityResponse;
+      try {
+        entity = await getWHOClient().lookupICF(value, params.language);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'NOT_FOUND') {
+          return naoEncontrado(
+            `Branch "${value}" not found in ICF. \`within\` takes an ICF category code ("d450", "b280") or an ICF entity URI from a previous answer. Nothing was searched.`,
+          );
+        }
+        throw error;
+      }
+      within.push({ value, code: entity.code || null, title: entity.title?.['@value'] ?? 'Unknown', uri: entity['@id'] });
+    }
+    const results = await getWHOClient().searchICF(
+      params.query,
+      params.language,
+      params.max_results,
+      within.map((b) => b.uri as string),
+    );
 
     if (results.error) {
       return falhaDaFonte(`Search error: ${results.errorMessage || 'Unknown error'}`);
@@ -148,6 +171,7 @@ async function handleICFSearch(args: Record<string, unknown>): Promise<CallToolR
 
     const structured: ICFSearchOutput = {
       query: params.query,
+      within,
       total_count: dest.length,
       entities: top.map((e) => ({
         code: e.theCode || null,
@@ -159,9 +183,12 @@ async function handleICFSearch(args: Record<string, unknown>): Promise<CallToolR
       })),
     };
 
+    const bound =
+      within.length > 0 ? ` within ${within.map((b) => `${b.code ?? b.value} ${b.title}`).join('; ')}` : '';
+
     if (top.length === 0) {
       return provenancedResult({
-        text: `No results found for "${params.query}" in ICF.`,
+        text: `No results found for "${params.query}" in ICF${bound}.`,
         structured,
         provenance: icfProvenance(),
       });
@@ -175,7 +202,7 @@ async function handleICFSearch(args: Record<string, unknown>): Promise<CallToolR
       .join('\n\n');
 
     return provenancedResult({
-      text: `## ICF Search Results for "${params.query}"\n\nFound ${dest.length} results (showing top ${top.length}):\n\n${body}`,
+      text: `## ICF Search Results for "${params.query}"${bound}\n\nFound ${dest.length} results (showing top ${top.length}):\n\n${body}`,
       structured,
       provenance: icfProvenance(),
     });

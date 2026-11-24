@@ -64,10 +64,31 @@ const maxResults = (defaultValue: number) =>
 // ICD-11 params
 // ============================================================================
 
+// PROGRESS.md 24.4b: bound a search to branches of the hierarchy (the WHO's
+// own subtreesFilter for ICD-11/ICF; an in-memory range for CID-10).
+const withinSchema = (what: string) =>
+  z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .max(10)
+    .optional()
+    .describe(what);
+
+/** The branches that bounded a search, as the source resolved them. */
+export const WithinBranchSchema = z.object({
+  value: z.string().describe('The branch as sent in `within`.'),
+  code: z.string().nullable().describe('Code of the branch entity (chapter number, block range or category code); null when it has none.'),
+  title: z.string(),
+  uri: z.string().nullable().describe('Entity URI of the branch; null for CID-10 (bundled, no URIs).'),
+});
+
 export const ICD11SearchParamsSchema = z.object({
   query: z.string().min(1).describe('Search text (disease name, symptom, or keyword)'),
   language: SupportedLanguageSchema.optional().default('en'),
   max_results: maxResults(25),
+  within: withinSchema(
+    'Only search these branches of ICD-11 and their descendants (up to 10): a chapter number ("06", "V"), a block range ("5A10-5A14"), a category code ("5A11") or an entity URI. Uses the WHO search subtree filter. A branch that does not exist is an error, never a silent unbounded search.',
+  ),
 }).strict();
 
 export const ICD11LookupParamsSchema = z
@@ -128,6 +149,7 @@ const ICD11MatchingPVSchema = z.object({
 
 export const ICD11SearchOutputSchema = z.object({
   query: z.string().describe('The search text as submitted.'),
+  within: z.array(WithinBranchSchema).describe('The branches that bounded the search, resolved at the WHO; empty when the search was unbounded.'),
   total_count: z
     .number()
     .int()
@@ -233,6 +255,9 @@ export const ICFSearchParamsSchema = z.object({
   query: z.string().min(1).describe('Search text (a function, activity, body structure or environmental factor, e.g. "walking")'),
   language: SupportedLanguageSchema.optional().default('en'),
   max_results: maxResults(25),
+  within: withinSchema(
+    'Only search these branches of ICF and their descendants (up to 10): a category code ("d450", "b280") or an ICF entity URI. Uses the WHO search subtree filter. A branch that does not exist is an error, never a silent unbounded search.',
+  ),
 }).strict();
 
 export const ICFLookupParamsSchema = z
@@ -261,6 +286,7 @@ const ICFComponentSchema = z
 
 export const ICFSearchOutputSchema = z.object({
   query: z.string().describe('The search text as submitted.'),
+  within: z.array(WithinBranchSchema).describe('The branches that bounded the search, resolved at the WHO; empty when the search was unbounded.'),
   total_count: z
     .number()
     .int()
@@ -1371,6 +1397,9 @@ export const CID10SearchParamsSchema = z.object({
       'Restrict search to 3-char categories, 4-char subcategories, or both. Default: all',
     ),
   max_results: maxResults(25),
+  within: withinSchema(
+    'Only search these branches of CID-10 (up to 10): a chapter number ("5" = F00-F99), a range of categories ("F30-F39"; both ends must exist) or a category / subcategory code ("F32", "F32.1" — a category keeps its subcategories). A branch that does not exist is an error, never a silent unbounded search.',
+  ),
 }).strict();
 
 export const CID10LookupParamsSchema = z.object({
@@ -1424,6 +1453,7 @@ const CID10HitSchema = z.object({
 export const CID10SearchOutputSchema = z.object({
   query: z.string().describe('The search terms as submitted.'),
   level: z.enum(['categories', 'subcategories', 'all']).describe('Code level searched: 3-char categories, 4-char subcategories, or all.'),
+  within: z.array(WithinBranchSchema).describe('The branches that bounded the search, resolved in the bundled dataset (uri is always null); empty when the search was unbounded.'),
   total_count: z.number().int().describe('Number of CID-10 codes matching the query, before the max_results cap.'),
   shown_count: z.number().int().describe('Number of codes returned in hits (at most max_results).'),
   hits: z.array(CID10HitSchema).describe('Matching CID-10 V2008 codes with their Portuguese titles, chapter and group.'),

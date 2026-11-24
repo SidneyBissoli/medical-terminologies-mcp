@@ -295,9 +295,10 @@ export class WHOClient {
   async search(
     query: string,
     language: string = 'en',
-    maxResults: number = 25
+    maxResults: number = 25,
+    subtrees: string[] = [],
   ): Promise<ICD11SearchResponse> {
-    return this.searchLinearization('mms', query, language, maxResults);
+    return this.searchLinearization('mms', query, language, maxResults, subtrees);
   }
 
   /**
@@ -308,21 +309,26 @@ export class WHOClient {
   async searchICF(
     query: string,
     language: string = 'en',
-    maxResults: number = 25
+    maxResults: number = 25,
+    subtrees: string[] = [],
   ): Promise<ICD11SearchResponse> {
-    return this.searchLinearization('icf', query, language, maxResults);
+    return this.searchLinearization('icf', query, language, maxResults, subtrees);
   }
 
   private async searchLinearization(
     linearization: WhoLinearization,
     query: string,
     language: string,
-    maxResults: number
+    maxResults: number,
+    // PROGRESS.md 24.4b: entity URIs whose subtrees bound the search — the
+    // WHO's own `subtreesFilter` (swagger v2: "the search will be performed
+    // on the entities provided and their descendants").
+    subtrees: string[] = [],
   ): Promise<ICD11SearchResponse> {
     // Each linearization has its own cache prefix, so provenance reads the
     // fetch instant of THIS linearization (cacheMetaFor is keyed by prefix).
     const cachePrefix = linearization === 'icf' ? CACHE_PREFIX.ICF : CACHE_PREFIX.ICD11;
-    const cacheKey = `search:${query}:${language}:${maxResults}`;
+    const cacheKey = `search:${query}:${language}:${maxResults}:${subtrees.join(',')}`;
     const cached = cache.get<ICD11SearchResponse>(cachePrefix, cacheKey);
 
     if (cached) {
@@ -344,6 +350,7 @@ export class WHOClient {
           flatResults: true,
           highlightingEnabled: false,
           medicalCodingMode: linearization === 'mms',
+          ...(subtrees.length > 0 ? { subtreesFilter: subtrees.join(',') } : {}),
         },
         language,
         linearization

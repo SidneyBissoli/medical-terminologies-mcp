@@ -326,6 +326,7 @@ afterEach(() => {
  */
 const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['icd11_search', 'hit without theCode (foundation-only)', { query: 'diabetes' }],
+  ['icd11_search', 'bounded by a branch (within → resolved branch echoed)', { query: 'diabetes', within: ['5A11'] }],
   ['icd11_lookup', 'entity with the optional fields absent', { code: '5A11' }],
   ['icd11_hierarchy', 'parents', { code: '5A11', direction: 'parents' }],
   ['icd11_hierarchy', 'children', { code: '5A11', direction: 'children' }],
@@ -333,6 +334,7 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['icd11_postcoordination', 'axis without scaleEntity (value_count null)', { code: '5A11' }],
 
   ['icf_search', 'coded hit and uncoded block (code/component null)', { query: 'walking' }],
+  ['icf_search', 'bounded by a branch (within d450)', { query: 'walking', within: ['d450'] }],
   ['icf_lookup', 'category by code with the optional fields absent', { code: 'd450' }],
   ['icf_lookup', 'category by URI', { uri: `https://id.who.int/icd/release/11/${RELEASE}/icf/1550548595` }],
 
@@ -415,6 +417,7 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
 
   ['cid10_search', 'bundled search', { query: 'diabetes' }],
   ['cid10_search', 'search without hits', { query: 'zzzznaoexiste' }],
+  ['cid10_search', 'bounded by a chapter (within, uri null)', { query: 'diabetes', within: ['4'] }],
   ['cid10_search', 'everyday word translated (vocabulary_notes present)', { query: 'câncer de mama' }],
   ['cid10_lookup', 'known code', { code: 'A00' }],
   ['cid10_lookup', 'well-formed code absent from the dataset', { code: 'U99' }],
