@@ -38,7 +38,7 @@ The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real co
 
 ## Features
 
-- 36 tools: 34 terminology tools plus `search`/`fetch` for ChatGPT Deep Research
+- 37 tools: 35 terminology tools plus `search`/`fetch` for ChatGPT Deep Research
 - 3 MCP **Prompts** that orchestrate tool calls into named workflows (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — clients render these as one-click user actions
 - 4 MCP **Resources** for in-process reference content (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — sub-millisecond reads (except `info://stats` which round-trips to the StatsCounter Durable Object on the hosted endpoint)
 - Multi-terminology support in a single server
@@ -110,7 +110,7 @@ Or install via Smithery, which proxies the same endpoint through their gateway:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-The hosted instance has WHO credentials configured, so all 36 tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
+The hosted instance has WHO credentials configured, so all 37 tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
 
 ## Installation
 
@@ -221,7 +221,7 @@ After your Worker is live, register the URL on Smithery:
 2. Pick the **URL** submission path (Smithery deprecated container hosting in 2024 — URL is the supported flow now).
 3. Paste `https://<your-worker>.workers.dev/mcp`. Smithery's gateway scans for compliance and proxies traffic.
 
-## Available Tools (36)
+## Available Tools (37)
 
 ### Official Portuguese (pt-BR) content
 
@@ -290,6 +290,7 @@ WHO International Classification of Functioning, Disability and Health: body fun
 | `find_equivalent` | Ranked unified search across ICD-11, LOINC, RxNorm, MeSH and ICF: server-computed `match_score`/`rank` per candidate plus cross-terminology `groups` of lexically identical titles | `term: "diabetes"` |
 | `harmonize_terms` | Batch-map up to 50 free-text terms to standard codes: diagnosis → ICD-11, drug → RxNorm (+ ATC classes), lab → LOINC. Per term: ranked candidates with `match_score` and `match_type` (`exact` / `strong` / `needs_review`), a FHIR `Coding` per candidate, one provenance block per source. The term-first companion of `validate_codes` | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
 | `match_value_set` | Pick the best code for each free-text term FROM A VALUE SET YOU SEND (up to 100 codes, any terminology): members confirmed at the source, ranked with `match_score`/`match_type`, each with its FHIR `coding` | `terms: ["walking"], value_set: [{code:"d450",terminology:"icf"}, …]` |
+| `compose_functioning` | Code ONE functional concept in its roles: ICF activity (with the ICD-11 chapter V entity the WHO ties to it, e.g. d450 → VW13), LOINC measure and ICD-11 condition. The ICF → ICD-11 link is read from the WHO; the rest are lexical suggestions to review | `term: "walking speed"` |
 
 ### ATC Tools (3)
 

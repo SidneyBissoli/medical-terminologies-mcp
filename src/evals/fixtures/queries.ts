@@ -276,6 +276,12 @@ export const FIXTURES: EvalFixture[] = [
     expectedTools: ['match_value_set'],
     note: 'A FIXED list of allowed codes + a term → match_value_set (24.4); harmonize_terms searches the whole terminology, validate_codes starts from codes.',
   },
+  {
+    id: 'xw-12',
+    query: 'For a rehab note on gait speed I need the ICF activity code, the LOINC observation for the measurement and any ICD-11 diagnosis — all for "walking speed".',
+    expectedTools: ['compose_functioning'],
+    note: 'One functional concept in its ROLES (activity, measure, condition) → compose_functioning (24.6); find_equivalent gives one unroled list, icf_search only the activity.',
+  },
   // ── icf — WHO ICF (functioning and disability; 24.3) ─────────────────────
   {
     id: 'icf-01',

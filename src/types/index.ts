@@ -985,6 +985,86 @@ export const MatchValueSetOutputSchema = z.object({
 export type MatchValueSetOutput = z.infer<typeof MatchValueSetOutputSchema>;
 
 // ============================================================================
+// compose_functioning (PROGRESS.md 24.6) — one functional concept, four roles
+// ============================================================================
+
+export const ComposeFunctioningParamsSchema = z.object({
+  term: z
+    .string()
+    .trim()
+    .min(1)
+    .describe('A functional concept in English (e.g. "walking speed", "climbing stairs", "using transportation").'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .optional()
+    .default(3)
+    .describe('Candidates returned per role (1-5, default 3).'),
+}).strict();
+
+const ComposeMatchSchema = {
+  match_score: z.number().min(0).max(1).describe('Lexical similarity between the term and the title or a source-published synonym (0-1), computed by this server.'),
+  match_type: z.enum(['exact', 'strong', 'needs_review']).describe('exact = same words; strong = every term word in the label and score >= 0.85; needs_review = anything else. A lexical candidate is a suggestion, never a confirmed equivalence.'),
+  matched_label: z.string().nullable().describe('The synonym published by the source that produced match_score, when it scored higher than the title; null when the title did.'),
+};
+
+const ComposeICD11CounterpartSchema = z.object({
+  code: z.string().nullable().describe('ICD-11 MMS code of the counterpart (chapter V, e.g. "VW13"); null if the entity has none.'),
+  title: z.string(),
+  uri: z.string().describe('ICD-11 MMS entity URI.'),
+  link: z
+    .enum(['same_entity', 'index_term'])
+    .describe('How the WHO ties them: same_entity = the ICF category and this ICD-11 entity are the same WHO entity; index_term = this ICD-11 entity lists the ICF category among its index terms. Both are read from the WHO, not guessed.'),
+  coding: FhirCodingSchema.nullable().describe('FHIR Coding of the ICD-11 counterpart.'),
+});
+
+const ComposeRoleSchema = <T extends z.ZodTypeAny>(item: T, what: string) =>
+  z.object({
+    error: z.string().nullable().describe(`Why this role could not be filled (the source failed); null when the search ran.`),
+    items: z.array(item).describe(`${what}, best first. Empty when nothing shares a word with the term.`),
+  });
+
+export const ComposeFunctioningOutputSchema = z.object({
+  term: z.string(),
+  functioning: ComposeRoleSchema(
+    z.object({
+      code: z.string().describe('ICF category code (e.g. "d450").'),
+      title: z.string(),
+      component: ICFComponentSchema,
+      uri: z.string().nullable().describe('ICF entity URI.'),
+      ...ComposeMatchSchema,
+      coding: FhirCodingSchema.nullable(),
+      icd11_counterpart: ComposeICD11CounterpartSchema.nullable().describe('The ICD-11 entity the WHO ties to this ICF category (supplementary chapter V, "Generic functioning domains"); null when the WHO ties none.'),
+    }),
+    'ICF categories (the function or activity)',
+  ),
+  measures: ComposeRoleSchema(
+    z.object({
+      code: z.string().describe('LOINC code.'),
+      title: z.string().describe('LOINC long common name.'),
+      ...ComposeMatchSchema,
+      coding: FhirCodingSchema.nullable(),
+    }),
+    'LOINC observations that measure it (retired codes dropped)',
+  ),
+  conditions: ComposeRoleSchema(
+    z.object({
+      code: z.string().describe('ICD-11 MMS code.'),
+      title: z.string(),
+      uri: z.string().nullable(),
+      ...ComposeMatchSchema,
+      coding: FhirCodingSchema.nullable(),
+    }),
+    'ICD-11 conditions (chapters 01-26; chapter V and extension codes are left to icd11_counterpart)',
+  ),
+  note: z.string().describe('How to read the roles: which links are WHO-given and which are lexical suggestions.'),
+});
+
+export type ComposeFunctioningOutput = z.infer<typeof ComposeFunctioningOutputSchema>;
+
+// ============================================================================
 // harmonize_terms (Phase 20.6) — free-text terms → ranked candidates
 //
 // The TERM-first companion of validate_codes (which is CODE-first). Shape

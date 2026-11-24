@@ -443,6 +443,26 @@ describeIntegration('Integration: live API contracts', () => {
       { endpoint: 'icf-release-autocode' },
     );
 
+    // PROGRESS.md 24.6 — the ICF → ICD-11 link compose_functioning relies on,
+    // measured in production on 2026-11-24 through the tools: d450 Walking IS
+    // ICD-11 VW13 (same entity 1550548595), and VW13 lists d4500 as an index
+    // term. If the WHO ever changes that, this says so before a user does.
+    aoVivo(
+      'ICF → ICD-11 chapter V: d450 is VW13 (same entity), d4500 reaches VW13 (index term)',
+      async () => {
+        const who = getWHOClient();
+        const d450 = await who.icd11CounterpartOfICF(await who.lookupICF('d450', 'en'));
+        const d4500 = await who.icd11CounterpartOfICF(await who.lookupICF('d4500', 'en'));
+        noticeICF(
+          'counterparts',
+          `d450 → ${d450?.entity.code ?? 'none'} (${d450?.link ?? '-'}); d4500 → ${d4500?.entity.code ?? 'none'} (${d4500?.link ?? '-'})`,
+        );
+        expect(d450).toMatchObject({ link: 'same_entity', entity: { code: 'VW13' } });
+        expect(d4500).toMatchObject({ link: 'index_term', entity: { code: 'VW13' } });
+      },
+      { endpoint: 'icf-icd11-counterpart' },
+    );
+
     // PROGRESS.md 14.3 — the annual ICD-11 release bump, as a MEASUREMENT
     // instead of a calendar reminder. WHO publishes a new MMS release about
     // once a year (Jan/Feb). The server pins one (WHO_ICD11_DEFAULT_RELEASE);

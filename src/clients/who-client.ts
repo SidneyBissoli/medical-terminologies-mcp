@@ -445,6 +445,59 @@ export class WHOClient {
   }
 
   /**
+   * The ICD-11 MMS entity that the WHO itself ties to an ICF category, or null
+   * (PROGRESS.md 24.6). Measured 2026-11-24: the supplementary chapter V
+   * ("Generic functioning domains") holds the SAME foundation entities as the
+   * ICF — d450 Walking and VW13 Walking are both entity 1550548595, d470 and
+   * VW16 both 267105207. Only the generic level is coded there; a finer ICF
+   * category (d4500 Walking short distances) is instead listed as an INDEX
+   * TERM of VW13, with its entity as `foundationReference`.
+   *
+   * So, in order: (1) the same entity id in the MMS → `same_entity`; (2) else
+   * the nearest ICF ancestor (up to 3 levels) that exists in the MMS, accepted
+   * ONLY if that entity lists this category among its index terms →
+   * `index_term`. Anything else is null: no lexical guess ever lands here.
+   */
+  async icd11CounterpartOfICF(
+    icfEntity: ICD11EntityResponse,
+    language: string = 'en',
+  ): Promise<{ entity: ICD11EntityResponse; link: 'same_entity' | 'index_term' } | null> {
+    const icfId = (uri: string): string | null => /\/icf\/(\d+(?:\/(?:other|unspecified))?)\/?$/.exec(uri)?.[1] ?? null;
+    const mmsUri = (id: string) =>
+      `http://id.who.int/icd/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/${id}`;
+    const inMms = async (id: string): Promise<ICD11EntityResponse | null> => {
+      try {
+        return await this.getEntity(mmsUri(id), language);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'NOT_FOUND') return null;
+        throw error;
+      }
+    };
+
+    const ownId = icfId(icfEntity['@id'] ?? '');
+    if (!ownId) return null;
+    const same = await inMms(ownId);
+    if (same) return { entity: same, link: 'same_entity' };
+
+    // Residual categories (…/other, …/unspecified) are never index terms.
+    if (ownId.includes('/')) return null;
+    const ownFoundation = `/entity/${ownId}`;
+    let current = icfEntity;
+    for (let level = 0; level < 3; level++) {
+      const parentUri = current.parent?.[0];
+      const parentId = parentUri ? icfId(parentUri) : null;
+      if (!parentUri || !parentId) return null;
+      const ancestor = await inMms(parentId);
+      if (ancestor) {
+        const listed = (ancestor.indexTerm ?? []).some((t) => (t.foundationReference ?? '').endsWith(ownFoundation));
+        return listed ? { entity: ancestor, link: 'index_term' } : null;
+      }
+      current = await this.lookupICF(parentUri, language);
+    }
+    return null;
+  }
+
+  /**
    * Resolves a block/range code (`1A00-1A0Z`) to its entity.
    *
    * The API has no resolver for blocks, but the block is an ancestor of every
