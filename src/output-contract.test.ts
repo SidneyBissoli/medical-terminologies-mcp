@@ -331,9 +331,11 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
       { code: '6809', terminology: 'rxnorm' },
       { code: 'D006973', terminology: 'mesh' },
       { code: 'A10BA', terminology: 'atc' },
+      { code: 'd450', terminology: 'icf' },
     ],
   }],
   ['find_equivalent', 'fan-out without source_terminology (echo null)', { term: 'glucose', target_terminologies: ['loinc', 'rxnorm'] }],
+  ['find_equivalent', 'ICF alone (uncoded block filtered out)', { term: 'walking', target_terminologies: ['icf'] }],
   ['find_equivalent', 'fan-out with source_terminology', { term: 'glucose', source_terminology: 'loinc', target_terminologies: ['rxnorm', 'mesh'] }],
   ['harmonize_terms', 'one term per domain (atc array on drug, null elsewhere; uri null off ICD-11)', {
     terms: [

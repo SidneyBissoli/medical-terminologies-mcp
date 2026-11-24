@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "2.6.0",
+  "version": "3.0.0",
   "description": "Unified MCP server for global medical terminologies - ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney da Silva Pereira Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -2562,7 +2562,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Ranked unified search for equivalent terms across multiple medical terminologies.\n\nUse this tool to:\n- Find the same concept in different coding systems\n- Compare how terminologies represent a concept\n- Support terminology mapping and data integration\n\nSearches across: ICD-11, LOINC, RxNorm, and MeSH. Set `target_terminologies` to limit which are searched, or set `source_terminology` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. `limit` caps candidates per terminology (default 5, max 10).\n\nEvery candidate carries `match_score` (lexical similarity to the search term, 0-1) and `rank` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in `groups` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).\n\nSearches upstreams in English. For official pt-BR content, use the dedicated tools: `icd11_search`/`mesh_search` accept `language: \"pt\"`, and `cid10_search` is natively Portuguese.",
+      "description": "Ranked unified search for equivalent terms across multiple medical terminologies.\n\nUse this tool to:\n- Find the same concept in different coding systems\n- Compare how terminologies represent a concept\n- Support terminology mapping and data integration\n\nSearches across: ICD-11, LOINC, RxNorm, MeSH and ICF (WHO functioning and disability; coded categories only). Set `target_terminologies` to limit which are searched, or set `source_terminology` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. `limit` caps candidates per terminology (default 5, max 10).\n\nEvery candidate carries `match_score` (lexical similarity to the search term, 0-1) and `rank` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in `groups` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).\n\nSearches upstreams in English. For official pt-BR content, use the dedicated tools: `icd11_search`/`mesh_search` accept `language: \"pt\"`, and `cid10_search` is natively Portuguese.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2578,18 +2578,20 @@
               "icd11",
               "loinc",
               "rxnorm",
-              "mesh"
+              "mesh",
+              "icf"
             ],
             "type": "string"
           },
           "target_terminologies": {
-            "description": "Limit the search to these terminologies. If omitted, all five are searched.",
+            "description": "Limit the search to these terminologies. If omitted, all five are searched (ICD-11, LOINC, RxNorm, MeSH, ICF).",
             "items": {
               "enum": [
                 "icd11",
                 "loinc",
                 "rxnorm",
-                "mesh"
+                "mesh",
+                "icf"
               ],
               "type": "string"
             },
@@ -2639,7 +2641,8 @@
                           "icd11",
                           "loinc",
                           "rxnorm",
-                          "mesh"
+                          "mesh",
+                          "icf"
                         ],
                         "type": "string"
                       },
@@ -2666,7 +2669,8 @@
                       "icd11",
                       "loinc",
                       "rxnorm",
-                      "mesh"
+                      "mesh",
+                      "icf"
                     ],
                     "type": "string"
                   },
@@ -2988,6 +2992,68 @@
                 ],
                 "type": "object"
               },
+              "icf": {
+                "additionalProperties": false,
+                "description": "ICF (WHO functioning and disability) candidates; present only when ICF was searched.",
+                "properties": {
+                  "error": {
+                    "description": "Failure message when the search in this terminology failed (timeout, server error); null when it answered.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "found": {
+                    "description": "True when this terminology returned at least one candidate.",
+                    "type": "boolean"
+                  },
+                  "items": {
+                    "description": "Candidates from this terminology, best first (by global rank), at most limit.",
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "match_score": {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "rank": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "uri": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "title",
+                        "uri",
+                        "match_score",
+                        "rank"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "found",
+                  "error",
+                  "items"
+                ],
+                "type": "object"
+              },
               "loinc": {
                 "additionalProperties": false,
                 "description": "LOINC candidates; present only when LOINC was searched.",
@@ -3184,7 +3250,8 @@
                 "icd11",
                 "loinc",
                 "rxnorm",
-                "mesh"
+                "mesh",
+                "icf"
               ],
               "type": "string"
             },
@@ -3197,7 +3264,8 @@
                   "icd11",
                   "loinc",
                   "rxnorm",
-                  "mesh"
+                  "mesh",
+                  "icf"
                 ],
                 "type": "string"
               },
@@ -11949,7 +12017,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.\n\nFor each input `{ code, terminology }`, returns:\n- **valid**: whether the code exists in the source terminology.\n- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; LOINC returns a real boolean).\n- **title**: the official label/name when available.\n- **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.\n- **coding**: the confirmed code as a FHIR Coding (system, code, display, version when the call knows the release), ready to store in a FHIR resource; null when the code was not confirmed. ICD-11 follows the HL7 terminology guide: the code is the entity id and the short code travels in the WHO classificationCode extension. Hand on a code only when `coding` is non-null.\n- **source**: human-readable provenance of the validation (terminology + release/version).\n- **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). `valid: false` + `error: null` means \"code not found\"; `valid: false` + `error: set` means \"couldn't validate\".\n\nTerminology is **required per code** — auto-detection isn't supported because category codes like \"A00\" exist in both ICD-10 and CID-10. Accepted values: `icd11`, `icd10`, `loinc`, `rxnorm`, `mesh`, `atc`, `cid10`.\n\nHard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).",
+      "description": "Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.\n\nFor each input `{ code, terminology }`, returns:\n- **valid**: whether the code exists in the source terminology.\n- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, ICF, RxNorm, MeSH all return null today; LOINC returns a real boolean).\n- **title**: the official label/name when available.\n- **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.\n- **coding**: the confirmed code as a FHIR Coding (system, code, display, version when the call knows the release), ready to store in a FHIR resource; null when the code was not confirmed. ICD-11 follows the HL7 terminology guide: the code is the entity id and the short code travels in the WHO classificationCode extension. Hand on a code only when `coding` is non-null.\n- **source**: human-readable provenance of the validation (terminology + release/version).\n- **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). `valid: false` + `error: null` means \"code not found\"; `valid: false` + `error: set` means \"couldn't validate\".\n\nTerminology is **required per code** — auto-detection isn't supported because category codes like \"A00\" exist in both ICD-10 and CID-10. Accepted values: `icd11`, `icd10`, `loinc`, `rxnorm`, `mesh`, `atc`, `cid10`, `icf` (WHO functioning and disability, e.g. \"d450\").\n\nHard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -11971,7 +12039,8 @@
                     "rxnorm",
                     "mesh",
                     "atc",
-                    "cid10"
+                    "cid10",
+                    "icf"
                   ],
                   "type": "string"
                 }
@@ -12334,7 +12403,8 @@
                     "rxnorm",
                     "mesh",
                     "atc",
-                    "cid10"
+                    "cid10",
+                    "icf"
                   ],
                   "type": "string"
                 },

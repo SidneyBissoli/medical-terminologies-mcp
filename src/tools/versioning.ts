@@ -30,7 +30,7 @@ import {
   TerminologyDiffOutputSchema,
   type TerminologyVersionsOutput,
   type TerminologyDiffOutput,
-  type ValidateCodesTerminology,
+  type VersioningTerminology,
 } from '../types/index.js';
 import {
   buildInputSchema,
@@ -62,7 +62,7 @@ const DIFF_SUMMARY_DERIVATION_NOTE =
 // ============================================================================
 
 export interface TerminologyMeta {
-  code: ValidateCodesTerminology;
+  code: VersioningTerminology;
   name: string;
   full_name: string;
   publisher: string;

@@ -10,7 +10,9 @@ const SupportedLanguageSchema = z
     "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
   );
 
-const TerminologyEnum = z.enum(['icd11', 'loinc', 'rxnorm', 'mesh']);
+// find_equivalent's search scope. `icf` entered in 2.7.0 (PROGRESS.md 24.3b),
+// LAST so the tie-break order of the four older terminologies is unchanged.
+const TerminologyEnum = z.enum(['icd11', 'loinc', 'rxnorm', 'mesh', 'icf']);
 
 /**
  * A numeric identifier that clients send either as the string the source
@@ -624,7 +626,7 @@ export const FindEquivalentParamsSchema = z.object({
   target_terminologies: z
     .array(TerminologyEnum)
     .optional()
-    .describe('Limit the search to these terminologies. If omitted, all five are searched.'),
+    .describe('Limit the search to these terminologies. If omitted, all five are searched (ICD-11, LOINC, RxNorm, MeSH, ICF).'),
   limit: z
     .number()
     .int()
@@ -659,7 +661,7 @@ const FindEquivalentItemSchema = z.object({
   // provenance block (next session) will mark these derived: true.
   match_score: z.number().min(0).max(1),
   // Global rank across ALL searched terminologies (1 = best match overall).
-  // Ties break by terminology order (icd11, loinc, rxnorm, mesh),
+  // Ties break by terminology order (icd11, loinc, rxnorm, mesh, icf),
   // then by upstream result order — deterministic for identical responses.
   rank: z.number().int().min(1),
 });
@@ -712,6 +714,7 @@ export const FindEquivalentOutputSchema = z.object({
     loinc: FindEquivalentTerminologyResultSchema.optional().describe('LOINC candidates; present only when LOINC was searched.'),
     rxnorm: FindEquivalentTerminologyResultSchema.optional().describe('RxNorm candidates; present only when RxNorm was searched.'),
     mesh: FindEquivalentTerminologyResultSchema.optional().describe('MeSH candidates; present only when MeSH was searched.'),
+    icf: FindEquivalentTerminologyResultSchema.optional().describe('ICF (WHO functioning and disability) candidates; present only when ICF was searched.'),
   }).describe('Per-terminology results, keyed by terminology. A key is absent when that terminology was not searched; found=false with empty items and error null means searched, no hits.'),
   // Groups of lexically identical candidates across terminologies, sorted
   // by best member match_score. Empty when nothing groups.
@@ -798,6 +801,7 @@ export const ValidateCodesTerminologyEnum = z.enum([
   'mesh',
   'atc',
   'cid10',
+  'icf',
 ]);
 
 export type ValidateCodesTerminology = z.infer<typeof ValidateCodesTerminologyEnum>;
@@ -1002,14 +1006,21 @@ export type HarmonizeDomain = z.infer<typeof HarmonizeDomainEnum>;
 // terminology_versions + terminology_diff params + outputs
 // ============================================================================
 
+// The versioning tools describe the seven terminologies they have a version
+// record for. They used to reuse ValidateCodesTerminologyEnum; when `icf`
+// entered validate_codes (2.7.0, PROGRESS.md 24.3b) they would have accepted a
+// value they cannot answer for, so their scope is frozen here on purpose.
+const VersioningTerminologyEnum = z.enum(['icd11', 'icd10', 'loinc', 'rxnorm', 'mesh', 'atc', 'cid10']);
+export type VersioningTerminology = z.infer<typeof VersioningTerminologyEnum>;
+
 export const TerminologyVersionsParamsSchema = z.object({
-  terminology: ValidateCodesTerminologyEnum
+  terminology: VersioningTerminologyEnum
     .optional()
     .describe('Filter to a single terminology. Omit to return all 7.'),
 }).strict();
 
 const TerminologyVersionEntrySchema = z.object({
-  code: ValidateCodesTerminologyEnum,
+  code: VersioningTerminologyEnum,
   name: z.string(),
   full_name: z.string(),
   publisher: z.string(),
@@ -1033,7 +1044,7 @@ export const TerminologyVersionsOutputSchema = z.object({
 export type TerminologyVersionsOutput = z.infer<typeof TerminologyVersionsOutputSchema>;
 
 export const TerminologyDiffParamsSchema = z.object({
-  terminology: ValidateCodesTerminologyEnum
+  terminology: VersioningTerminologyEnum
     .describe('Which terminology to report on.'),
   from_version: z
     .string()
@@ -1053,7 +1064,7 @@ const CrossRevisionSummarySchema = z.object({
 });
 
 export const TerminologyDiffOutputSchema = z.object({
-  terminology: ValidateCodesTerminologyEnum.describe('The terminology reported on, as submitted.'),
+  terminology: VersioningTerminologyEnum.describe('The terminology reported on, as submitted.'),
   from_version: z
     .string()
     .nullable()

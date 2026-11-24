@@ -26,12 +26,12 @@
     "url": "https://github.com/SidneyBissoli/medical-terminologies-mcp",
     "source": "github"
   },
-  "version": "2.6.0",
+  "version": "3.0.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "2.6.0",
+      "version": "3.0.0",
       "transport": {
         "type": "stdio"
       },
@@ -65,7 +65,7 @@
     {
       "registryType": "npm",
       "identifier": "medical-terminologies-mcp",
-      "version": "2.6.0",
+      "version": "3.0.0",
       "transport": {
         "type": "streamable-http",
         "url": "http://localhost:3000/mcp"
@@ -129,8 +129,8 @@
         "spec": "https://github.com/SidneyBissoli/mcp-br-commons/blob/main/packages/mcp-surface/SPEC.md",
         "endpoint": "https://medical.sidneybissoli.com/mcp",
         "declared": {
-          "sha256": "d40c89261710eb069000b1e92c277e72395caef0554ab1b7c3cdc91956d3f466",
-          "lockedAt": "2.6.0"
+          "sha256": "faf936e531dba67bc77e8fc5090e41b1fecee5a0daa83fdffb259942508edbe3",
+          "lockedAt": "3.0.0"
         },
         "anonymous": {
           "sha256": "ade1bd429bdfc63453a924614520010bb782ffd8d24fdd6483aa17d5b36b61a4",
