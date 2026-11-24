@@ -11,7 +11,7 @@
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
-import { getCID10Client } from '../clients/cid10-client.js';
+import { getCID10Client, type CID10Branch } from '../clients/cid10-client.js';
 import {
   CID10SearchParamsSchema,
   CID10LookupParamsSchema,
@@ -30,6 +30,7 @@ import {
   buildOutputSchema,
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
+  naoEncontrado,
 } from '../utils/zod-schema.js';
 import { medicalProvenance, provenancedResult, withProvenance } from '../provenance.js';
 import { z } from 'zod';
@@ -51,7 +52,9 @@ Use this tool to:
 - Look up the official Portuguese (CBCD/USP) translation of a clinical term
 - Locate codes for billing, epidemiology, and clinical documentation in Brazil
 
-Returns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing "infeccoes" matches "infecções". Every word must match (AND), and everyday Portuguese is resolved to the CID-10's own wording (câncer→neoplasia maligna, AVC→acidente vascular cerebral, pressão alta→hipertensão, suicídio→lesão autoprovocada, aids→HIV); when that happens the response says so in vocabulary_notes. This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.`,
+Returns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing "infeccoes" matches "infecções". Every word must match (AND), and everyday Portuguese is resolved to the CID-10's own wording (câncer→neoplasia maligna, AVC→acidente vascular cerebral, pressão alta→hipertensão, suicídio→lesão autoprovocada, aids→HIV); when that happens the response says so in vocabulary_notes. This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.
+
+Set \`within\` to search only some branches (a form field that accepts one chapter or group): a chapter number ("5"), a range of categories ("F30-F39") or a code ("F32") — up to 10. The resolved branches come back in \`within\`; a branch that does not exist is an error, never a silent unbounded search.`,
   inputSchema: buildInputSchema(CID10SearchParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(CID10SearchOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -133,15 +136,29 @@ async function handleCID10Search(args: Record<string, unknown>): Promise<CallToo
   try {
     const params = CID10SearchParamsSchema.parse(args);
     const client = getCID10Client();
+    // PROGRESS.md 24.4b: resolve every branch first; one that names nothing
+    // stops the call — never an unbounded search.
+    const branches: CID10Branch[] = [];
+    for (const value of params.within ?? []) {
+      const b = client.resolveBranch(value);
+      if (!b) {
+        return naoEncontrado(
+          `Ramo "${value}" não encontrado na CID-10. \`within\` aceita número de capítulo ("5"), intervalo de categorias que existem ("F30-F39") ou código ("F32", "F32.1"). Nada foi buscado.`,
+        );
+      }
+      branches.push(b);
+    }
     const { totalCount, hits, notes } = client.search(
       params.query,
       params.level,
       params.max_results,
+      branches,
     );
 
     const structured: CID10SearchOutput = {
       query: params.query,
       level: params.level,
+      within: branches.map((b) => ({ value: b.value, code: b.code, title: b.title, uri: null })),
       total_count: totalCount,
       shown_count: hits.length,
       hits,

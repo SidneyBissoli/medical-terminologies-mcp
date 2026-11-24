@@ -463,6 +463,35 @@ describeIntegration('Integration: live API contracts', () => {
       { endpoint: 'icf-icd11-counterpart' },
     );
 
+    // PROGRESS.md 24.4b — `within` hands the WHO its own subtreesFilter
+    // (swagger v2). Read in the swagger, not yet measured: this proves the
+    // search really stays inside the branch, for MMS and for ICF.
+    aoVivo(
+      'subtreesFilter bounds the search: "depression" in chapter 06; "walking" in d450',
+      async () => {
+        const who = getWHOClient();
+        const ch06 = `http://id.who.int/icd/release/11/${WHO_ICD11_DEFAULT_RELEASE}/mms/334423054`;
+        const free = await who.search('depression', 'en', 50);
+        const bounded = await who.search('depression', 'en', 50, [ch06]);
+        const codes = bounded.destinationEntities.map((e) => e.theCode ?? '-');
+        noticeICF(
+          'subtrees mms',
+          `free ${free.destinationEntities.length}: ${topCodes(free, 8)} || within 06 ${codes.length}: ${codes.slice(0, 12).join(' ')}`,
+        );
+        expect(bounded.error, bounded.errorMessage).toBe(false);
+        expect(codes.length).toBeGreaterThan(0);
+        expect(codes.filter((c) => c !== '-').every((c) => c.startsWith('6'))).toBe(true);
+
+        const d450 = await who.lookupICF('d450', 'en');
+        const icf = await who.searchICF('walking', 'en', 50, [d450['@id']]);
+        const icfCodes = icf.destinationEntities.map((e) => e.theCode ?? '-');
+        noticeICF('subtrees icf', `within d450 ${icfCodes.length}: ${icfCodes.join(' ')}`);
+        expect(icfCodes.length).toBeGreaterThan(0);
+        expect(icfCodes.filter((c) => c !== '-').every((c) => c.startsWith('d450'))).toBe(true);
+      },
+      { endpoint: 'who-subtrees-filter' },
+    );
+
     // PROGRESS.md 14.3 — the annual ICD-11 release bump, as a MEASUREMENT
     // instead of a calendar reminder. WHO publishes a new MMS release about
     // once a year (Jan/Feb). The server pins one (WHO_ICD11_DEFAULT_RELEASE);

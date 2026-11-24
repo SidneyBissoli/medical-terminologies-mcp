@@ -238,7 +238,7 @@ Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma d
 
 | Ferramenta | Descrição | Exemplo |
 |------------|-----------|---------|
-| `icd11_search` | Busca na ICD-11 por termo | `query: "diabetes mellitus"` |
+| `icd11_search` | Busca na ICD-11 por termo; `within` limita a capítulos, blocos ou códigos (filtro de subárvore da OMS) | `query: "depression", within: ["06"]` |
 | `icd11_lookup` | Detalhes da entidade por código/URI | `code: "5A11"` |
 | `icd11_hierarchy` | Navega as relações pai/filho | `code: "5A11"` |
 | `icd11_chapters` | Lista todos os capítulos da ICD-11 | - |
@@ -250,7 +250,7 @@ Classificação Internacional de Funcionalidade, Incapacidade e Saúde da OMS: f
 
 | Ferramenta | Descrição | Exemplo |
 |------|-------------|---------|
-| `icf_search` | Busca na CIF por termo (funcionalidade, atividade, fator ambiental) | `query: "walking"` |
+| `icf_search` | Busca na CIF por termo (funcionalidade, atividade, fator ambiental); `within` limita a categorias | `query: "walking", within: ["d450"]` |
 | `icf_lookup` | Detalhes de uma categoria por código/URI da CIF: definição, inclusões, exclusões, componente | `code: "d450"` |
 
 ### Ferramentas LOINC (4)
@@ -308,7 +308,7 @@ Tradução brasileira da ICD-10 (DataSUS V2008). Vem embutida como conjunto est�
 
 | Ferramenta | Descrição | Exemplo |
 |------------|-----------|---------|
-| `cid10_search` | Busca textual em português (ignora acentos, AND entre palavras; a palavra de todo dia é traduzida para a da CID-10, e a resposta diz que traduziu) | `query: "câncer de mama"` |
+| `cid10_search` | Busca textual em português (ignora acentos, AND entre palavras; a palavra de todo dia é traduzida para a da CID-10, e a resposta diz que traduziu); `within` limita a capítulos, intervalos ou códigos | `query: "infecção", within: ["N30-N39"]` |
 | `cid10_lookup` | Código → nome oficial em português | `code: "I21"` ou `"A00.1"` |
 | `cid10_chapters` | Lista os 22 capítulos da CID-10 | - |
 | `cid10_chapter` | Detalhe do capítulo com os grupos que o compõem | `num: 9` |

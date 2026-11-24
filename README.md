@@ -238,7 +238,7 @@ If a source has no official translation for an entry, you get the source languag
 
 | Tool | Description | Example |
 |------|-------------|---------|
-| `icd11_search` | Search ICD-11 by term | `query: "diabetes mellitus"` |
+| `icd11_search` | Search ICD-11 by term; `within` bounds it to chapters, blocks or codes (WHO subtree filter) | `query: "depression", within: ["06"]` |
 | `icd11_lookup` | Get entity details by code/URI | `code: "5A11"` |
 | `icd11_hierarchy` | Navigate parent/child relationships | `code: "5A11"` |
 | `icd11_chapters` | List all ICD-11 chapters | - |
@@ -250,7 +250,7 @@ WHO International Classification of Functioning, Disability and Health: body fun
 
 | Tool | Description | Example |
 |------|-------------|---------|
-| `icf_search` | Search ICF by term (functioning, activity, environmental factor) | `query: "walking"` |
+| `icf_search` | Search ICF by term (functioning, activity, environmental factor); `within` bounds it to categories | `query: "walking", within: ["d450"]` |
 | `icf_lookup` | Get category details by ICF code/URI: definition, inclusions, exclusions, component | `code: "d450"` |
 
 ### LOINC Tools (4)
@@ -308,7 +308,7 @@ Brazilian Portuguese translation of ICD-10 (DataSUS V2008). Bundled as a static 
 
 | Tool | Description | Example |
 |------|-------------|---------|
-| `cid10_search` | Portuguese text search (diacritic-insensitive, AND between words; everyday words resolved to CID-10 wording, and the response says so) | `query: "câncer de mama"` |
+| `cid10_search` | Portuguese text search (diacritic-insensitive, AND between words; everyday words resolved to CID-10 wording, and the response says so); `within` bounds it to chapters, ranges or codes | `query: "infecção", within: ["N30-N39"]` |
 | `cid10_lookup` | Code → official Portuguese name | `code: "I21"` or `"A00.1"` |
 | `cid10_chapters` | List the 22 CID-10 chapters | - |
 | `cid10_chapter` | Chapter detail with constituent groups | `num: 9` |

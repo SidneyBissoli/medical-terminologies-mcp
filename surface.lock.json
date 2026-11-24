@@ -1,8 +1,8 @@
 {
   "$comentario": "Impressão digital da superfície (@sbissoli/mcp-surface). Não editar à mão: `npm run surface:lock` regrava, e só aceita superfície nova sob versão nova.",
   "declarada": {
-    "versao": "3.3.0",
-    "sha256": "91bfbde017ae9b2b3aec0a77d5b64d52514652d2a0f9f5ddc92a9aa3447f0f94",
+    "versao": "3.4.0",
+    "sha256": "f4e3154eca5b446baea69094a1a848c92cb5a2a3c5a9a46067046ded9b17d4fc",
     "conteudo": {
       "initialize": {
         "capabilities": {
@@ -1985,7 +1985,7 @@
             "openWorldHint": true,
             "readOnlyHint": true
           },
-          "description": "Search the Brazilian CID-10 (Classificação Estatística Internacional de Doenças, 10ª Revisão) by Portuguese text.\n\nUse this tool to:\n- Find CID-10 codes for Brazilian SUS / ANVISA contexts (\"infarto\", \"diabetes\", \"tuberculose\")\n- Look up the official Portuguese (CBCD/USP) translation of a clinical term\n- Locate codes for billing, epidemiology, and clinical documentation in Brazil\n\nReturns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing \"infeccoes\" matches \"infecções\". Every word must match (AND), and everyday Portuguese is resolved to the CID-10's own wording (câncer→neoplasia maligna, AVC→acidente vascular cerebral, pressão alta→hipertensão, suicídio→lesão autoprovocada, aids→HIV); when that happens the response says so in vocabulary_notes. This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.",
+          "description": "Search the Brazilian CID-10 (Classificação Estatística Internacional de Doenças, 10ª Revisão) by Portuguese text.\n\nUse this tool to:\n- Find CID-10 codes for Brazilian SUS / ANVISA contexts (\"infarto\", \"diabetes\", \"tuberculose\")\n- Look up the official Portuguese (CBCD/USP) translation of a clinical term\n- Locate codes for billing, epidemiology, and clinical documentation in Brazil\n\nReturns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing \"infeccoes\" matches \"infecções\". Every word must match (AND), and everyday Portuguese is resolved to the CID-10's own wording (câncer→neoplasia maligna, AVC→acidente vascular cerebral, pressão alta→hipertensão, suicídio→lesão autoprovocada, aids→HIV); when that happens the response says so in vocabulary_notes. This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.\n\nSet `within` to search only some branches (a form field that accepts one chapter or group): a chapter number (\"5\"), a range of categories (\"F30-F39\") or a code (\"F32\") — up to 10. The resolved branches come back in `within`; a branch that does not exist is an error, never a silent unbounded search.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -2010,6 +2010,16 @@
                 "description": "Search terms in Portuguese, AND between words (e.g., \"diabetes\", \"infarto\", \"câncer de mama\"); accents ignored, everyday words resolved to CID-10 wording",
                 "minLength": 2,
                 "type": "string"
+              },
+              "within": {
+                "description": "Only search these branches of CID-10 (up to 10): a chapter number (\"5\" = F00-F99), a range of categories (\"F30-F39\"; both ends must exist) or a category / subcategory code (\"F32\", \"F32.1\" — a category keeps its subcategories). A branch that does not exist is an error, never a silent unbounded search.",
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array"
               }
             },
             "required": [
@@ -2351,11 +2361,49 @@
                   "type": "string"
                 },
                 "type": "array"
+              },
+              "within": {
+                "description": "The branches that bounded the search, resolved in the bundled dataset (uri is always null); empty when the search was unbounded.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "description": "Code of the branch entity (chapter number, block range or category code); null when it has none.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "uri": {
+                      "description": "Entity URI of the branch; null for CID-10 (bundled, no URIs).",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "value": {
+                      "description": "The branch as sent in `within`.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "value",
+                    "code",
+                    "title",
+                    "uri"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
               }
             },
             "required": [
               "query",
               "level",
+              "within",
               "total_count",
               "shown_count",
               "hits",
@@ -6189,7 +6237,7 @@
             "openWorldHint": true,
             "readOnlyHint": true
           },
-          "description": "Search for medical conditions, diseases, and health problems in ICD-11 (International Classification of Diseases, 11th Revision).\n\nUse this tool to:\n- Find ICD-11 codes for diagnoses\n- Search for diseases by name or keyword\n- Look up conditions in multiple languages\n\nSet `language` for WHO's official translations — e.g. `language: \"pt\"` searches and returns the official Portuguese (pt-BR) ICD-11 labels. Never machine-translated.\n\nReturns matching entities with codes, titles, and relevance scores.",
+          "description": "Search for medical conditions, diseases, and health problems in ICD-11 (International Classification of Diseases, 11th Revision).\n\nUse this tool to:\n- Find ICD-11 codes for diagnoses\n- Search for diseases by name or keyword\n- Look up conditions in multiple languages\n\nSet `language` for WHO's official translations — e.g. `language: \"pt\"` searches and returns the official Portuguese (pt-BR) ICD-11 labels. Never machine-translated.\n\nSet `within` to search only some branches of ICD-11 (a form field that accepts only one chapter or block): a chapter number (\"06\", \"V\"), a block range (\"5A10-5A14\"), a category code or an entity URI — up to 10. The WHO's own subtree filter does the bounding; the resolved branches come back in `within`. A branch that does not exist is an error, never a silent unbounded search.\n\nReturns matching entities with codes, titles, and relevance scores.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -6221,6 +6269,16 @@
                 "description": "Search text (disease name, symptom, or keyword)",
                 "minLength": 1,
                 "type": "string"
+              },
+              "within": {
+                "description": "Only search these branches of ICD-11 and their descendants (up to 10): a chapter number (\"06\", \"V\"), a block range (\"5A10-5A14\"), a category code (\"5A11\") or an entity URI. Uses the WHO search subtree filter. A branch that does not exist is an error, never a silent unbounded search.",
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array"
               }
             },
             "required": [
@@ -6526,10 +6584,48 @@
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
+              },
+              "within": {
+                "description": "The branches that bounded the search, resolved at the WHO; empty when the search was unbounded.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "description": "Code of the branch entity (chapter number, block range or category code); null when it has none.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "uri": {
+                      "description": "Entity URI of the branch; null for CID-10 (bundled, no URIs).",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "value": {
+                      "description": "The branch as sent in `within`.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "value",
+                    "code",
+                    "title",
+                    "uri"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
               }
             },
             "required": [
               "query",
+              "within",
               "total_count",
               "entities",
               "provenance",
@@ -6935,7 +7031,7 @@
             "openWorldHint": true,
             "readOnlyHint": true
           },
-          "description": "Search the WHO ICF (International Classification of Functioning, Disability and Health) for functioning and disability concepts: body functions (b), body structures (s), activities and participation (d), environmental factors (e).\n\nUse this tool to:\n- Find the ICF code for a function or activity (\"walking\" → d450 Walking)\n- Code rehabilitation, home-care or disability findings, which ICD-11 (diagnoses) does not cover\n- Search in WHO's official translations — e.g. `language: \"pt\"` (\"andar\" → d450 Andar). Never machine-translated.\n\nReturns matching categories with code, title, ICF component, relevance score and URI, in WHO relevance order. ICF has no category for every measurement: \"walking speed\" returns d450 Walking (the activity), not a speed category, because ICF classifies functioning, not test results — use loinc_search for the measured observation.\n\nWhen NOT to use: for diseases and diagnoses use icd11_search; for lab tests and clinical measurements use loinc_search.",
+          "description": "Search the WHO ICF (International Classification of Functioning, Disability and Health) for functioning and disability concepts: body functions (b), body structures (s), activities and participation (d), environmental factors (e).\n\nUse this tool to:\n- Find the ICF code for a function or activity (\"walking\" → d450 Walking)\n- Code rehabilitation, home-care or disability findings, which ICD-11 (diagnoses) does not cover\n- Search in WHO's official translations — e.g. `language: \"pt\"` (\"andar\" → d450 Andar). Never machine-translated.\n- Search only some branches with `within` (category codes such as \"d450\", or ICF URIs; up to 10). The WHO search subtree filter does the bounding; a branch that does not exist is an error, never a silent unbounded search.\n\nReturns matching categories with code, title, ICF component, relevance score and URI, in WHO relevance order. ICF has no category for every measurement: \"walking speed\" returns d450 Walking (the activity), not a speed category, because ICF classifies functioning, not test results — use loinc_search for the measured observation.\n\nWhen NOT to use: for diseases and diagnoses use icd11_search; for lab tests and clinical measurements use loinc_search.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -6967,6 +7063,16 @@
                 "description": "Search text (a function, activity, body structure or environmental factor, e.g. \"walking\")",
                 "minLength": 1,
                 "type": "string"
+              },
+              "within": {
+                "description": "Only search these branches of ICF and their descendants (up to 10): a category code (\"d450\", \"b280\") or an ICF entity URI. Uses the WHO search subtree filter. A branch that does not exist is an error, never a silent unbounded search.",
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 10,
+                "minItems": 1,
+                "type": "array"
               }
             },
             "required": [
@@ -7268,10 +7374,48 @@
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
+              },
+              "within": {
+                "description": "The branches that bounded the search, resolved at the WHO; empty when the search was unbounded.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "description": "Code of the branch entity (chapter number, block range or category code); null when it has none.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "uri": {
+                      "description": "Entity URI of the branch; null for CID-10 (bundled, no URIs).",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "value": {
+                      "description": "The branch as sent in `within`.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "value",
+                    "code",
+                    "title",
+                    "uri"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
               }
             },
             "required": [
               "query",
+              "within",
               "total_count",
               "entities",
               "provenance",

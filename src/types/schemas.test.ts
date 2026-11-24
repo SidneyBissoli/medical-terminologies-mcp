@@ -226,6 +226,7 @@ describe('ICD-11 output schemas — fixtures parse cleanly', () => {
   it('search output: typical hit', () => {
     const sample = {
       query: 'diabetes',
+      within: [],
       total_count: 25,
       entities: [
         {
@@ -252,6 +253,7 @@ describe('ICD-11 output schemas — fixtures parse cleanly', () => {
     expect(
       ICD11SearchOutputSchema.safeParse({
         query: 'zzz',
+        within: [],
         total_count: 0,
         entities: [],
       }).success,
@@ -261,6 +263,8 @@ describe('ICD-11 output schemas — fixtures parse cleanly', () => {
   it('search output: rejects entity without is_leaf', () => {
     const sample = {
       query: 'x',
+      // Present, so the ONLY defect is the missing is_leaf.
+      within: [],
       total_count: 1,
       entities: [
         {
@@ -1107,6 +1111,7 @@ describe('CID-10 schemas', () => {
       CID10SearchOutputSchema.safeParse({
         query: 'diabetes',
         level: 'all',
+        within: [],
         total_count: 1,
         shown_count: 1,
         hits: [
@@ -1134,6 +1139,7 @@ describe('CID-10 schemas', () => {
       CID10SearchOutputSchema.safeParse({
         query: 'x',
         level: 'all',
+        within: [],
         total_count: 0,
         shown_count: 0,
         hits: [],
@@ -1144,6 +1150,7 @@ describe('CID-10 schemas', () => {
       CID10SearchOutputSchema.safeParse({
         query: 'x',
         level: 'all',
+        within: [],
         total_count: 1,
         shown_count: 1,
         hits: [
@@ -1298,6 +1305,7 @@ describe('ICF schemas (Phase 24.3)', () => {
     expect(
       ICFSearchOutputSchema.safeParse({
         query: 'walking',
+        within: [],
         total_count: 2,
         entities: [
           { code: 'd450', title: 'Walking', component: 'activities_participation', score: 0.9, uri: 'u1', is_leaf: false },

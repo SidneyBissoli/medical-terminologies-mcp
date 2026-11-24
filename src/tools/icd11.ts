@@ -61,6 +61,8 @@ Use this tool to:
 
 Set \`language\` for WHO's official translations — e.g. \`language: "pt"\` searches and returns the official Portuguese (pt-BR) ICD-11 labels. Never machine-translated.
 
+Set \`within\` to search only some branches of ICD-11 (a form field that accepts only one chapter or block): a chapter number ("06", "V"), a block range ("5A10-5A14"), a category code or an entity URI — up to 10. The WHO's own subtree filter does the bounding; the resolved branches come back in \`within\`. A branch that does not exist is an error, never a silent unbounded search.
+
 Returns matching entities with codes, titles, and relevance scores.`,
   inputSchema: buildInputSchema(ICD11SearchParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(ICD11SearchOutputSchema)),
@@ -243,11 +245,77 @@ function formatHierarchyList(entities: ICD11EntityResponse[], direction: string)
 // Tool Handlers
 // ============================================================================
 
+type WithinBranch = ICD11SearchOutput['within'][number];
+
+/**
+ * ICD-11 chapter numbers as the WHO codes the chapter entities (read
+ * 2026-11-24): "01"-"26", "V", "X". "6" is accepted for "06".
+ */
+const CHAPTER_NUMBER = /^(0?[1-9]|1\d|2[0-6]|V|X)$/i;
+
+/**
+ * Resolves each `within` value to the ICD-11 entity whose subtree bounds the
+ * search (PROGRESS.md 24.4b). Codes, block ranges and URIs go through
+ * `lookup`, which already resolves all three; a chapter number has no WHO
+ * resolver, so it is matched against the chapter list (cached). A value that
+ * resolves to nothing is returned as `missing`, so the caller gets an error
+ * naming it — never a silently unbounded search.
+ */
+async function resolveICD11Branches(
+  values: string[],
+  language: string,
+): Promise<{ branches: WithinBranch[] } | { missing: string }> {
+  const client = getWHOClient();
+  const branches: WithinBranch[] = [];
+  for (const value of values) {
+    let entity: ICD11EntityResponse | undefined;
+    if (CHAPTER_NUMBER.test(value)) {
+      const wanted = /^\d$/.test(value) ? `0${value}` : value.toUpperCase();
+      const chapters = await client.getChapters(language);
+      const all = await Promise.all((chapters.child ?? []).map((uri) => client.getEntity(uri, language)));
+      entity = all.find((c) => (c.code ?? '').toUpperCase() === wanted);
+    } else {
+      try {
+        entity = await client.lookup(value, language);
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.code !== 'NOT_FOUND') throw error;
+      }
+    }
+    if (!entity) return { missing: value };
+    branches.push({
+      value,
+      code: entity.code || entity.codeRange || null,
+      title: entity.title?.['@value'] ?? 'Unknown',
+      uri: entity['@id'],
+    });
+  }
+  return { branches };
+}
+
+/** "within 06 Mental…; 5A10-5A14 …" for headers; empty when unbounded. */
+const withinLabel = (within: WithinBranch[]): string =>
+  within.length > 0 ? ` within ${within.map((b) => `${b.code ?? b.value} ${b.title}`).join('; ')}` : '';
+
 async function handleICD11Search(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
     const params = ICD11SearchParamsSchema.parse(args);
     const client = getWHOClient();
-    const results = await client.search(params.query, params.language, params.max_results);
+    let within: WithinBranch[] = [];
+    if (params.within) {
+      const r = await resolveICD11Branches(params.within, params.language);
+      if ('missing' in r) {
+        return naoEncontrado(
+          `Branch "${r.missing}" not found in ICD-11. \`within\` takes a chapter number ("06", "V"), a block range ("5A10-5A14"), a category code ("5A11") or an entity URI from a previous answer. Nothing was searched.`,
+        );
+      }
+      within = r.branches;
+    }
+    const results = await client.search(
+      params.query,
+      params.language,
+      params.max_results,
+      within.map((b) => b.uri as string),
+    );
 
     if (results.error) {
       // The WHO answered 200 but flagged its own search as failed; the query
@@ -260,6 +328,7 @@ async function handleICD11Search(args: Record<string, unknown>): Promise<CallToo
 
     const structured: ICD11SearchOutput = {
       query: params.query,
+      within,
       total_count: destEntities.length,
       entities: top.map((e) => ({
         code: e.theCode ?? null,
@@ -278,7 +347,7 @@ async function handleICD11Search(args: Record<string, unknown>): Promise<CallToo
 
     if (top.length === 0) {
       return provenancedResult({
-        text: `No results found for "${params.query}" in ICD-11.`,
+        text: `No results found for "${params.query}" in ICD-11${withinLabel(within)}.`,
         structured,
         provenance: icd11Provenance(),
       });
@@ -288,7 +357,7 @@ async function handleICD11Search(args: Record<string, unknown>): Promise<CallToo
       .map((entity, index) => formatSearchResult(entity, index))
       .join('\n\n');
 
-    const header = `## ICD-11 Search Results for "${params.query}"\n\nFound ${destEntities.length} results (showing top ${top.length}):\n\n`;
+    const header = `## ICD-11 Search Results for "${params.query}"${withinLabel(within)}\n\nFound ${destEntities.length} results (showing top ${top.length}):\n\n`;
 
     return provenancedResult({
       text: header + formatted,

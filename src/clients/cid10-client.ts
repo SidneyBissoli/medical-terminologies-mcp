@@ -207,6 +207,25 @@ function subcategoryToHit(s: CID10Subcategory): CID10SearchHit {
 }
 
 /**
+ * A branch of CID-10 that bounds a search: categories from `start` to `end`
+ * (3-char codes, inclusive) — or one code, when start = end, which keeps that
+ * code and, for a category, its subcategories.
+ */
+export interface CID10Branch {
+  value: string;
+  code: string;
+  title: string;
+  start: string;
+  end: string;
+}
+
+function inBranch(code: string, b: CID10Branch): boolean {
+  if (b.start === b.end) return code.startsWith(b.start);
+  const cat3 = code.slice(0, 3);
+  return cat3 >= b.start && cat3 <= b.end;
+}
+
+/**
  * CID-10 client. All methods are synchronous and operate on the bundled
  * dataset. Exposed via getCID10Client() singleton for symmetry with the
  * other clients, even though there's no shared state to manage.
@@ -235,6 +254,7 @@ export class CID10Client {
     query: string,
     level: 'categories' | 'subcategories' | 'all',
     maxResults: number,
+    branches: CID10Branch[] = [],
   ): { totalCount: number; hits: CID10SearchHit[]; notes: string[] } {
     const expanded = expandQuery(query);
     if (expanded.length === 0) {
@@ -257,7 +277,38 @@ export class CID10Client {
       }
     }
 
-    return { totalCount: all.length, hits: all.slice(0, maxResults), notes: vocabularyNotes(expanded) };
+    // PROGRESS.md 24.4b: keep only hits inside one of the branches.
+    const kept = branches.length > 0 ? all.filter((h) => branches.some((b) => inBranch(h.code, b))) : all;
+    return { totalCount: kept.length, hits: kept.slice(0, maxResults), notes: vocabularyNotes(expanded) };
+  }
+
+  /**
+   * Resolves a `within` value of cid10_search to a branch (PROGRESS.md 24.4b):
+   * a chapter number ("5" → F00-F99), a range of categories ("F30-F39" —
+   * both ends must be categories that exist), or a category / subcategory
+   * code ("F32", "F32.1"). Null when it names nothing in the dataset.
+   */
+  resolveBranch(value: string): CID10Branch | null {
+    const v = value.trim().toUpperCase();
+    if (/^\d{1,2}$/.test(v)) {
+      const ch = chapters().find((c) => c.num === Number(v));
+      return ch
+        ? { value, code: `${ch.code_start}-${ch.code_end}`, title: ch.title, start: ch.code_start, end: ch.code_end }
+        : null;
+    }
+    const range = /^([A-Z]\d\d)-([A-Z]\d\d)$/.exec(v);
+    if (range) {
+      const [, start, end] = range;
+      const exists = (c: string) => categories().some((cat) => cat.code === c);
+      if (start > end || !exists(start) || !exists(end)) return null;
+      const named =
+        chapters().find((c) => c.code_start === start && c.code_end === end) ??
+        groups().find((g) => g.code_start === start && g.code_end === end);
+      return { value, code: `${start}-${end}`, title: named?.title ?? `Categorias ${start} a ${end}`, start, end };
+    }
+    const hit = this.lookup(v);
+    if (!hit) return null;
+    return { value, code: hit.display, title: hit.title, start: hit.code, end: hit.code };
   }
 
   /**
