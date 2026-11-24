@@ -31,13 +31,51 @@ import {
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
 import {
-  classifyMatch,
-  lexicalScore,
+  bestLabelScore,
   MATCH_TYPE_NOTE,
   RANKING_METHOD_NOTE,
 } from '../utils/lexical-score.js';
 import { medicalProvenance, provenancedResult, withProvenanceMulti, type Provenance } from '../provenance.js';
 import { terminologyProvenance, validateOneCode } from './crosswalk.js';
+import { getWHOClient } from '../clients/who-client.js';
+import { getNLMClient, loincSynonyms } from '../clients/nlm-client.js';
+import { getMeSHClient } from '../clients/mesh-client.js';
+
+/**
+ * Synonyms the SOURCE publishes for a confirmed member (24.5a): ICD-11/ICF
+ * inclusions and index terms, LOINC related/consumer/short names, MeSH entry
+ * terms. The confirmation step just fetched the same records, so these reads
+ * are cache hits. Terminologies without published synonyms here (CID-10,
+ * ICD-10, RxNorm, ATC) give none; a failure gives none, never an error.
+ */
+async function memberSynonyms(m: ValidateCodesResult): Promise<string[]> {
+  const labels = (xs: { label?: { '@value'?: string } }[] | undefined) =>
+    (xs ?? []).map((x) => x.label?.['@value'] ?? '').filter(Boolean);
+  try {
+    switch (m.terminology) {
+      case 'icd11': {
+        const e = await getWHOClient().lookup(m.code, 'en');
+        return [...labels(e.inclusion), ...labels(e.indexTerm)];
+      }
+      case 'icf': {
+        const e = await getWHOClient().lookupICF(m.code, 'en');
+        return [...labels(e.inclusion), ...labels(e.indexTerm)];
+      }
+      case 'loinc': {
+        const d = await getNLMClient().getLOINCDetails(m.code);
+        return d ? loincSynonyms(d) : [];
+      }
+      case 'mesh': {
+        const d = await getMeSHClient().getDescriptor(m.code);
+        return d ? d.concepts.flatMap((c) => c.terms) : [];
+      }
+      default:
+        return [];
+    }
+  } catch {
+    return [];
+  }
+}
 
 const DERIVED_NOTE = `${RANKING_METHOD_NOTE} ${MATCH_TYPE_NOTE}`;
 
@@ -48,9 +86,9 @@ const matchValueSetTool: Tool = {
 
 Send \`terms\` (up to 50) and \`value_set\`: the allowed codes as \`{ code, terminology }\` pairs (up to 100; any of icd11, icd10, cid10, loinc, rxnorm, mesh, atc, icf, mixed if needed). Only those codes can be suggested — never a code outside the set.
 
-How it works: every member is first confirmed at its source (the validate_codes logic), giving its official title and FHIR \`coding\`; members that do not exist or cannot be checked are listed in \`value_set.unconfirmed\` and never ranked. Then each term is scored against each confirmed member's title: \`match_score\` (lexical, 0-1) and \`match_type\` (exact / strong / needs_review, the harmonize_terms rules). Members sharing no word with the term are left out; a term with none left is \`no_candidates\`.
+How it works: every member is first confirmed at its source (the validate_codes logic), giving its official title and FHIR \`coding\`; members that do not exist or cannot be checked are listed in \`value_set.unconfirmed\` and never ranked. Then each term is scored against each confirmed member's title AND the synonyms its source publishes (ICD-11/ICF inclusions and index terms, LOINC related names, MeSH entry terms): \`match_score\` (lexical, 0-1), \`match_type\` (exact / strong / needs_review, the harmonize_terms rules) and \`matched_label\` (the synonym that scored, or null when the title did). Members sharing no word with the term are left out; a term with none left is \`no_candidates\`.
 
-Lexical only: synonyms and abbreviations ("gait speed" for "walking speed") land in needs_review or no_candidates — review those with a person. Each member is looked up live (cached), so a large set of ICD-11/ICF codes takes a few seconds.
+Lexical only: a synonym the source does NOT publish ("gait speed" for "walking speed") lands in needs_review or no_candidates — review those with a person. Each member is looked up live (cached), so a large set of ICD-11/ICF codes takes a few seconds.
 
 When NOT to use: with no value set, map terms with harmonize_terms; to check a list of codes, use validate_codes.`,
   inputSchema: buildInputSchema(MatchValueSetParamsSchema),
@@ -87,17 +125,20 @@ async function handleMatchValueSet(args: Record<string, unknown>): Promise<CallT
         error: r.error,
       }));
 
+    const synonyms = await Promise.all(confirmed.map(memberSynonyms));
+
     const results: MatchValueSetOutput['results'] = params.terms.map((term) => {
       const ranked: Candidate[] = confirmed
-        .map((m) => {
+        .map((m, i) => {
           const title = m.title as string;
-          const score = lexicalScore(term, title);
+          const best = bestLabelScore(term, title, synonyms[i]);
           return {
             code: m.code,
             terminology: m.terminology,
             title,
-            match_score: score,
-            match_type: classifyMatch(term, title, score),
+            match_score: best.score,
+            match_type: best.matchType,
+            matched_label: best.label === title ? null : best.label,
             coding: m.coding,
           };
         })

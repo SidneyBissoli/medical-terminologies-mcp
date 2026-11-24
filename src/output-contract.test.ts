@@ -248,6 +248,29 @@ function mockUpstreams(): void {
 
     // ---- NLM MeSH ----------------------------------------------------
     if (url.includes('id.nlm.nih.gov/mesh')) {
+      // Entry-term fallback (24.5a), live shapes measured 2026-11-24: the
+      // label search is empty for a lay word, /lookup/term finds the entry
+      // term, and one SPARQL query maps it to its descriptor.
+      if (url.includes('label=heart')) {
+        if (url.includes('/lookup/descriptor')) return jsonResponse([]);
+        if (url.includes('/lookup/term')) {
+          return jsonResponse([{ resource: 'http://id.nlm.nih.gov/mesh/T000866941', label: 'Heart Attack' }]);
+        }
+      }
+      if (url.includes('/sparql')) {
+        return jsonResponse({
+          head: { vars: ['d', 'dLabel', 'tLabel'] },
+          results: {
+            bindings: [
+              {
+                d: { type: 'uri', value: 'http://id.nlm.nih.gov/mesh/D009203' },
+                dLabel: { type: 'literal', 'xml:lang': 'en', value: 'Myocardial Infarction' },
+                tLabel: { type: 'literal', 'xml:lang': 'en', value: 'Heart Attack' },
+              },
+            ],
+          },
+        });
+      }
       if (url.includes('/lookup/')) return jsonResponse(fixture('mesh/lookup-hypertension.json'));
       if (url.includes('D006973')) return jsonResponse(fixture('mesh/descriptor-D006973.json'));
       if (url.includes('D003920')) return jsonResponse(fixture('mesh/descriptor-D003920.json'));
@@ -314,6 +337,8 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['rxnorm_ndc', 'by ndc (rxcui argument absent)', { ndc: '00093015001' }],
 
   ['mesh_search', 'search with hits', { query: 'hypertension' }],
+  ['mesh_search', 'lay word via entry terms (matched_via entry_term, matched_term set)', { query: 'heart attack' }],
+  ['find_equivalent', 'MeSH entry-term fallback inside the fan-out (matched_label from the entry term)', { term: 'heart attack', target_terminologies: ['mesh'] }],
   ['mesh_descriptor', 'descriptor fan-out', { mesh_id: 'D006973' }],
   ['mesh_tree', 'tree numbers', { mesh_id: 'D006973' }],
   ['mesh_qualifiers', 'allowable qualifiers', { mesh_id: 'D006973' }],

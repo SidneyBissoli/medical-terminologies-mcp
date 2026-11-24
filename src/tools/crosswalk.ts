@@ -20,7 +20,7 @@
 import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import { getWHOClient } from '../clients/who-client.js';
-import { getNLMClient } from '../clients/nlm-client.js';
+import { getNLMClient, loincSynonyms } from '../clients/nlm-client.js';
 import { getRxNormClient } from '../clients/rxnorm-client.js';
 import { getMeSHClient } from '../clients/mesh-client.js';
 import { getICD10ToICD11MapClient } from '../clients/icd10-icd11-map-client.js';
@@ -45,7 +45,7 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
-import { lexicalScore, normalizeForMatch, RANKING_METHOD_NOTE } from '../utils/lexical-score.js';
+import { bestLabelScore, normalizeForMatch, RANKING_METHOD_NOTE } from '../utils/lexical-score.js';
 import {
   medicalProvenance,
   provenancedResult,
@@ -564,8 +564,19 @@ interface RawFanoutEntry {
   // `uri` when the terminology exposes one (ICD-11 foundation URI, MeSH
   // descriptor URI) — the ICD-11 license requires codes and titles to be
   // served with their URIs (§1.2.2–1.2.3).
-  items: { code: string; title: string; uri: string | null }[];
+  // `synonyms`: what the SOURCE publishes for that code (WHO matchingPVs,
+  // LOINC related names, the MeSH entry term that found it) — the score uses
+  // the best of title and synonyms (PROGRESS.md 24.5a).
+  items: { code: string; title: string; uri: string | null; synonyms: string[] }[];
 }
+
+/**
+ * LOINC candidates fetched before re-ranking. Measured 2026-11-24: the Clinical
+ * Tables order buries exact titles ("body weight" → 29463-7 at 46th of 100,
+ * "pulse rate" → 8867-4 at 57th), so a top-`limit` cut taken from the source
+ * order loses them; fetch a wider pool, rank, then cut.
+ */
+const LOINC_RERANK_POOL = 50;
 
 async function handleFindEquivalent(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
@@ -620,6 +631,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
                 code: r.theCode ?? 'N/A',
                 title: r.title ?? 'N/A',
                 uri: r.id ?? null,
+                synonyms: (r.matchingPVs ?? []).map((pv) => plainTitle(pv.label)),
               })),
             );
           } catch (e) {
@@ -634,12 +646,19 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         (async () => {
           try {
             const client = getNLMClient();
-            const loincResponse = await client.searchLOINC(term, limit);
+            const loincResponse = await client.searchLOINC(term, Math.max(limit, LOINC_RERANK_POOL));
             const loincResults = loincResponse.items ?? [];
+            // No cut here: the per-terminology `limit` is applied after ranking.
+            // Retired codes are dropped by LOINC's naming convention, as in
+            // harmonize_terms: with synonyms scored, "pulse rate" put a
+            // "Deprecated Heart beat…" code first (measured 2026-11-24).
             raw.loinc = ok(
-              loincResults
-                .slice(0, limit)
-                .map((r) => ({ code: r.LOINC_NUM, title: r.LONG_COMMON_NAME, uri: null })),
+              loincResults.filter((r) => !/^deprecated\b/i.test(r.LONG_COMMON_NAME)).map((r) => ({
+                code: r.LOINC_NUM,
+                title: r.LONG_COMMON_NAME,
+                uri: null,
+                synonyms: loincSynonyms(r),
+              })),
             );
           } catch (e) {
             raw.loinc = fail(e instanceof Error ? e.message : 'Error');
@@ -657,7 +676,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
             raw.rxnorm = ok(
               rxResults.drugs
                 .slice(0, limit)
-                .map((r) => ({ code: r.rxcui, title: r.name, uri: null })),
+                .map((r) => ({ code: r.rxcui, title: r.name, uri: null, synonyms: [] })),
             );
           } catch (e) {
             raw.rxnorm = fail(e instanceof Error ? e.message : 'Error');
@@ -671,9 +690,19 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         (async () => {
           try {
             const client = getMeSHClient();
-            const meshResults = await client.searchDescriptors(term, 'contains', limit);
+            let meshResults = await client.searchDescriptors(term, 'contains', limit);
+            // Lay words are MeSH entry terms, not labels (24.5a): same
+            // fallback as mesh_search when the label search is empty.
+            if (meshResults.length === 0) {
+              meshResults = await client.searchDescriptorsByEntryTerm(term, limit);
+            }
             raw.mesh = ok(
-              meshResults.slice(0, limit).map((r) => ({ code: r.id, title: r.label, uri: r.uri ?? null })),
+              meshResults.slice(0, limit).map((r) => ({
+                code: r.id,
+                title: r.label,
+                uri: r.uri ?? null,
+                synonyms: r.matchedTerm ? [r.matchedTerm] : [],
+              })),
             );
           } catch (e) {
             raw.mesh = fail(e instanceof Error ? e.message : 'Error');
@@ -692,7 +721,12 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
                 // Uncoded blocks have no code to hand on; candidates are codes.
                 .filter((r) => Boolean(r.theCode))
                 .slice(0, limit)
-                .map((r) => ({ code: r.theCode as string, title: plainTitle(r.title), uri: r.id ?? null })),
+                .map((r) => ({
+                  code: r.theCode as string,
+                  title: plainTitle(r.title),
+                  uri: r.id ?? null,
+                  synonyms: (r.matchingPVs ?? []).map((pv) => plainTitle(pv.label)),
+                })),
             );
           } catch (e) {
             raw.icf = fail(e instanceof Error ? e.message : 'Error');
@@ -713,30 +747,41 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       title: string;
       uri: string | null;
       match_score: number;
+      matched_label: string | null;
       rank: number;
     }
-    const candidates: ScoredCandidate[] = [];
+    const scored: ScoredCandidate[] = [];
     for (const key of targets) {
       const entry = raw[key];
       if (!entry) continue;
       entry.items.forEach((item, upstreamIndex) => {
-        candidates.push({
+        const best = bestLabelScore(term, item.title, item.synonyms);
+        scored.push({
           key,
           upstreamIndex,
           code: item.code,
           title: item.title,
           uri: item.uri,
-          match_score: lexicalScore(term, item.title),
+          match_score: best.score,
+          matched_label: best.label === item.title ? null : best.label,
           rank: 0,
         });
       });
     }
-    candidates.sort(
+    scored.sort(
       (a, b) =>
         b.match_score - a.match_score ||
         ALL_TERMINOLOGIES.indexOf(a.key) - ALL_TERMINOLOGIES.indexOf(b.key) ||
         a.upstreamIndex - b.upstreamIndex,
     );
+    // `limit` per terminology, taken AFTER ranking (LOINC brings a wider pool).
+    const kept = new Map<TerminologyKey, number>();
+    const candidates = scored.filter((c) => {
+      const n = kept.get(c.key) ?? 0;
+      if (n >= limit) return false;
+      kept.set(c.key, n + 1);
+      return true;
+    });
     candidates.forEach((c, i) => {
       c.rank = i + 1;
     });
@@ -755,6 +800,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
           title: c.title,
           uri: c.uri,
           match_score: c.match_score,
+          matched_label: c.matched_label,
           rank: c.rank,
         }));
       entries[key] = { found: items.length > 0, error: entry.error, items };
@@ -822,7 +868,8 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         lines.push('No matches found.');
       } else {
         for (const item of entry.items) {
-          lines.push(`- ${item.code} - ${item.title} _(rank ${item.rank}, score ${item.match_score.toFixed(3)})_`);
+          const via = item.matched_label ? `, via "${item.matched_label}"` : '';
+          lines.push(`- ${item.code} - ${item.title} _(rank ${item.rank}, score ${item.match_score.toFixed(3)}${via})_`);
         }
       }
       lines.push('');

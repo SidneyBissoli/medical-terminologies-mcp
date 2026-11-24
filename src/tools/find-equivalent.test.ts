@@ -197,3 +197,82 @@ describe('find_equivalent — ranked unified search', () => {
     expect(text).toContain('computed by this server');
   });
 });
+
+// PROGRESS.md 24.5a — the three failures measured on 2026-11-24.
+describe('find_equivalent — source synonyms and wider LOINC pool (24.5a)', () => {
+  const CT = 'https://clinicaltables.nlm.nih.gov';
+  const WHO_TOKEN = 'https://icdaccessmanagement.who.int';
+  const WHO_API = 'https://id.who.int';
+
+  beforeEach(() => {
+    vi.spyOn(upstreamIo, 'sleep').mockResolvedValue(undefined);
+    cache.flush();
+    process.env.WHO_CLIENT_ID = 'test-client';
+    process.env.WHO_CLIENT_SECRET = 'test-secret';
+    nock.disableNetConnect();
+  });
+
+  afterEach(() => {
+    nock.cleanAll();
+    nock.enableNetConnect();
+  });
+
+  it('ICD-11: the WHO synonym keeps BA41 on top for "heart attack" (title-only scoring put it last)', async () => {
+    nock(WHO_TOKEN).post('/connect/token').reply(200, { access_token: 't', token_type: 'Bearer', expires_in: 3600 });
+    nock(WHO_API)
+      .get(/\/icd\/release\/11\/[\d-]+\/mms\/search/)
+      .query(true)
+      .reply(200, {
+        error: false,
+        resultChopped: false,
+        words: [],
+        destinationEntities: [
+          { id: 'u1', theCode: 'BA41', title: 'Acute myocardial infarction', isLeaf: false, score: 1, matchingPVs: [{ propertyId: 'synonym', label: "<em class='found'>heart attack</em>", score: 1 }] },
+          { id: 'u2', theCode: 'BD1Z', title: 'Heart failure, unspecified', isLeaf: true, score: 0.5, matchingPVs: [] },
+        ],
+      });
+
+    const out = await callFindEquivalent({ term: 'heart attack', target_terminologies: ['icd11'] });
+    expect(out.results.icd11!.items[0]).toMatchObject({ code: 'BA41', match_score: 1, matched_label: 'heart attack', rank: 1 });
+    expect(out.results.icd11!.items[1]).toMatchObject({ code: 'BD1Z', matched_label: null });
+  });
+
+  it('LOINC: an exact title deep in the source order surfaces, and the per-terminology cut comes after ranking', async () => {
+    const codes = Array.from({ length: 30 }, (_, i) => (i === 25 ? '29463-7' : `9${i}-0`));
+    const rows = codes.map((c) => [c, c === '29463-7' ? 'Body weight' : `First Body weight Set ${c}`, '', '', '', '', '', '', '', '', '']);
+    nock(CT)
+      .get('/api/loinc_items/v3/search')
+      .query((q) => Number(q.maxList) >= 50)
+      .reply(200, [30, codes, null, rows]);
+
+    const out = await callFindEquivalent({ term: 'body weight', target_terminologies: ['loinc'], limit: 3 });
+    const items = out.results.loinc!.items;
+    expect(items).toHaveLength(3);
+    expect(items[0]).toMatchObject({ code: '29463-7', match_score: 1, rank: 1 });
+  });
+
+  it('MeSH: a lay word reaches its descriptor through the entry terms', async () => {
+    nock(MESH).get('/mesh/lookup/descriptor').query(true).reply(200, []);
+    nock(MESH)
+      .get('/mesh/lookup/term')
+      .query(true)
+      .reply(200, [{ resource: 'http://id.nlm.nih.gov/mesh/T000866941', label: 'Heart Attack' }]);
+    nock(MESH)
+      .get('/mesh/sparql')
+      .query((q) => String(q.query).includes('T000866941'))
+      .reply(200, {
+        results: {
+          bindings: [
+            {
+              d: { value: 'http://id.nlm.nih.gov/mesh/D009203' },
+              dLabel: { value: 'Myocardial Infarction' },
+              tLabel: { value: 'Heart Attack' },
+            },
+          ],
+        },
+      });
+
+    const out = await callFindEquivalent({ term: 'heart attack', target_terminologies: ['mesh'] });
+    expect(out.results.mesh!.items[0]).toMatchObject({ code: 'D009203', match_score: 1, matched_label: 'Heart Attack' });
+  });
+});

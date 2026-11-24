@@ -71,3 +71,39 @@ describe('match_value_set', () => {
     expect(r.isError).toBe(true);
   });
 });
+
+describe('match_value_set — member synonyms from the source (24.5a)', () => {
+  // The SHAPE (`inclusion: [{ label: { '@value' } }]`) is the live WHO entity
+  // shape icd11_lookup/icf_lookup parse; the CONTENT is synthetic — it tests
+  // the mechanism, not a fact about d455. The live check is the 24.5 script.
+  it('an ICF member matches through a WHO inclusion the title does not carry', async () => {
+    const nock = (await import('nock')).default;
+    const { cache } = await import('../utils/cache.js');
+    cache.flush();
+    process.env.WHO_CLIENT_ID = 'test-client';
+    process.env.WHO_CLIENT_SECRET = 'test-secret';
+    nock.disableNetConnect();
+    try {
+      nock('https://icdaccessmanagement.who.int').post('/connect/token').reply(200, { access_token: 't', expires_in: 3600 });
+      nock('https://id.who.int')
+        .get(/\/icf\/codeinfo\/d455$/)
+        .times(2)
+        .reply(200, { stemId: 'http://id.who.int/icd/release/11/2026-01/icf/2000455', code: 'd455' });
+      nock('https://id.who.int')
+        .get('/icd/release/11/2026-01/icf/2000455')
+        .times(2)
+        .reply(200, {
+          '@id': 'http://id.who.int/icd/release/11/2026-01/icf/2000455',
+          code: 'd455',
+          title: { '@value': 'Moving around' },
+          inclusion: [{ label: { '@value': 'climbing stairs' } }],
+        });
+
+      const { s } = await call({ terms: ['climbing stairs'], value_set: [{ code: 'd455', terminology: 'icf' }] });
+      expect(s.results[0].best).toMatchObject({ code: 'd455', match_type: 'exact', matched_label: 'climbing stairs' });
+    } finally {
+      nock.cleanAll();
+      nock.enableNetConnect();
+    }
+  });
+});

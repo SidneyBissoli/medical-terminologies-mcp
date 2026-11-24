@@ -36,7 +36,7 @@ import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import { getWHOClient } from '../clients/who-client.js';
 import { getRxNormClient } from '../clients/rxnorm-client.js';
-import { getNLMClient } from '../clients/nlm-client.js';
+import { getNLMClient, loincSynonyms } from '../clients/nlm-client.js';
 import {
   HarmonizeTermsParamsSchema,
   HarmonizeTermsOutputSchema,
@@ -69,8 +69,11 @@ import { toFhirCoding } from '../utils/fhir-coding.js';
 
 /** Upstream candidates fetched per term before lexical re-ranking. */
 const UPSTREAM_FETCH = 10;
-/** LOINC gets a wider page: its upstream order is weak for generic terms. */
-const LOINC_FETCH = 25;
+/**
+ * LOINC gets a wider page: its upstream order is weak for generic terms.
+ * 25 → 50 on 2026-11-24 (PROGRESS.md 24.5a): "body weight" → 29463-7 sat 46th.
+ */
+const LOINC_FETCH = 50;
 /** Lookups in flight at once; the per-API rate limiters still apply below. */
 const CONCURRENCY = 4;
 
@@ -94,7 +97,7 @@ Use this tool to:
 
 Give each term its \`domain\`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to ${HARMONIZE_MAX_TERMS} terms per call — a longer list is refused with a validation error: split it into batches of ${HARMONIZE_MAX_TERMS}. Repeated term+domain pairs are looked up once. \`max_candidates\` keeps 1-5 per term (default 3).
 
-Every candidate carries \`match_score\` (lexical, 0-1, the find_equivalent formula) and \`match_type\`: exact = same words after normalization; strong = every term word is in the title (or the matched synonym) and score ≥ ${STRONG_MATCH_MIN_SCORE}; needs_review = anything else. A one-word term is exact or needs_review, never strong ("Tylenol" vs "Tylenol PM" is a different product). Synonyms, abbreviations ("MI", "HbA1c") and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named "Deprecated". For diagnoses, a candidate is also scored against the synonyms WHO matched (e.g. "hypertension NOS" for Essential hypertension), reported in \`matched_label\`; postcoordinated clusters (codes with "/" or "&") are left out — build those with icd11_postcoordination. Lab names are ambiguous without specimen and property: "glucose" matches over a thousand LOINC codes, so write "glucose serum" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status "error".
+Every candidate carries \`match_score\` (lexical, 0-1, the find_equivalent formula) and \`match_type\`: exact = same words after normalization; strong = every term word is in the title (or the matched synonym) and score ≥ ${STRONG_MATCH_MIN_SCORE}; needs_review = anything else. A one-word term is exact or needs_review, never strong ("Tylenol" vs "Tylenol PM" is a different product). Synonyms the source does not publish, abbreviations it does not list and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named "Deprecated". A candidate is also scored against the synonyms its source publishes — for diagnoses the ones WHO matched (e.g. "hypertension NOS" for Essential hypertension), for labs LOINC's related names (e.g. "HbA1c") — reported in \`matched_label\`; postcoordinated clusters (codes with "/" or "&") are left out — build those with icd11_postcoordination. Lab names are ambiguous without specimen and property: "glucose" matches over a thousand LOINC codes, so write "glucose serum" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status "error".
 
 Every candidate also carries \`coding\`, the FHIR Coding of that code as the source returned it — a candidate, not a confirmed match: confirm needs_review rows with a person (and codes from elsewhere with validate_codes) before storing them.
 
@@ -197,7 +200,9 @@ async function lookupLab(term: string): Promise<LookupOutcome> {
   const candidates = (response.items ?? [])
     .filter((r) => Boolean(r.LOINC_NUM) && Boolean(r.LONG_COMMON_NAME))
     .filter((r) => !/^deprecated\b/i.test(r.LONG_COMMON_NAME))
-    .map((r) => ({ code: r.LOINC_NUM, title: r.LONG_COMMON_NAME, uri: null, labels: [] }));
+    // LOINC's own synonyms (related names, consumer name, short name): "HbA1c"
+    // is a related name of 4548-4, not its title (24.5a).
+    .map((r) => ({ code: r.LOINC_NUM, title: r.LONG_COMMON_NAME, uri: null, labels: loincSynonyms(r) }));
   return { candidates, atc: null, error: null, answered: ['CLINICALTABLES_LOINC'] };
 }
 

@@ -7,14 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Version **3.1.0** (`match_value_set`, a new tool, additive) on top of **3.0.0** (ICF in the cross-terminology tools), on top of 2.6.0 (ICF, two new tools) and 2.5.0 (FHIR `Coding`, new output field). None of them was published to npm or the MCP Registry yet; npm is still at 2.4.0.
+Version **3.2.0** (rankings use the synonyms the sources publish) on top of **3.1.0** (`match_value_set`, a new tool, additive), on top of **3.0.0** (ICF in the cross-terminology tools), on top of 2.6.0 (ICF, two new tools) and 2.5.0 (FHIR `Coding`, new output field). None of them was published to npm or the MCP Registry yet; npm is still at 2.4.0.
 
 ### Breaking
 
 - **`validate_codes` and `find_equivalent` responses can now carry the value `"icf"`** in `results[].terminology` (`validate_codes`) and in `searched_terminologies`, `groups[].terminologies` and `groups[].members[].terminology` (`find_equivalent`). A client that switches exhaustively over the old values must handle `icf`. `find_equivalent` also searches ICF **by default**: callers who want the old four-terminology fan-out pass `target_terminologies: ["icd11", "loinc", "rxnorm", "mesh"]`. Nothing else changed shape; `terminology_versions` and `terminology_diff` keep their seven terminologies on purpose (their enum is now their own, so they never accept a value they cannot answer for).
 
+### Changed
+
+- **Rankings use the synonyms the sources publish (3.2.0, Phase 24.5a).** Measured first (15 term → code pairs with a known answer, `scripts/measure-synonyms.mts`): ranking by title alone put the right code first in 1 of 15 pairs, and it demoted the WHO's own best answer (ICD-11 BA41 from 1st to 6th for "heart attack").
+  - `find_equivalent` scores each candidate by the best of its title and the synonyms its source publishes: WHO matched synonyms for ICD-11 and ICF, LOINC related, consumer and short names, and the MeSH entry term that found it. The winning synonym is reported in the new `matched_label`. LOINC now fetches 50 candidates and applies `limit` after ranking: "body weight" → 29463-7 used to sit 46th in the source order. Retired LOINC codes ("Deprecated…") are dropped, as `harmonize_terms` already did.
+  - `harmonize_terms` (labs) scores LOINC related names too (e.g. "HbA1c" → 4548-4, exact), and its LOINC page goes from 25 to 50.
+  - `match_value_set` scores each member against the synonyms its source publishes (ICD-11/ICF inclusions and index terms, LOINC related names, MeSH entry terms). The new `matched_label` says which one matched.
+  - The lexical score applies light, symmetric English stemming ("dressed" ~ "Dressing"). `exact` still needs the same words.
+
 ### Added
 
+- **`mesh_search` falls back to MeSH entry terms (3.2.0).** When no descriptor label matches a lay word ("heart attack", "bedsore"), the search goes through MeSH entry terms. It finds them with the NLM term lookup, then maps each one to its descriptor with one SPARQL query (3-8 s, measured), so the fallback only runs when the label search came back empty. It reports the route in the new `matched_via` (`descriptor_label` | `entry_term`) and, per descriptor, `matched_term`. `find_equivalent` uses the same fallback.
 - **`match_value_set` (3.1.0, 36 tools): "which code of THIS value set fits this field?"** You send free-text `terms` (up to 50) and the `value_set` as `{ code, terminology }` pairs (up to 100, any of the eight terminologies, mixed if needed); only members of that set can be suggested. Every member is first confirmed at its source with the `validate_codes` logic (official title and FHIR `coding`); members that do not exist or cannot be checked are listed in `value_set.unconfirmed` and never ranked. Terms are then ranked against the confirmed members with the `harmonize_terms` score and labels (exact / strong / needs_review); members sharing no word with a term are left out. Lexical only (meaning-based matching is Phase 24.5). The caller brings the set, so no licensed value-set content (VSAC/UMLS) is hosted. Requested by a clinical terminology practitioner (Phase 24.4).
 - **ICF in `validate_codes` and `find_equivalent` (3.0.0).** `validate_codes` accepts `terminology: "icf"` (e.g. `d450`), confirms the code at the WHO and returns its FHIR `Coding` with system `http://hl7.org/fhir/sid/icf` (HL7 THO NamingSystem "ICF", read 2026-11-23), the lower-case category code and the pinned release as `version`; its provenance block is `WHO ICD-API (ICF)`. `find_equivalent` searches ICF by default and accepts `icf` in `target_terminologies` / `source_terminology`; ICF comes last in the tie-break order so the ranking of the four older terminologies is unchanged, and uncoded ICF blocks are left out (a candidate is a code). The default fan-out therefore makes one more WHO request, in parallel (Phase 24.3b).
 

@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import nock from 'nock';
-import { NLMClient } from './nlm-client.js';
+import { NLMClient, loincSynonyms } from './nlm-client.js';
 import { cache } from '../utils/cache.js';
 
 const FIXTURES = join(process.cwd(), 'src', '__fixtures__', 'nlm');
@@ -98,7 +98,32 @@ describe('NLMClient — contract tests against captured live fixtures', () => {
         CLASS: 'class',
         STATUS: 'status',
         SHORTNAME: 'short-name',
+        RELATEDNAMES2: '',
+        CONSUMER_NAME: '',
       });
+    });
+
+    it('reads LOINC synonyms from the extra fields (live shape, 2026-11-24)', async () => {
+      // `ef` comes back as { FIELD: [value per row] }, measured live for
+      // "HbA1c" (4548-4 carries "HbA1c" among its ';'-separated related names).
+      nock(CLINICAL_HOST)
+        .get('/api/loinc_items/v3/search')
+        .query((q) => String(q.ef).includes('RELATEDNAMES2') && String(q.ef).includes('CONSUMER_NAME'))
+        .reply(200, [
+          1,
+          ['4548-4'],
+          {
+            EXTERNAL_COPYRIGHT_NOTICE: [''],
+            RELATEDNAMES2: ['A1c; HbA1c; Glycated hemoglobin; Haemoglobin A1c'],
+            CONSUMER_NAME: ['Hemoglobin A1c'],
+          },
+          [['4548-4', 'Hemoglobin A1c/Hemoglobin.total in Blood', '', '', '', '', '', '', '', '', 'HbA1c MFr Bld']],
+        ]);
+
+      const r = await client.searchLOINC('HbA1c', 1);
+      expect(loincSynonyms(r.items[0])).toEqual([
+        'A1c', 'HbA1c', 'Glycated hemoglobin', 'Haemoglobin A1c', 'Hemoglobin A1c', 'HbA1c MFr Bld',
+      ]);
     });
 
     it('empty result: total=0, no items', async () => {
