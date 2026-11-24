@@ -107,7 +107,21 @@ MeSH content is a U.S. government work served under the
 free of charge. The NLM statement in section 5 applies to this channel as
 well; no endorsement by NLM is implied.
 
-## 8. SNOMED CT (SNOMED International) — retired in 2.0.0
+## 8. ICF (World Health Organization)
+
+ICF (International Classification of Functioning, Disability and Health)
+content is licensed under the
+[Creative Commons Attribution-NoDerivatives 3.0 IGO license (CC BY-ND 3.0 IGO)](https://creativecommons.org/licenses/by-nd/3.0/igo/),
+per WHO's licensing of WHO Classifications
+(https://www.who.int/about/policies/publishing/copyright, read 2026-11-23):
+commercial and non-commercial use "provided there is no adaptation of the
+codes and the work is appropriately cited".
+
+- This server serves ICF codes and titles together with their URIs,
+  verbatim; non-English labels are WHO's own official translations.
+- Served by the same WHO ICD-API, OAuth credentials and release as ICD-11.
+
+## 9. SNOMED CT (SNOMED International) — retired in 2.0.0
 
 Since 2.0.0 this server neither queries nor serves SNOMED CT content.
 Until 1.18.x the SNOMED tools were off by default and worked only against

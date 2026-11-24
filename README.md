@@ -38,7 +38,7 @@ The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real co
 
 ## Features
 
-- 33 tools: 31 terminology tools plus `search`/`fetch` for ChatGPT Deep Research
+- 35 tools: 33 terminology tools plus `search`/`fetch` for ChatGPT Deep Research
 - 3 MCP **Prompts** that orchestrate tool calls into named workflows (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — clients render these as one-click user actions
 - 4 MCP **Resources** for in-process reference content (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — sub-millisecond reads (except `info://stats` which round-trips to the StatsCounter Durable Object on the hosted endpoint)
 - Multi-terminology support in a single server
@@ -110,7 +110,7 @@ Or install via Smithery, which proxies the same endpoint through their gateway:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-The hosted instance has WHO credentials configured, so all 33 tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
+The hosted instance has WHO credentials configured, so all 35 tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
 
 ## Installation
 
@@ -221,7 +221,7 @@ After your Worker is live, register the URL on Smithery:
 2. Pick the **URL** submission path (Smithery deprecated container hosting in 2024 — URL is the supported flow now).
 3. Paste `https://<your-worker>.workers.dev/mcp`. Smithery's gateway scans for compliance and proxies traffic.
 
-## Available Tools (33)
+## Available Tools (35)
 
 ### Official Portuguese (pt-BR) content
 
@@ -229,6 +229,7 @@ The server never machine-translates terminology content — but several sources 
 
 - **CID-10 is natively Portuguese**: `cid10_search` / `cid10_lookup` / `cid10_chapter(s)` serve the DataSUS V2008 dataset (the CID-10 the Brazilian SUS uses operationally).
 - **ICD-11 in official Portuguese**: pass `language: "pt"` to `icd11_search` / `icd11_lookup` to search and read WHO's official pt-BR linearization labels.
+- **ICF (CIF) in official Portuguese**: pass `language: "pt"` to `icf_search` / `icf_lookup` ("andar" → d450 Andar).
 - **MeSH**: pass `language: "pt"` to `mesh_search` / `mesh_descriptor` to request NLM's official translations where they exist.
 
 If a source has no official translation for an entry, you get the source language back — never a machine translation.
@@ -242,6 +243,15 @@ If a source has no official translation for an entry, you get the source languag
 | `icd11_hierarchy` | Navigate parent/child relationships | `code: "5A11"` |
 | `icd11_chapters` | List all ICD-11 chapters | - |
 | `icd11_postcoordination` | Get postcoordination axes | `code: "5A11"` |
+
+### ICF Tools (2)
+
+WHO International Classification of Functioning, Disability and Health: body functions (b), body structures (s), activities and participation (d), environmental factors (e). Same WHO API, credential and release as ICD-11.
+
+| Tool | Description | Example |
+|------|-------------|---------|
+| `icf_search` | Search ICF by term (functioning, activity, environmental factor) | `query: "walking"` |
+| `icf_lookup` | Get category details by ICF code/URI: definition, inclusions, exclusions, component | `code: "d450"` |
 
 ### LOINC Tools (4)
 
@@ -438,6 +448,13 @@ ICD-11 content is provided under the [Creative Commons Attribution-NoDerivatives
 - This server always serves ICD-11 codes and titles together with their URIs, verbatim; non-English labels are WHO's own official translations (never machine-translated)
 - WHO may terminate the license at any time by notice (§4.7)
 - API access requires registration at https://icd.who.int/icdapi
+
+### ICF (WHO)
+
+ICF content is provided under the [Creative Commons Attribution-NoDerivatives 3.0 IGO license (CC BY-ND 3.0 IGO)](https://creativecommons.org/licenses/by-nd/3.0/igo/), per WHO's [licensing of WHO Classifications](https://www.who.int/about/policies/publishing/copyright): commercial and non-commercial use, provided there is no adaptation of the codes and the work is appropriately cited.
+
+- This server serves ICF codes and titles together with their URIs, verbatim; non-English labels are WHO's own official translations
+- Served by the same WHO ICD-API and credentials as ICD-11
 
 ### WHO ICD-10 → ICD-11 transition tables (bundled)
 

@@ -38,6 +38,15 @@ const WHO_CONFIG = {
   linearization: 'mms',
 } as const;
 
+/**
+ * The WHO linearizations this client reads. `mms` is ICD-11 for Mortality and
+ * Morbidity Statistics; `icf` is the International Classification of
+ * Functioning, Disability and Health, served by the same ICD-API, the same
+ * OAuth credential and the same release (measured in production 2026-11-23,
+ * PROGRESS.md 24.2: /release/11/2026-01/icf/codeinfo/d450 → "Walking").
+ */
+export type WhoLinearization = 'mms' | 'icf';
+
 /** The ICD-11 release every request of this process queries (pin or env override). */
 export function getICD11ReleaseId(): string {
   return WHO_CONFIG.releaseId;
@@ -110,6 +119,7 @@ export class WHOClient {
   private clientId: string;
   private clientSecret: string;
   private httpClient: HttpClient;
+  private icfHttpClient: HttpClient;
   private tokenClient: HttpClient;
 
   /**
@@ -129,6 +139,17 @@ export class WHOClient {
 
     this.httpClient = new HttpClient({
       source: CACHE_PREFIX.ICD11,
+      baseURL: WHO_CONFIG.apiBaseUrl,
+      headers: {
+        'Accept': 'application/json',
+        'API-Version': 'v2',
+      },
+    });
+    // ICF rides the same host and token but is its own source: its trips land
+    // in the `icf` collector, so an answer mixing ICD-11 and ICF gives each
+    // block the diagnostics of ITS linearization.
+    this.icfHttpClient = new HttpClient({
+      source: CACHE_PREFIX.ICF,
       baseURL: WHO_CONFIG.apiBaseUrl,
       headers: {
         'Accept': 'application/json',
@@ -204,7 +225,8 @@ export class WHOClient {
   async request<T>(
     path: string,
     params: Record<string, string | number | boolean> = {},
-    language: string = 'en'
+    language: string = 'en',
+    linearization: WhoLinearization = 'mms'
   ): Promise<T> {
     // Apply rate limiting
     await rateLimiters.who.acquire();
@@ -218,7 +240,8 @@ export class WHOClient {
 
     try {
       const startTime = Date.now();
-      const response = await this.httpClient.get<T>(path, {
+      const client = linearization === 'icf' ? this.icfHttpClient : this.httpClient;
+      const response = await client.get<T>(path, {
         params,
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -274,9 +297,34 @@ export class WHOClient {
     language: string = 'en',
     maxResults: number = 25
   ): Promise<ICD11SearchResponse> {
+    return this.searchLinearization('mms', query, language, maxResults);
+  }
+
+  /**
+   * Searches the ICF linearization (same release and credential as ICD-11).
+   * `medicalCodingMode` stays off: it exists to steer MMS coding (residual
+   * categories, postcoordination) and has no documented meaning for ICF.
+   */
+  async searchICF(
+    query: string,
+    language: string = 'en',
+    maxResults: number = 25
+  ): Promise<ICD11SearchResponse> {
+    return this.searchLinearization('icf', query, language, maxResults);
+  }
+
+  private async searchLinearization(
+    linearization: WhoLinearization,
+    query: string,
+    language: string,
+    maxResults: number
+  ): Promise<ICD11SearchResponse> {
+    // Each linearization has its own cache prefix, so provenance reads the
+    // fetch instant of THIS linearization (cacheMetaFor is keyed by prefix).
+    const cachePrefix = linearization === 'icf' ? CACHE_PREFIX.ICF : CACHE_PREFIX.ICD11;
     const cacheKey = `search:${query}:${language}:${maxResults}`;
-    const cached = cache.get<ICD11SearchResponse>(CACHE_PREFIX.ICD11, cacheKey);
-    
+    const cached = cache.get<ICD11SearchResponse>(cachePrefix, cacheKey);
+
     if (cached) {
       log.debug({ cacheKey }, 'Cache hit');
       return cached;
@@ -284,10 +332,10 @@ export class WHOClient {
 
     log.debug({ cacheKey }, 'Cache miss');
     return cache.getOrSet(
-      CACHE_PREFIX.ICD11,
+      cachePrefix,
       cacheKey,
       () => this.request<ICD11SearchResponse>(
-        `/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/search`,
+        `/release/11/${WHO_CONFIG.releaseId}/${linearization}/search`,
         {
           q: query,
           subtreeFilterUsesFoundationDescendants: false,
@@ -295,9 +343,10 @@ export class WHOClient {
           useFlexisearch: true,
           flatResults: true,
           highlightingEnabled: false,
-          medicalCodingMode: true,
+          medicalCodingMode: linearization === 'mms',
         },
-        language
+        language,
+        linearization
       ),
       DEFAULT_TTL.SEARCH
     );
@@ -356,6 +405,42 @@ export class WHOClient {
       },
       DEFAULT_TTL.LOOKUP
       )
+    );
+  }
+
+  /**
+   * Looks up an ICF category by code (`d450`, `b28013`) or by an ICF URI a
+   * previous answer returned. `/icf/codeinfo/{code}` resolves to the entity at
+   * `stemId`, exactly as the MMS resolver does. A URI must be an ICF
+   * linearization URI: anything else is refused before any request.
+   */
+  async lookupICF(codeOrUri: string, language: string = 'en'): Promise<ICD11EntityResponse> {
+    const raw = codeOrUri.trim();
+    let path: string;
+    if (raw.startsWith('http')) {
+      const url = new URL(raw);
+      if (url.hostname !== 'id.who.int' || !/^\/icd\/release\/11\/[^/]+\/icf(\/|$)/.test(url.pathname)) {
+        throw new ApiError(
+          `Not an ICF URI: ${raw}. ICF URIs look like http://id.who.int/icd/release/11/<release>/icf/<id>.`,
+          'VALIDATION_ERROR',
+        );
+      }
+      path = url.pathname.replace(/^\/icd/, '');
+    } else {
+      path = `/release/11/${WHO_CONFIG.releaseId}/icf/codeinfo/${encodeURIComponent(raw.toLowerCase())}`;
+    }
+    return cache.getOrSet(
+      CACHE_PREFIX.ICF,
+      `lookup:${path}:${language}`,
+      async () => {
+        const info = await this.request<ICD11EntityResponse>(path, {}, language, 'icf');
+        if (info.title === undefined && typeof info.stemId === 'string' && info.stemId.startsWith('http')) {
+          const stemPath = new URL(info.stemId).pathname.replace(/^\/icd/, '');
+          return this.request<ICD11EntityResponse>(stemPath, {}, language, 'icf');
+        }
+        return info;
+      },
+      DEFAULT_TTL.LOOKUP,
     );
   }
 

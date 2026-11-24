@@ -66,6 +66,7 @@ import { comClasse } from './utils/zod-schema.js';
 // The meta-test in src/index.test.ts pins the list against src/{tools,
 // prompts,resources}/*.ts.
 import './tools/icd11.js';
+import './tools/icf.js';
 import './tools/loinc.js';
 import './tools/rxnorm.js';
 import './tools/mesh.js';

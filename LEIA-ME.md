@@ -38,7 +38,7 @@ As respostas vêm de fontes oficiais (OMS, NLM, NIH, DataSUS) — códigos e map
 
 ## Funcionalidades
 
-- 33 ferramentas: 31 de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
+- 35 ferramentas: 33 de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
 - 3 **Prompts** MCP que orquestram chamadas de ferramenta em fluxos nomeados (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — os clientes exibem isso como ação de um clique para o usuário
 - 4 **Recursos** MCP de conteúdo de referência em processo (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — leitura em menos de um milissegundo (exceto `info://stats`, que vai até o Durable Object StatsCounter no endpoint hospedado)
 - Várias terminologias num servidor só
@@ -110,7 +110,7 @@ Ou instale pelo Smithery, que faz proxy do mesmo endpoint pelo gateway deles:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-A instância hospedada já tem as credenciais da OMS configuradas, então todas as 33 ferramentas funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
+A instância hospedada já tem as credenciais da OMS configuradas, então todas as 35 ferramentas funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
 
 ## Instalação
 
@@ -221,7 +221,7 @@ Depois que o seu Worker estiver no ar, registre a URL no Smithery:
 2. Escolha o caminho de submissão por **URL** (o Smithery descontinuou a hospedagem em contêiner em 2024 — URL é o fluxo suportado hoje).
 3. Cole `https://<seu-worker>.workers.dev/mcp`. O gateway do Smithery varre a conformidade e faz proxy do tráfego.
 
-## Ferramentas disponíveis (33)
+## Ferramentas disponíveis (35)
 
 ### Conteúdo oficial em português (pt-BR)
 
@@ -229,6 +229,7 @@ O servidor nunca traduz conteúdo terminológico por máquina — mas várias fo
 
 - **A CID-10 é nativamente em português**: `cid10_search` / `cid10_lookup` / `cid10_chapter(s)` servem o conjunto DataSUS V2008 (a CID-10 que o SUS usa operacionalmente).
 - **ICD-11 em português oficial**: passe `language: "pt"` para `icd11_search` / `icd11_lookup` e busque e leia os rótulos da linearização oficial pt-BR da OMS.
+- **CIF (ICF) em português oficial**: passe `language: "pt"` para `icf_search` / `icf_lookup` ("andar" → d450 Andar).
 - **MeSH**: passe `language: "pt"` para `mesh_search` / `mesh_descriptor` e peça as traduções oficiais da NLM onde elas existem.
 
 Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma de origem — nunca uma tradução de máquina.
@@ -242,6 +243,15 @@ Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma d
 | `icd11_hierarchy` | Navega as relações pai/filho | `code: "5A11"` |
 | `icd11_chapters` | Lista todos os capítulos da ICD-11 | - |
 | `icd11_postcoordination` | Devolve os eixos de pós-coordenação | `code: "5A11"` |
+
+### Ferramentas ICF/CIF (2)
+
+Classificação Internacional de Funcionalidade, Incapacidade e Saúde da OMS: funções do corpo (b), estruturas do corpo (s), atividades e participação (d), fatores ambientais (e). Mesma API, credencial e versão da OMS que a ICD-11.
+
+| Ferramenta | Descrição | Exemplo |
+|------|-------------|---------|
+| `icf_search` | Busca na CIF por termo (funcionalidade, atividade, fator ambiental) | `query: "walking"` |
+| `icf_lookup` | Detalhes de uma categoria por código/URI da CIF: definição, inclusões, exclusões, componente | `code: "d450"` |
 
 ### Ferramentas LOINC (4)
 
@@ -438,6 +448,13 @@ O conteúdo da ICD-11 é fornecido sob a [licença Creative Commons Atribuição
 - Este servidor sempre serve códigos e títulos da ICD-11 junto com as URIs deles, verbatim; rótulos em outros idiomas são as traduções oficiais da própria OMS (nunca tradução de máquina)
 - A OMS pode encerrar a licença a qualquer momento mediante aviso (§4.7)
 - O acesso à API exige cadastro em https://icd.who.int/icdapi
+
+### CIF/ICF (OMS)
+
+O conteúdo da CIF é fornecido sob a [licença Creative Commons Atribuição-SemDerivações 3.0 IGO (CC BY-ND 3.0 IGO)](https://creativecommons.org/licenses/by-nd/3.0/igo/), conforme o [licenciamento das classificações da OMS](https://www.who.int/about/policies/publishing/copyright): uso comercial e não comercial, desde que os códigos não sejam adaptados e a obra seja citada.
+
+- Este servidor serve códigos e títulos da CIF junto com as URIs deles, verbatim; rótulos em outros idiomas são as traduções oficiais da própria OMS
+- Servida pela mesma API e credenciais da OMS que a ICD-11
 
 ### Tabelas de transição ICD-10 → ICD-11 da OMS (embutidas)
 
