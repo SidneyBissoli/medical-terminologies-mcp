@@ -23,7 +23,9 @@ describe('medicalProvenance (canonical block)', () => {
       const p = medicalProvenance(key);
       expect(p.contract_version).toBe('1.3');
       expect(p.license.id ?? p.license.name).toBeTruthy();
-      expect(p.license.verified_at).toBe('2026-08-08');
+      // Each license was read at its source on the date its preset states:
+      // the fase medical batch on 2026-08-08, the ICF license on 2026-11-23.
+      expect(p.license.verified_at).toBe(key === 'WHO_ICF_API' ? '2026-11-23' : '2026-08-08');
       expect(p.citation.length).toBeGreaterThan(20);
       expect(p.source_url.length).toBeGreaterThan(0);
     }

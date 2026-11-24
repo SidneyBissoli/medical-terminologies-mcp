@@ -57,6 +57,8 @@ export const DEFAULT_TTL = {
  */
 export const CACHE_PREFIX = {
   ICD11: 'icd11',
+  /** ICF via the WHO ICD-API: same host and credential, its own provenance block. */
+  ICF: 'icf',
   LOINC: 'loinc',
   RXNORM: 'rxnorm',
   MESH: 'mesh',

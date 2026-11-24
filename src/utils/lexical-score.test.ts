@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeForMatch, lexicalScore, RANKING_METHOD_NOTE } from './lexical-score.js';
+import { normalizeForMatch, lexicalScore, RANKING_METHOD_NOTE, stemToken, classifyMatch, bestLabelScore } from './lexical-score.js';
 
 describe('normalizeForMatch', () => {
   it('lowercases, strips diacritics, collapses punctuation and whitespace', () => {
@@ -56,5 +56,36 @@ describe('RANKING_METHOD_NOTE', () => {
   it('describes the server-side derivation (reused later by the provenance block)', () => {
     expect(RANKING_METHOD_NOTE).toContain('computed by this server');
     expect(RANKING_METHOD_NOTE).toContain('lexical similarity');
+  });
+});
+
+// PROGRESS.md 24.5a — measured 2026-11-24.
+describe('light stemming (symmetric)', () => {
+  it('meets a word and its inflection, which scored 0 before ("getting dressed" × ICF "Dressing")', () => {
+    expect(stemToken('dressed')).toBe(stemToken('dressing'));
+    expect(lexicalScore('getting dressed', 'Dressing')).toBeGreaterThan(0);
+  });
+
+  it('leaves short tokens alone and never makes an inflection exact', () => {
+    expect(stemToken('bus')).toBe('bus');
+    expect(stemToken('type')).toBe('type');
+    expect(classifyMatch('walks', 'Walking', lexicalScore('walks', 'Walking'))).not.toBe('exact');
+  });
+
+  it('keeps the one-word guard: "Tylenol" × "Tylenol PM" is still needs_review', () => {
+    expect(classifyMatch('Tylenol', 'Tylenol PM', lexicalScore('Tylenol', 'Tylenol PM'))).toBe('needs_review');
+  });
+});
+
+describe('bestLabelScore (title or a source synonym)', () => {
+  it('a source synonym beats a title that shares no word ("heart attack" × BA41)', () => {
+    const r = bestLabelScore('heart attack', 'Acute myocardial infarction, unspecified', ['heart attack', 'MI']);
+    expect(r).toEqual({ score: 1, label: 'heart attack', matchType: 'exact' });
+  });
+
+  it('the title wins ties and stays the label when no synonym scores higher', () => {
+    const r = bestLabelScore('heart rate', 'Heart rate', ['Pulse']);
+    expect(r.label).toBe('Heart rate');
+    expect(r.matchType).toBe('exact');
   });
 });

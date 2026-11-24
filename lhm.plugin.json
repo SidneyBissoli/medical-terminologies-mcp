@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "2.4.0",
+  "version": "4.0.0",
   "description": "Unified MCP server for global medical terminologies - ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney da Silva Pereira Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -1888,7 +1888,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Search the Brazilian CID-10 (Classificação Estatística Internacional de Doenças, 10ª Revisão) by Portuguese text.\n\nUse this tool to:\n- Find CID-10 codes for Brazilian SUS / ANVISA contexts (\"infarto\", \"diabetes\", \"tuberculose\")\n- Look up the official Portuguese (CBCD/USP) translation of a clinical term\n- Locate codes for billing, epidemiology, and clinical documentation in Brazil\n\nReturns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing \"infeccoes\" matches \"infecções\". Every word must match (AND), and everyday Portuguese is resolved to the CID-10's own wording (câncer→neoplasia maligna, AVC→acidente vascular cerebral, pressão alta→hipertensão, suicídio→lesão autoprovocada, aids→HIV); when that happens the response says so in vocabulary_notes. This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.",
+      "description": "Search the Brazilian CID-10 (Classificação Estatística Internacional de Doenças, 10ª Revisão) by Portuguese text.\n\nUse this tool to:\n- Find CID-10 codes for Brazilian SUS / ANVISA contexts (\"infarto\", \"diabetes\", \"tuberculose\")\n- Look up the official Portuguese (CBCD/USP) translation of a clinical term\n- Locate codes for billing, epidemiology, and clinical documentation in Brazil\n\nReturns matches from CID-10 categories (3-char) and/or subcategories (4-char). Search is diacritic-insensitive: typing \"infeccoes\" matches \"infecções\". Every word must match (AND), and everyday Portuguese is resolved to the CID-10's own wording (câncer→neoplasia maligna, AVC→acidente vascular cerebral, pressão alta→hipertensão, suicídio→lesão autoprovocada, aids→HIV); when that happens the response says so in vocabulary_notes. This tool searches the Brazilian Portuguese CID-10 V2008 — for the international ICD-11 (current WHO revision, in English by default), use icd11_search.\n\nSet `within` to search only some branches (a form field that accepts one chapter or group): a chapter number (\"5\"), a range of categories (\"F30-F39\") or a code (\"F32\") — up to 10. The resolved branches come back in `within`; a branch that does not exist is an error, never a silent unbounded search.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -1913,6 +1913,16 @@
             "description": "Search terms in Portuguese, AND between words (e.g., \"diabetes\", \"infarto\", \"câncer de mama\"); accents ignored, everyday words resolved to CID-10 wording",
             "minLength": 2,
             "type": "string"
+          },
+          "within": {
+            "description": "Only search these branches of CID-10 (up to 10): a chapter number (\"5\" = F00-F99), a range of categories (\"F30-F39\"; both ends must exist) or a category / subcategory code (\"F32\", \"F32.1\" — a category keeps its subcategories). A branch that does not exist is an error, never a silent unbounded search.",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "type": "array"
           }
         },
         "required": [
@@ -2254,11 +2264,49 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "within": {
+            "description": "The branches that bounded the search, resolved in the bundled dataset (uri is always null); empty when the search was unbounded.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "description": "Code of the branch entity (chapter number, block range or category code); null when it has none.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "uri": {
+                  "description": "Entity URI of the branch; null for CID-10 (bundled, no URIs).",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "description": "The branch as sent in `within`.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "value",
+                "code",
+                "title",
+                "uri"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           }
         },
         "required": [
           "query",
           "level",
+          "within",
           "total_count",
           "shown_count",
           "hits",
@@ -2268,6 +2316,782 @@
         "type": "object"
       },
       "title": "Buscar na CID-10"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Code ONE functional concept (\"walking speed\", \"climbing stairs\", \"using transportation\") in the three systems a clinical record needs, each in its role: the function or activity (ICF), the measure (LOINC observation) and the condition (ICD-11), plus the ICD-11 entity the WHO itself ties to each ICF category.\n\nReturns four roles:\n- `functioning`: ICF categories, each with `icd11_counterpart` — the ICD-11 chapter V entity the WHO links to it (d450 Walking → VW13 Walking, the same WHO entity). This link is READ FROM THE WHO (`same_entity` or `index_term`), never guessed; null when the WHO ties none.\n- `measures`: LOINC observations (\"Walking speed 24 hour mean Calculated\"); retired codes dropped.\n- `conditions`: ICD-11 conditions (\"Difficulty in walking\"), outside chapter V.\n\nEverything except `icd11_counterpart` is a lexical suggestion (the find_equivalent score: `match_score`, `match_type`, `matched_label`) — review it with a person. Every candidate carries its FHIR `coding`. Searches in English.\n\nWhen NOT to use: to search one terminology, use its own search tool; for the same concept across ICD-11, LOINC, RxNorm, MeSH and ICF as one ranked list, use find_equivalent; to pick codes from a value set you already have, use match_value_set.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 3,
+            "description": "Candidates returned per role (1-5, default 3).",
+            "maximum": 5,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "term": {
+            "description": "A functional concept in English (e.g. \"walking speed\", \"climbing stairs\", \"using transportation\").",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "term"
+        ],
+        "type": "object"
+      },
+      "name": "compose_functioning",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "conditions": {
+            "additionalProperties": false,
+            "properties": {
+              "error": {
+                "description": "Why this role could not be filled (the source failed); null when the search ran.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "items": {
+                "description": "ICD-11 conditions (chapters 01-26; chapter V and extension codes are left to icd11_counterpart), best first. Empty when nothing shares a word with the term.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "description": "ICD-11 MMS code.",
+                      "type": "string"
+                    },
+                    "coding": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                          "properties": {
+                            "code": {
+                              "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                              "type": "string"
+                            },
+                            "display": {
+                              "description": "Official label from the source. Omitted when the source returned none.",
+                              "type": "string"
+                            },
+                            "extension": {
+                              "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "url": {
+                                    "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                    "type": "string"
+                                  },
+                                  "valueCode": {
+                                    "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "url",
+                                  "valueCode"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "system": {
+                              "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                              "type": "string"
+                            },
+                            "version": {
+                              "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "system",
+                            "code"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "match_score": {
+                      "description": "Lexical similarity between the term and the title or a source-published synonym (0-1), computed by this server.",
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "match_type": {
+                      "description": "exact = same words; strong = every term word in the label and score >= 0.85; needs_review = anything else. A lexical candidate is a suggestion, never a confirmed equivalence.",
+                      "enum": [
+                        "exact",
+                        "strong",
+                        "needs_review"
+                      ],
+                      "type": "string"
+                    },
+                    "matched_label": {
+                      "description": "The synonym published by the source that produced match_score, when it scored higher than the title; null when the title did.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "uri": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "title",
+                    "uri",
+                    "match_score",
+                    "match_type",
+                    "matched_label",
+                    "coding"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "error",
+              "items"
+            ],
+            "type": "object"
+          },
+          "functioning": {
+            "additionalProperties": false,
+            "properties": {
+              "error": {
+                "description": "Why this role could not be filled (the source failed); null when the search ran.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "items": {
+                "description": "ICF categories (the function or activity), best first. Empty when nothing shares a word with the term.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "description": "ICF category code (e.g. \"d450\").",
+                      "type": "string"
+                    },
+                    "coding": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                          "properties": {
+                            "code": {
+                              "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                              "type": "string"
+                            },
+                            "display": {
+                              "description": "Official label from the source. Omitted when the source returned none.",
+                              "type": "string"
+                            },
+                            "extension": {
+                              "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "url": {
+                                    "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                    "type": "string"
+                                  },
+                                  "valueCode": {
+                                    "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "url",
+                                  "valueCode"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "system": {
+                              "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                              "type": "string"
+                            },
+                            "version": {
+                              "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "system",
+                            "code"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "component": {
+                      "anyOf": [
+                        {
+                          "enum": [
+                            "body_functions",
+                            "body_structures",
+                            "activities_participation",
+                            "environmental_factors"
+                          ],
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "ICF component, read from the code letter (b, s, d, e); null when the entity has no code (chapters and blocks)."
+                    },
+                    "icd11_counterpart": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "code": {
+                              "description": "ICD-11 MMS code of the counterpart (chapter V, e.g. \"VW13\"); null if the entity has none.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "coding": {
+                              "anyOf": [
+                                {
+                                  "additionalProperties": false,
+                                  "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                                  "properties": {
+                                    "code": {
+                                      "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                                      "type": "string"
+                                    },
+                                    "display": {
+                                      "description": "Official label from the source. Omitted when the source returned none.",
+                                      "type": "string"
+                                    },
+                                    "extension": {
+                                      "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "url": {
+                                            "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                            "type": "string"
+                                          },
+                                          "valueCode": {
+                                            "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "url",
+                                          "valueCode"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "system": {
+                                      "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                                      "type": "string"
+                                    },
+                                    "version": {
+                                      "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "system",
+                                    "code"
+                                  ],
+                                  "type": "object"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "FHIR Coding of the ICD-11 counterpart."
+                            },
+                            "link": {
+                              "description": "How the WHO ties them: same_entity = the ICF category and this ICD-11 entity are the same WHO entity; index_term = this ICD-11 entity lists the ICF category among its index terms. Both are read from the WHO, not guessed.",
+                              "enum": [
+                                "same_entity",
+                                "index_term"
+                              ],
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "uri": {
+                              "description": "ICD-11 MMS entity URI.",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "title",
+                            "uri",
+                            "link",
+                            "coding"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "The ICD-11 entity the WHO ties to this ICF category (supplementary chapter V, \"Generic functioning domains\"); null when the WHO ties none."
+                    },
+                    "match_score": {
+                      "description": "Lexical similarity between the term and the title or a source-published synonym (0-1), computed by this server.",
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "match_type": {
+                      "description": "exact = same words; strong = every term word in the label and score >= 0.85; needs_review = anything else. A lexical candidate is a suggestion, never a confirmed equivalence.",
+                      "enum": [
+                        "exact",
+                        "strong",
+                        "needs_review"
+                      ],
+                      "type": "string"
+                    },
+                    "matched_label": {
+                      "description": "The synonym published by the source that produced match_score, when it scored higher than the title; null when the title did.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "uri": {
+                      "description": "ICF entity URI.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "title",
+                    "component",
+                    "uri",
+                    "match_score",
+                    "match_type",
+                    "matched_label",
+                    "coding",
+                    "icd11_counterpart"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "error",
+              "items"
+            ],
+            "type": "object"
+          },
+          "measures": {
+            "additionalProperties": false,
+            "properties": {
+              "error": {
+                "description": "Why this role could not be filled (the source failed); null when the search ran.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "items": {
+                "description": "LOINC observations that measure it (retired codes dropped), best first. Empty when nothing shares a word with the term.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "description": "LOINC code.",
+                      "type": "string"
+                    },
+                    "coding": {
+                      "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                          "properties": {
+                            "code": {
+                              "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                              "type": "string"
+                            },
+                            "display": {
+                              "description": "Official label from the source. Omitted when the source returned none.",
+                              "type": "string"
+                            },
+                            "extension": {
+                              "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "url": {
+                                    "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                    "type": "string"
+                                  },
+                                  "valueCode": {
+                                    "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "url",
+                                  "valueCode"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "system": {
+                              "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                              "type": "string"
+                            },
+                            "version": {
+                              "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "system",
+                            "code"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "match_score": {
+                      "description": "Lexical similarity between the term and the title or a source-published synonym (0-1), computed by this server.",
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "match_type": {
+                      "description": "exact = same words; strong = every term word in the label and score >= 0.85; needs_review = anything else. A lexical candidate is a suggestion, never a confirmed equivalence.",
+                      "enum": [
+                        "exact",
+                        "strong",
+                        "needs_review"
+                      ],
+                      "type": "string"
+                    },
+                    "matched_label": {
+                      "description": "The synonym published by the source that produced match_score, when it scored higher than the title; null when the title did.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "title": {
+                      "description": "LOINC long common name.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "title",
+                    "match_score",
+                    "match_type",
+                    "matched_label",
+                    "coding"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "error",
+              "items"
+            ],
+            "type": "object"
+          },
+          "note": {
+            "description": "How to read the roles: which links are WHO-given and which are lexical suggestions.",
+            "type": "string"
+          },
+          "provenance": {
+            "description": "One provenance block per upstream source that contributed to this response (licenses are never merged; each block carries the origin diagnostics of ITS source)",
+            "items": {
+              "additionalProperties": false,
+              "description": "Bloco de proveniência: fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando há o que dizer, de onde veio cada parte, avisos da fonte, o que o servidor calculou e se o dado ainda pode mudar",
+              "properties": {
+                "citation": {
+                  "description": "Ready-to-use citation/attribution string",
+                  "type": "string"
+                },
+                "data_vintage": {
+                  "description": "Version/release of the data as exposed by the source; null when not exposed",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "derivation_note": {
+                  "description": "What this server computed; present together with derived",
+                  "type": "string"
+                },
+                "derived": {
+                  "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                  "type": "boolean"
+                },
+                "field_sources": {
+                  "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                  "items": {
+                    "additionalProperties": false,
+                    "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
+                    "properties": {
+                      "data_vintage": {
+                        "description": "Vintage/competência da sub-fonte",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "dataset_id": {
+                        "description": "Identificador do conjunto da sub-fonte",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "fields": {
+                        "description": "Campos do payload atribuídos a esta sub-fonte",
+                        "items": {
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "retrieved_at": {
+                        "description": "ISO-8601 da extração desta sub-fonte na origem",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "served_from_cache": {
+                        "description": "true se esta sub-fonte veio do cache do servidor (retrieved_at é o da extração original); false se foi buscada nesta chamada; null se o servidor não distingue",
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "source_url": {
+                        "description": "URL canônica da sub-fonte que originou estes campos",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "fields",
+                      "source_url",
+                      "dataset_id",
+                      "data_vintage",
+                      "retrieved_at"
+                    ],
+                    "type": "object"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "license": {
+                  "description": "License / legal regime of the data",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "notices": {
+                  "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "retrieval": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "anomalies": {
+                          "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "count": {
+                                "description": "Ocorrências desta classe na chamada",
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "kind": {
+                                "description": "Classe da anomalia (vocabulário fechado do contrato)",
+                                "enum": [
+                                  "timeout",
+                                  "network",
+                                  "http_4xx",
+                                  "http_5xx",
+                                  "rate_limited",
+                                  "malformed_body"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "count"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "attempts": {
+                          "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "requests": {
+                          "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "unstable": {
+                          "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "requests",
+                        "attempts",
+                        "anomalies",
+                        "unstable"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                },
+                "retrieved_at": {
+                  "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                  "type": "string"
+                },
+                "revision": {
+                  "additionalProperties": false,
+                  "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                  "properties": {
+                    "note": {
+                      "description": "O específico da fonte: o que revisa, quando, por quê",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                      "enum": [
+                        "current",
+                        "provisional",
+                        "final"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "note"
+                  ],
+                  "type": "object"
+                },
+                "source": {
+                  "description": "Official upstream source of this data",
+                  "type": "string"
+                },
+                "source_url": {
+                  "description": "Canonical URL of the source (API base or dataset release)",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "source_url",
+                "data_vintage",
+                "retrieved_at",
+                "retrieval",
+                "citation",
+                "license"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "term": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "term",
+          "functioning",
+          "measures",
+          "conditions",
+          "note",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Compose a Functional Concept Across Terminologies"
     },
     {
       "annotations": {
@@ -2562,7 +3386,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Ranked unified search for equivalent terms across multiple medical terminologies.\n\nUse this tool to:\n- Find the same concept in different coding systems\n- Compare how terminologies represent a concept\n- Support terminology mapping and data integration\n\nSearches across: ICD-11, LOINC, RxNorm, and MeSH. Set `target_terminologies` to limit which are searched, or set `source_terminology` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. `limit` caps candidates per terminology (default 5, max 10).\n\nEvery candidate carries `match_score` (lexical similarity to the search term, 0-1) and `rank` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in `groups` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).\n\nSearches upstreams in English. For official pt-BR content, use the dedicated tools: `icd11_search`/`mesh_search` accept `language: \"pt\"`, and `cid10_search` is natively Portuguese.",
+      "description": "Ranked unified search for equivalent terms across multiple medical terminologies.\n\nUse this tool to:\n- Find the same concept in different coding systems\n- Compare how terminologies represent a concept\n- Support terminology mapping and data integration\n\nSearches across: ICD-11, LOINC, RxNorm, MeSH and ICF (WHO functioning and disability; coded categories only). Set `target_terminologies` to limit which are searched, or set `source_terminology` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. `limit` caps candidates per terminology (default 5, max 10).\n\nEvery candidate carries `match_score` (lexical similarity to the search term, 0-1) and `rank` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in `groups` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).\n\nSearches upstreams in English. For official pt-BR content, use the dedicated tools: `icd11_search`/`mesh_search` accept `language: \"pt\"`, and `cid10_search` is natively Portuguese.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -2578,18 +3402,20 @@
               "icd11",
               "loinc",
               "rxnorm",
-              "mesh"
+              "mesh",
+              "icf"
             ],
             "type": "string"
           },
           "target_terminologies": {
-            "description": "Limit the search to these terminologies. If omitted, all five are searched.",
+            "description": "Limit the search to these terminologies. If omitted, all five are searched (ICD-11, LOINC, RxNorm, MeSH, ICF).",
             "items": {
               "enum": [
                 "icd11",
                 "loinc",
                 "rxnorm",
-                "mesh"
+                "mesh",
+                "icf"
               ],
               "type": "string"
             },
@@ -2639,7 +3465,8 @@
                           "icd11",
                           "loinc",
                           "rxnorm",
-                          "mesh"
+                          "mesh",
+                          "icf"
                         ],
                         "type": "string"
                       },
@@ -2666,7 +3493,8 @@
                       "icd11",
                       "loinc",
                       "rxnorm",
-                      "mesh"
+                      "mesh",
+                      "icf"
                     ],
                     "type": "string"
                   },
@@ -2954,6 +3782,13 @@
                           "minimum": 0,
                           "type": "number"
                         },
+                        "matched_label": {
+                          "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "rank": {
                           "maximum": 9007199254740991,
                           "minimum": 1,
@@ -2974,6 +3809,77 @@
                         "title",
                         "uri",
                         "match_score",
+                        "matched_label",
+                        "rank"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "found",
+                  "error",
+                  "items"
+                ],
+                "type": "object"
+              },
+              "icf": {
+                "additionalProperties": false,
+                "description": "ICF (WHO functioning and disability) candidates; present only when ICF was searched.",
+                "properties": {
+                  "error": {
+                    "description": "Failure message when the search in this terminology failed (timeout, server error); null when it answered.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "found": {
+                    "description": "True when this terminology returned at least one candidate.",
+                    "type": "boolean"
+                  },
+                  "items": {
+                    "description": "Candidates from this terminology, best first (by global rank), at most limit.",
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "match_score": {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "matched_label": {
+                          "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "rank": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "uri": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "title",
+                        "uri",
+                        "match_score",
+                        "matched_label",
                         "rank"
                       ],
                       "type": "object"
@@ -3016,6 +3922,13 @@
                           "minimum": 0,
                           "type": "number"
                         },
+                        "matched_label": {
+                          "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "rank": {
                           "maximum": 9007199254740991,
                           "minimum": 1,
@@ -3036,6 +3949,7 @@
                         "title",
                         "uri",
                         "match_score",
+                        "matched_label",
                         "rank"
                       ],
                       "type": "object"
@@ -3078,6 +3992,13 @@
                           "minimum": 0,
                           "type": "number"
                         },
+                        "matched_label": {
+                          "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "rank": {
                           "maximum": 9007199254740991,
                           "minimum": 1,
@@ -3098,6 +4019,7 @@
                         "title",
                         "uri",
                         "match_score",
+                        "matched_label",
                         "rank"
                       ],
                       "type": "object"
@@ -3140,6 +4062,13 @@
                           "minimum": 0,
                           "type": "number"
                         },
+                        "matched_label": {
+                          "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "rank": {
                           "maximum": 9007199254740991,
                           "minimum": 1,
@@ -3160,6 +4089,7 @@
                         "title",
                         "uri",
                         "match_score",
+                        "matched_label",
                         "rank"
                       ],
                       "type": "object"
@@ -3184,7 +4114,8 @@
                 "icd11",
                 "loinc",
                 "rxnorm",
-                "mesh"
+                "mesh",
+                "icf"
               ],
               "type": "string"
             },
@@ -3197,7 +4128,8 @@
                   "icd11",
                   "loinc",
                   "rxnorm",
-                  "mesh"
+                  "mesh",
+                  "icf"
                 ],
                 "type": "string"
               },
@@ -3233,7 +4165,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Map a LIST of free-text clinical terms to standard codes in one call, with ranked candidates and a confidence label for each — the building block of a reviewable crosswalk.\n\nUse this tool to:\n- Harmonize a column of diagnoses, drugs or lab names from a dataset to ICD-11 / RxNorm (+ ATC) / LOINC\n- Triage which terms map cleanly (exact / strong) and which need a person (needs_review)\n- Build a crosswalk you can audit: every row keeps its candidates, scores and sources\n\nGive each term its `domain`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to 50 terms per call — a longer list is refused with a validation error: split it into batches of 50. Repeated term+domain pairs are looked up once. `max_candidates` keeps 1-5 per term (default 3).\n\nEvery candidate carries `match_score` (lexical, 0-1, the find_equivalent formula) and `match_type`: exact = same words after normalization; strong = every term word is in the title (or the matched synonym) and score ≥ 0.85; needs_review = anything else. A one-word term is exact or needs_review, never strong (\"Tylenol\" vs \"Tylenol PM\" is a different product). Synonyms, abbreviations (\"MI\", \"HbA1c\") and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named \"Deprecated\". For diagnoses, a candidate is also scored against the synonyms WHO matched (e.g. \"hypertension NOS\" for Essential hypertension), reported in `matched_label`; postcoordinated clusters (codes with \"/\" or \"&\") are left out — build those with icd11_postcoordination. Lab names are ambiguous without specimen and property: \"glucose\" matches over a thousand LOINC codes, so write \"glucose serum\" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status \"error\".\n\nTerms are searched in English and sent to the WHO and NLM APIs — de-identify the list first. For Brazilian Portuguese diagnoses use cid10_search; to check codes you already have, use validate_codes; for one term across every terminology, use find_equivalent. Record the vocabulary versions with the provenance blocks (one per source) and terminology_versions.",
+      "description": "Map a LIST of free-text clinical terms to standard codes in one call, with ranked candidates and a confidence label for each — the building block of a reviewable crosswalk.\n\nUse this tool to:\n- Harmonize a column of diagnoses, drugs or lab names from a dataset to ICD-11 / RxNorm (+ ATC) / LOINC\n- Triage which terms map cleanly (exact / strong) and which need a person (needs_review)\n- Build a crosswalk you can audit: every row keeps its candidates, scores and sources\n\nGive each term its `domain`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to 50 terms per call — a longer list is refused with a validation error: split it into batches of 50. Repeated term+domain pairs are looked up once. `max_candidates` keeps 1-5 per term (default 3).\n\nEvery candidate carries `match_score` (lexical, 0-1, the find_equivalent formula) and `match_type`: exact = same words after normalization; strong = every term word is in the title (or the matched synonym) and score ≥ 0.85; needs_review = anything else. A one-word term is exact or needs_review, never strong (\"Tylenol\" vs \"Tylenol PM\" is a different product). Synonyms the source does not publish, abbreviations it does not list and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named \"Deprecated\". A candidate is also scored against the synonyms its source publishes — for diagnoses the ones WHO matched (e.g. \"hypertension NOS\" for Essential hypertension), for labs LOINC's related names (e.g. \"HbA1c\") — reported in `matched_label`; postcoordinated clusters (codes with \"/\" or \"&\") are left out — build those with icd11_postcoordination. Lab names are ambiguous without specimen and property: \"glucose\" matches over a thousand LOINC codes, so write \"glucose serum\" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status \"error\".\n\nEvery candidate also carries `coding`, the FHIR Coding of that code as the source returned it — a candidate, not a confirmed match: confirm needs_review rows with a person (and codes from elsewhere with validate_codes) before storing them.\n\nTerms are searched in English and sent to the WHO and NLM APIs — de-identify the list first. For Brazilian Portuguese diagnoses use cid10_search; to check codes you already have, use validate_codes; for one term across every terminology, use find_equivalent. Record the vocabulary versions with the provenance blocks (one per source) and terminology_versions.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -3616,6 +4548,63 @@
                         "description": "Code in the target terminology (ICD-11 code, RxCUI, or LOINC number).",
                         "type": "string"
                       },
+                      "coding": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                            "properties": {
+                              "code": {
+                                "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                                "type": "string"
+                              },
+                              "display": {
+                                "description": "Official label from the source. Omitted when the source returned none.",
+                                "type": "string"
+                              },
+                              "extension": {
+                                "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "url": {
+                                      "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                      "type": "string"
+                                    },
+                                    "valueCode": {
+                                      "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "url",
+                                    "valueCode"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "system": {
+                                "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                                "type": "string"
+                              },
+                              "version": {
+                                "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "system",
+                              "code"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "FHIR Coding for this candidate as the source returned it. A candidate is not a confirmed match: store it only after review when match_type is needs_review. Null for an ICD-11 candidate without an entity URI."
+                      },
                       "match_score": {
                         "description": "Lexical similarity to the term, 0-1 (same formula as find_equivalent), against the title or the best synonym the source matched.",
                         "maximum": 1,
@@ -3655,7 +4644,8 @@
                       "uri",
                       "match_score",
                       "match_type",
-                      "matched_label"
+                      "matched_label",
+                      "coding"
                     ],
                     "type": "object"
                   },
@@ -4534,6 +5524,7 @@
                   "type": "string"
                 },
                 "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
                   "type": "string"
                 }
               },
@@ -4554,6 +5545,7 @@
                   "type": "string"
                 },
                 "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
                   "type": "string"
                 }
               },
@@ -4574,6 +5566,7 @@
                   "type": "string"
                 },
                 "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
                   "type": "string"
                 }
               },
@@ -5147,7 +6140,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Search for medical conditions, diseases, and health problems in ICD-11 (International Classification of Diseases, 11th Revision).\n\nUse this tool to:\n- Find ICD-11 codes for diagnoses\n- Search for diseases by name or keyword\n- Look up conditions in multiple languages\n\nSet `language` for WHO's official translations — e.g. `language: \"pt\"` searches and returns the official Portuguese (pt-BR) ICD-11 labels. Never machine-translated.\n\nReturns matching entities with codes, titles, and relevance scores.",
+      "description": "Search for medical conditions, diseases, and health problems in ICD-11 (International Classification of Diseases, 11th Revision).\n\nUse this tool to:\n- Find ICD-11 codes for diagnoses\n- Search for diseases by name or keyword\n- Look up conditions in multiple languages\n\nSet `language` for WHO's official translations — e.g. `language: \"pt\"` searches and returns the official Portuguese (pt-BR) ICD-11 labels. Never machine-translated.\n\nSet `within` to search only some branches of ICD-11 (a form field that accepts only one chapter or block): a chapter number (\"06\", \"V\"), a block range (\"5A10-5A14\"), a category code or an entity URI — up to 10. The WHO's own subtree filter does the bounding; the resolved branches come back in `within`. A branch that does not exist is an error, never a silent unbounded search.\n\nReturns matching entities with codes, titles, and relevance scores.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -5179,6 +6172,16 @@
             "description": "Search text (disease name, symptom, or keyword)",
             "minLength": 1,
             "type": "string"
+          },
+          "within": {
+            "description": "Only search these branches of ICD-11 and their descendants (up to 10): a chapter number (\"06\", \"V\"), a block range (\"5A10-5A14\"), a category code (\"5A11\") or an entity URI. Uses the WHO search subtree filter. A branch that does not exist is an error, never a silent unbounded search.",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "type": "array"
           }
         },
         "required": [
@@ -5484,10 +6487,48 @@
             "maximum": 9007199254740991,
             "minimum": -9007199254740991,
             "type": "integer"
+          },
+          "within": {
+            "description": "The branches that bounded the search, resolved at the WHO; empty when the search was unbounded.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "description": "Code of the branch entity (chapter number, block range or category code); null when it has none.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "uri": {
+                  "description": "Entity URI of the branch; null for CID-10 (bundled, no URIs).",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "description": "The branch as sent in `within`.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "value",
+                "code",
+                "title",
+                "uri"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           }
         },
         "required": [
           "query",
+          "within",
           "total_count",
           "entities",
           "provenance",
@@ -5496,6 +6537,796 @@
         "type": "object"
       },
       "title": "Search ICD-11"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Get the official details of ONE ICF category you already have a code or URI for: title, definition, inclusions, exclusions, component and WHO browser link.\n\nProvide `code` (a component letter b/s/d/e and 1-5 digits, e.g. \"d450\", \"b28013\") or `uri` (an ICF URI a previous answer returned) — at least one is required. Qualifiers such as \".qp8\" are not part of the code. Set `language` for WHO's official translations (e.g. `language: \"pt\"`).\n\nReturns a single entity. A code WHO does not know comes back as a \"not found\" error, never an empty record.\n\nWhen NOT to use: to find a code from words, use icf_search first; for ICD-11 diagnosis codes (like \"5A11\"), use icd11_lookup.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "ICF category code (e.g. \"d450\", \"b28013\")",
+            "pattern": "^[bsde]\\d{1,5}$",
+            "type": "string"
+          },
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          },
+          "uri": {
+            "description": "ICF entity URI as returned by icf_search or a previous icf_lookup",
+            "pattern": "^https?:\\/\\/id\\.who\\.int\\/icd\\/release\\/11\\/[^/]+\\/icf(\\/|$)",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "name": "icf_lookup",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "browser_url": {
+            "description": "Link to the entity in the WHO ICF browser; null when the WHO returns none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "class_kind": {
+            "description": "WHO class kind (e.g. \"chapter\", \"block\", \"category\"); null when the WHO does not state it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code": {
+            "description": "ICF code (e.g. \"d450\"); null for chapters and blocks, which have a code_range instead.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "code_range": {
+            "description": "Code range of a block (e.g. \"d450-d469\"); null for coded categories.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "component": {
+            "anyOf": [
+              {
+                "enum": [
+                  "body_functions",
+                  "body_structures",
+                  "activities_participation",
+                  "environmental_factors"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ICF component, read from the code letter (b, s, d, e); null when the entity has no code (chapters and blocks)."
+          },
+          "definition": {
+            "description": "Official definition; null when the WHO publishes none.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "exclusions": {
+            "description": "Exclusion entries (coded elsewhere in ICF), each with its URI and label.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "inclusions": {
+            "description": "Inclusion entries (what this category covers), each with its URI and label.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "uri": {
+                  "description": "URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "uri",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
+              "field_sources": {
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
+                  "properties": {
+                    "data_vintage": {
+                      "description": "Vintage/competência da sub-fonte",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dataset_id": {
+                      "description": "Identificador do conjunto da sub-fonte",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fields": {
+                      "description": "Campos do payload atribuídos a esta sub-fonte",
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "retrieved_at": {
+                      "description": "ISO-8601 da extração desta sub-fonte na origem",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "served_from_cache": {
+                      "description": "true se esta sub-fonte veio do cache do servidor (retrieved_at é o da extração original); false se foi buscada nesta chamada; null se o servidor não distingue",
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "source_url": {
+                      "description": "URL canônica da sub-fonte que originou estes campos",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fields",
+                    "source_url",
+                    "dataset_id",
+                    "data_vintage",
+                    "retrieved_at"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notices": {
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "retrieval": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "anomalies": {
+                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "count": {
+                              "description": "Ocorrências desta classe na chamada",
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "kind": {
+                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
+                              "enum": [
+                                "timeout",
+                                "network",
+                                "http_4xx",
+                                "http_5xx",
+                                "rate_limited",
+                                "malformed_body"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "count"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "attempts": {
+                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "requests": {
+                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "unstable": {
+                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "requests",
+                      "attempts",
+                      "anomalies",
+                      "unstable"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "retrieval",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "title": {
+            "description": "Official title in the requested language (\"Unknown\" when the WHO returns none).",
+            "type": "string"
+          },
+          "uri": {
+            "description": "WHO ICF entity URI.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "code_range",
+          "uri",
+          "title",
+          "component",
+          "class_kind",
+          "definition",
+          "exclusions",
+          "inclusions",
+          "browser_url",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "ICF Category Details"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "description": "Search the WHO ICF (International Classification of Functioning, Disability and Health) for functioning and disability concepts: body functions (b), body structures (s), activities and participation (d), environmental factors (e).\n\nUse this tool to:\n- Find the ICF code for a function or activity (\"walking\" → d450 Walking)\n- Code rehabilitation, home-care or disability findings, which ICD-11 (diagnoses) does not cover\n- Search in WHO's official translations — e.g. `language: \"pt\"` (\"andar\" → d450 Andar). Never machine-translated.\n- Search only some branches with `within` (category codes such as \"d450\", or ICF URIs; up to 10). The WHO search subtree filter does the bounding; a branch that does not exist is an error, never a silent unbounded search.\n\nReturns matching categories with code, title, ICF component, relevance score and URI, in WHO relevance order. ICF has no category for every measurement: \"walking speed\" returns d450 Walking (the activity), not a speed category, because ICF classifies functioning, not test results — use loinc_search for the measured observation.\n\nWhen NOT to use: for diseases and diagnoses use icd11_search; for lab tests and clinical measurements use loinc_search.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "language": {
+            "default": "en",
+            "description": "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
+            "enum": [
+              "en",
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it",
+              "zh",
+              "ja",
+              "ar",
+              "ru"
+            ],
+            "type": "string"
+          },
+          "max_results": {
+            "default": 25,
+            "description": "Maximum number of results (1-100). Default: 25",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Search text (a function, activity, body structure or environmental factor, e.g. \"walking\")",
+            "minLength": 1,
+            "type": "string"
+          },
+          "within": {
+            "description": "Only search these branches of ICF and their descendants (up to 10): a category code (\"d450\", \"b280\") or an ICF entity URI. Uses the WHO search subtree filter. A branch that does not exist is an error, never a silent unbounded search.",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "icf_search",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "entities": {
+            "description": "Matching ICF entities in WHO relevance order, at most max_results.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "description": "ICF code (e.g. \"d450\"); null for entries without a code.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "component": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "body_functions",
+                        "body_structures",
+                        "activities_participation",
+                        "environmental_factors"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "ICF component, read from the code letter (b, s, d, e); null when the entity has no code (chapters and blocks)."
+                },
+                "is_leaf": {
+                  "description": "True when the category has no subcategories.",
+                  "type": "boolean"
+                },
+                "score": {
+                  "description": "WHO search relevance score.",
+                  "type": "number"
+                },
+                "title": {
+                  "description": "Official title in the requested language.",
+                  "type": "string"
+                },
+                "uri": {
+                  "description": "WHO ICF entity URI; pass it to icf_lookup.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "title",
+                "component",
+                "score",
+                "uri",
+                "is_leaf"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "provenance": {
+            "additionalProperties": false,
+            "description": "Provenance block: source, URL, data vintage, extraction instant, origin diagnostics, citation, license",
+            "properties": {
+              "citation": {
+                "description": "Ready-to-use citation/attribution string",
+                "type": "string"
+              },
+              "data_vintage": {
+                "description": "Version/release of the data as exposed by the source; null when not exposed",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "derivation_note": {
+                "description": "What this server computed; present together with derived",
+                "type": "string"
+              },
+              "derived": {
+                "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                "type": "boolean"
+              },
+              "field_sources": {
+                "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                "items": {
+                  "additionalProperties": false,
+                  "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
+                  "properties": {
+                    "data_vintage": {
+                      "description": "Vintage/competência da sub-fonte",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "dataset_id": {
+                      "description": "Identificador do conjunto da sub-fonte",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "fields": {
+                      "description": "Campos do payload atribuídos a esta sub-fonte",
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "type": "array"
+                    },
+                    "retrieved_at": {
+                      "description": "ISO-8601 da extração desta sub-fonte na origem",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "served_from_cache": {
+                      "description": "true se esta sub-fonte veio do cache do servidor (retrieved_at é o da extração original); false se foi buscada nesta chamada; null se o servidor não distingue",
+                      "type": [
+                        "boolean",
+                        "null"
+                      ]
+                    },
+                    "source_url": {
+                      "description": "URL canônica da sub-fonte que originou estes campos",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "fields",
+                    "source_url",
+                    "dataset_id",
+                    "data_vintage",
+                    "retrieved_at"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "license": {
+                "description": "License / legal regime of the data",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "notices": {
+                "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "retrieval": {
+                "anyOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "anomalies": {
+                        "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "count": {
+                              "description": "Ocorrências desta classe na chamada",
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "kind": {
+                              "description": "Classe da anomalia (vocabulário fechado do contrato)",
+                              "enum": [
+                                "timeout",
+                                "network",
+                                "http_4xx",
+                                "http_5xx",
+                                "rate_limited",
+                                "malformed_body"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "count"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "attempts": {
+                        "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "requests": {
+                        "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "unstable": {
+                        "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "requests",
+                      "attempts",
+                      "anomalies",
+                      "unstable"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+              },
+              "retrieved_at": {
+                "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                "type": "string"
+              },
+              "revision": {
+                "additionalProperties": false,
+                "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                "properties": {
+                  "note": {
+                    "description": "O específico da fonte: o que revisa, quando, por quê",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                    "enum": [
+                      "current",
+                      "provisional",
+                      "final"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status",
+                  "note"
+                ],
+                "type": "object"
+              },
+              "source": {
+                "description": "Official upstream source of this data",
+                "type": "string"
+              },
+              "source_url": {
+                "description": "Canonical URL of the source (API base or dataset release)",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source",
+              "source_url",
+              "data_vintage",
+              "retrieved_at",
+              "retrieval",
+              "citation",
+              "license"
+            ],
+            "type": "object"
+          },
+          "query": {
+            "description": "The search text as submitted.",
+            "type": "string"
+          },
+          "total_count": {
+            "description": "Number of entities the WHO search returned, before the max_results cap.",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
+          },
+          "within": {
+            "description": "The branches that bounded the search, resolved at the WHO; empty when the search was unbounded.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "description": "Code of the branch entity (chapter number, block range or category code); null when it has none.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": "string"
+                },
+                "uri": {
+                  "description": "Entity URI of the branch; null for CID-10 (bundled, no URIs).",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value": {
+                  "description": "The branch as sent in `within`.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "value",
+                "code",
+                "title",
+                "uri"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "query",
+          "within",
+          "total_count",
+          "entities",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Search ICF"
     },
     {
       "annotations": {
@@ -7226,6 +9057,692 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
+      "description": "For each free-text term, pick the best code FROM A VALUE SET YOU PROVIDE — the question \"which code of this value set fits this field?\".\n\nSend `terms` (up to 50) and `value_set`: the allowed codes as `{ code, terminology }` pairs (up to 100; any of icd11, icd10, cid10, loinc, rxnorm, mesh, atc, icf, mixed if needed). Only those codes can be suggested — never a code outside the set.\n\nHow it works: every member is first confirmed at its source (the validate_codes logic), giving its official title and FHIR `coding`; members that do not exist or cannot be checked are listed in `value_set.unconfirmed` and never ranked. Then each term is scored against each confirmed member's title AND the synonyms its source publishes (ICD-11/ICF inclusions and index terms, LOINC related names, MeSH entry terms): `match_score` (lexical, 0-1), `match_type` (exact / strong / needs_review, the harmonize_terms rules) and `matched_label` (the synonym that scored, or null when the title did). Members sharing no word with the term are left out; a term with none left is `no_candidates`.\n\nLexical only: a synonym the source does NOT publish (\"gait speed\" for \"walking speed\") lands in needs_review or no_candidates — review those with a person. Each member is looked up live (cached), so a large set of ICD-11/ICF codes takes a few seconds.\n\nWhen NOT to use: with no value set, map terms with harmonize_terms; to check a list of codes, use validate_codes.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_candidates": {
+            "default": 3,
+            "description": "Ranked members returned per term (1-10, default 3).",
+            "maximum": 10,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "terms": {
+            "description": "Free-text terms to place in the value set (e.g. the field contents of your data). Up to 50.",
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "type": "array"
+          },
+          "value_set": {
+            "description": "The allowed codes, as code+terminology pairs (any of the validate_codes terminologies, mixed if needed). Only these codes can be suggested. Up to 100; each is confirmed at its source before ranking.",
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "The code to validate (raw, as it appears in your data).",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "terminology": {
+                  "description": "Which terminology this code belongs to. Required — auto-detection isn't supported because category-level codes like \"A00\" exist in both ICD-10 and CID-10.",
+                  "enum": [
+                    "icd11",
+                    "icd10",
+                    "loinc",
+                    "rxnorm",
+                    "mesh",
+                    "atc",
+                    "cid10",
+                    "icf"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "terminology"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "terms",
+          "value_set"
+        ],
+        "type": "object"
+      },
+      "name": "match_value_set",
+      "outputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution": {
+            "description": "Canonical source URLs of this response (attribution list)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "counts": {
+            "additionalProperties": false,
+            "description": "How many terms landed in each class (by their best member).",
+            "properties": {
+              "exact": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "needs_review": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "no_candidates": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "strong": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "exact",
+              "strong",
+              "needs_review",
+              "no_candidates"
+            ],
+            "type": "object"
+          },
+          "provenance": {
+            "description": "One provenance block per upstream source that contributed to this response (licenses are never merged; each block carries the origin diagnostics of ITS source)",
+            "items": {
+              "additionalProperties": false,
+              "description": "Bloco de proveniência: fonte, URL, competência, extração, diagnóstico de origem, citação e licença; e, só quando há o que dizer, de onde veio cada parte, avisos da fonte, o que o servidor calculou e se o dado ainda pode mudar",
+              "properties": {
+                "citation": {
+                  "description": "Ready-to-use citation/attribution string",
+                  "type": "string"
+                },
+                "data_vintage": {
+                  "description": "Version/release of the data as exposed by the source; null when not exposed",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "derivation_note": {
+                  "description": "What this server computed; present together with derived",
+                  "type": "string"
+                },
+                "derived": {
+                  "description": "Present (true) only when this server computed the value (e.g. a ranking or summary statistics) instead of passing on what the source returned",
+                  "type": "boolean"
+                },
+                "field_sources": {
+                  "description": "Present only when the response joins parts from different origins or extraction instants: for each group of fields, its URL, extraction instant and whether it came from cache. Absent in single-origin responses",
+                  "items": {
+                    "additionalProperties": false,
+                    "description": "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
+                    "properties": {
+                      "data_vintage": {
+                        "description": "Vintage/competência da sub-fonte",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "dataset_id": {
+                        "description": "Identificador do conjunto da sub-fonte",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "fields": {
+                        "description": "Campos do payload atribuídos a esta sub-fonte",
+                        "items": {
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "retrieved_at": {
+                        "description": "ISO-8601 da extração desta sub-fonte na origem",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "served_from_cache": {
+                        "description": "true se esta sub-fonte veio do cache do servidor (retrieved_at é o da extração original); false se foi buscada nesta chamada; null se o servidor não distingue",
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "source_url": {
+                        "description": "URL canônica da sub-fonte que originou estes campos",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "fields",
+                      "source_url",
+                      "dataset_id",
+                      "data_vintage",
+                      "retrieved_at"
+                    ],
+                    "type": "object"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "license": {
+                  "description": "License / legal regime of the data",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "notices": {
+                  "description": "Caveats the source publishes about the data, verbatim (license statements are not repeated here; see the info://licenses resource). Absent when there is none",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "retrieval": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "anomalies": {
+                          "description": "Anomalias superadas até o sucesso, somadas por classe, em ordem fixa; [] se nenhuma",
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "count": {
+                                "description": "Ocorrências desta classe na chamada",
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "kind": {
+                                "description": "Classe da anomalia (vocabulário fechado do contrato)",
+                                "enum": [
+                                  "timeout",
+                                  "network",
+                                  "http_4xx",
+                                  "http_5xx",
+                                  "rate_limited",
+                                  "malformed_body"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "count"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "attempts": {
+                          "description": "Tentativas somadas, incluindo as repetidas (>= requests)",
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "requests": {
+                          "description": "Idas distintas à origem que compõem esta resposta (fatias, páginas)",
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "unstable": {
+                          "description": "true se houve repetição (attempts > requests) ou alguma anomalia",
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "requests",
+                        "attempts",
+                        "anomalies",
+                        "unstable"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Origin diagnostics of THIS source in this call: requests made to the upstream, attempts summed across retries, anomalies worked around (kind + count); unstable=true when any anomaly happened. null when nothing was measured (bundled dataset, or response served entirely from cache)"
+                },
+                "retrieved_at": {
+                  "description": "Real instant of the upstream extraction (ISO-8601, UTC). Responses served from cache keep the ORIGINAL fetch instant.",
+                  "type": "string"
+                },
+                "revision": {
+                  "additionalProperties": false,
+                  "description": "Whether the data can still change at the source: current = the version in force, the source may revise it; provisional = preliminary; final = will not change. Absent when unknown",
+                  "properties": {
+                    "note": {
+                      "description": "O específico da fonte: o que revisa, quando, por quê",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "description": "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+                      "enum": [
+                        "current",
+                        "provisional",
+                        "final"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "note"
+                  ],
+                  "type": "object"
+                },
+                "source": {
+                  "description": "Official upstream source of this data",
+                  "type": "string"
+                },
+                "source_url": {
+                  "description": "Canonical URL of the source (API base or dataset release)",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "source",
+                "source_url",
+                "data_vintage",
+                "retrieved_at",
+                "retrieval",
+                "citation",
+                "license"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "results": {
+            "description": "One entry per term, in request order.",
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "best": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "code": {
+                          "description": "Value-set member code, as submitted.",
+                          "type": "string"
+                        },
+                        "coding": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": false,
+                              "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                              "properties": {
+                                "code": {
+                                  "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                                  "type": "string"
+                                },
+                                "display": {
+                                  "description": "Official label from the source. Omitted when the source returned none.",
+                                  "type": "string"
+                                },
+                                "extension": {
+                                  "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "url": {
+                                        "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                        "type": "string"
+                                      },
+                                      "valueCode": {
+                                        "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "url",
+                                      "valueCode"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "system": {
+                                  "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "system",
+                                "code"
+                              ],
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "FHIR Coding of the member (null only when the source gives no system for it)."
+                        },
+                        "match_score": {
+                          "description": "Lexical similarity between the term and the title (0-1), computed by this server.",
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "match_type": {
+                          "description": "exact = same words; strong = every term word in the title (or the matched synonym) and score >= 0.85; needs_review = anything else.",
+                          "enum": [
+                            "exact",
+                            "strong",
+                            "needs_review"
+                          ],
+                          "type": "string"
+                        },
+                        "matched_label": {
+                          "description": "The synonym published by the source (ICD-11/ICF inclusion or index term, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "terminology": {
+                          "enum": [
+                            "icd11",
+                            "icd10",
+                            "loinc",
+                            "rxnorm",
+                            "mesh",
+                            "atc",
+                            "cid10",
+                            "icf"
+                          ],
+                          "type": "string"
+                        },
+                        "title": {
+                          "description": "Official title of the member, read at its source.",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "terminology",
+                        "title",
+                        "match_score",
+                        "match_type",
+                        "matched_label",
+                        "coding"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "The best member for this term; null when status is no_candidates."
+                },
+                "candidates": {
+                  "description": "Ranked members (best first), at most max_candidates; members sharing no word with the term are left out.",
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "code": {
+                        "description": "Value-set member code, as submitted.",
+                        "type": "string"
+                      },
+                      "coding": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                            "properties": {
+                              "code": {
+                                "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                                "type": "string"
+                              },
+                              "display": {
+                                "description": "Official label from the source. Omitted when the source returned none.",
+                                "type": "string"
+                              },
+                              "extension": {
+                                "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "url": {
+                                      "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                      "type": "string"
+                                    },
+                                    "valueCode": {
+                                      "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "url",
+                                    "valueCode"
+                                  ],
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              },
+                              "system": {
+                                "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                                "type": "string"
+                              },
+                              "version": {
+                                "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "system",
+                              "code"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "FHIR Coding of the member (null only when the source gives no system for it)."
+                      },
+                      "match_score": {
+                        "description": "Lexical similarity between the term and the title (0-1), computed by this server.",
+                        "maximum": 1,
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "match_type": {
+                        "description": "exact = same words; strong = every term word in the title (or the matched synonym) and score >= 0.85; needs_review = anything else.",
+                        "enum": [
+                          "exact",
+                          "strong",
+                          "needs_review"
+                        ],
+                        "type": "string"
+                      },
+                      "matched_label": {
+                        "description": "The synonym published by the source (ICD-11/ICF inclusion or index term, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "terminology": {
+                        "enum": [
+                          "icd11",
+                          "icd10",
+                          "loinc",
+                          "rxnorm",
+                          "mesh",
+                          "atc",
+                          "cid10",
+                          "icf"
+                        ],
+                        "type": "string"
+                      },
+                      "title": {
+                        "description": "Official title of the member, read at its source.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "terminology",
+                      "title",
+                      "match_score",
+                      "match_type",
+                      "matched_label",
+                      "coding"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "status": {
+                  "description": "no_candidates = no confirmed member shares a word with the term.",
+                  "enum": [
+                    "matched",
+                    "no_candidates"
+                  ],
+                  "type": "string"
+                },
+                "term": {
+                  "description": "The term as submitted.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "term",
+                "status",
+                "best",
+                "candidates"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "value_set": {
+            "additionalProperties": false,
+            "description": "What happened to the value set before ranking.",
+            "properties": {
+              "confirmed": {
+                "description": "Members confirmed at their source; only these are ranked.",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "submitted": {
+                "description": "Codes in the value set as sent.",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              "unconfirmed": {
+                "description": "Members left out of the ranking, with why. Fix or drop them: an unconfirmed code is never suggested.",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "error": {
+                      "description": "The failure message when reason is error; null otherwise.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "reason": {
+                      "description": "not_found = the source says the code does not exist; error = it could not be checked.",
+                      "enum": [
+                        "not_found",
+                        "error"
+                      ],
+                      "type": "string"
+                    },
+                    "terminology": {
+                      "enum": [
+                        "icd11",
+                        "icd10",
+                        "loinc",
+                        "rxnorm",
+                        "mesh",
+                        "atc",
+                        "cid10",
+                        "icf"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "terminology",
+                    "reason",
+                    "error"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "submitted",
+              "confirmed",
+              "unconfirmed"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "value_set",
+          "results",
+          "counts",
+          "provenance",
+          "attribution"
+        ],
+        "type": "object"
+      },
+      "title": "Match Terms to a Value Set"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
       "description": "Get detailed information about a MeSH descriptor by ID.\n\nUse this tool to:\n- Get the full definition (scope note) of a MeSH term\n- View tree numbers showing hierarchy location\n- See related concepts and synonyms\n\nProvide a MeSH Descriptor ID like \"D015242\" (Ofloxacin). Set `language` to request NLM's official translations where they exist (e.g. `language: \"pt\"`).",
       "inputSchema": {
         "additionalProperties": false,
@@ -7887,7 +10404,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Search for MeSH (Medical Subject Headings) descriptors.\n\nUse this tool to:\n- Find MeSH terms for indexing medical literature\n- Look up subject headings for PubMed searches\n- Find controlled vocabulary terms\n\nSet `language` to request NLM's official translations where they exist (e.g. `language: \"pt\"` for Portuguese labels); content is never machine-translated.\n\nReturns matching descriptors with MeSH IDs and labels.",
+      "description": "Search for MeSH (Medical Subject Headings) descriptors.\n\nUse this tool to:\n- Find MeSH terms for indexing medical literature\n- Look up subject headings for PubMed searches\n- Find controlled vocabulary terms\n\nSet `language` to request NLM's official translations where they exist (e.g. `language: \"pt\"` for Portuguese labels); content is never machine-translated.\n\nReturns matching descriptors with MeSH IDs and labels. When no descriptor LABEL matches (lay words such as \"heart attack\" or \"bedsore\"), the search falls back to MeSH entry terms and says so (`matched_via: \"entry_term\"`, with the `matched_term` per descriptor) — that fallback takes a few seconds. Not applied with `match: \"exact\"`.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -7958,6 +10475,13 @@
                 "label": {
                   "type": "string"
                 },
+                "matched_term": {
+                  "description": "The MeSH entry term that led to this descriptor; null when the label itself matched.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "uri": {
                   "type": "string"
                 }
@@ -7965,7 +10489,8 @@
               "required": [
                 "id",
                 "uri",
-                "label"
+                "label",
+                "matched_term"
               ],
               "type": "object"
             },
@@ -7977,6 +10502,14 @@
               "exact",
               "contains",
               "startswith"
+            ],
+            "type": "string"
+          },
+          "matched_via": {
+            "description": "descriptor_label = the query matched descriptor labels; entry_term = no label matched, so the descriptors were reached through MeSH entry terms (synonyms such as \"Heart Attack\" for Myocardial Infarction).",
+            "enum": [
+              "descriptor_label",
+              "entry_term"
             ],
             "type": "string"
           },
@@ -8211,6 +10744,7 @@
           "query",
           "match",
           "total_count",
+          "matched_via",
           "descriptors",
           "provenance",
           "attribution"
@@ -10452,7 +12986,8 @@
               "rxnorm",
               "mesh",
               "atc",
-              "cid10"
+              "cid10",
+              "icf"
             ],
             "type": "string"
           },
@@ -10769,7 +13304,8 @@
               "rxnorm",
               "mesh",
               "atc",
-              "cid10"
+              "cid10",
+              "icf"
             ],
             "type": "string"
           },
@@ -10804,12 +13340,12 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "List the current version, release date, publisher, source URL, and update cadence of every terminology this server queries against.\n\nUseful for pipeline maintainers who need to:\n- Confirm which release of ICD-11 / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.\n- Verify the bundled CID-10 (frozen at V2008) and ICD-10 → ICD-11 transition tables (currently 2025-01) match expectations.\n- Cite the data version in research artifacts.\n\nPass `terminology` to filter to a single entry; otherwise the full set of 7 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.",
+      "description": "List the current version, release date, publisher, source URL, and update cadence of every terminology this server queries against.\n\nUseful for pipeline maintainers who need to:\n- Confirm which release of ICD-11 / ICF / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.\n- Verify the bundled CID-10 (frozen at V2008) and ICD-10 → ICD-11 transition tables (currently 2025-01) match expectations.\n- Cite the data version in research artifacts.\n\nPass `terminology` to filter to a single entry; otherwise the full set of 8 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "terminology": {
-            "description": "Filter to a single terminology. Omit to return all 7.",
+            "description": "Filter to a single terminology. Omit to return all 8.",
             "enum": [
               "icd11",
               "icd10",
@@ -10817,7 +13353,8 @@
               "rxnorm",
               "mesh",
               "atc",
-              "cid10"
+              "cid10",
+              "icf"
             ],
             "type": "string"
           }
@@ -11056,7 +13593,7 @@
             "type": "object"
           },
           "terminologies": {
-            "description": "Release this server queries for each terminology (all 7, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.",
+            "description": "Release this server queries for each terminology (all 8, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.",
             "items": {
               "additionalProperties": false,
               "properties": {
@@ -11077,7 +13614,8 @@
                     "rxnorm",
                     "mesh",
                     "atc",
-                    "cid10"
+                    "cid10",
+                    "icf"
                   ],
                   "type": "string"
                 },
@@ -11151,7 +13689,7 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.\n\nFor each input `{ code, terminology }`, returns:\n- **valid**: whether the code exists in the source terminology.\n- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; LOINC returns a real boolean).\n- **title**: the official label/name when available.\n- **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.\n- **source**: human-readable provenance of the validation (terminology + release/version).\n- **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). `valid: false` + `error: null` means \"code not found\"; `valid: false` + `error: set` means \"couldn't validate\".\n\nTerminology is **required per code** — auto-detection isn't supported because category codes like \"A00\" exist in both ICD-10 and CID-10. Accepted values: `icd11`, `icd10`, `loinc`, `rxnorm`, `mesh`, `atc`, `cid10`.\n\nHard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).",
+      "description": "Validate a mixed batch of medical codes against their source terminologies. Useful for retrospective analysis of legacy databases — flag codes that no longer exist, surface ICD-10 → ICD-11 replacements, and grade activity status where the terminology exposes it.\n\nFor each input `{ code, terminology }`, returns:\n- **valid**: whether the code exists in the source terminology.\n- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, ICF, RxNorm, MeSH all return null today; LOINC returns a real boolean).\n- **title**: the official label/name when available.\n- **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.\n- **coding**: the confirmed code as a FHIR Coding (system, code, display, version when the call knows the release), ready to store in a FHIR resource; null when the code was not confirmed. ICD-11 follows the HL7 terminology guide: the code is the entity id and the short code travels in the WHO classificationCode extension. Hand on a code only when `coding` is non-null.\n- **source**: human-readable provenance of the validation (terminology + release/version).\n- **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). `valid: false` + `error: null` means \"code not found\"; `valid: false` + `error: set` means \"couldn't validate\".\n\nTerminology is **required per code** — auto-detection isn't supported because category codes like \"A00\" exist in both ICD-10 and CID-10. Accepted values: `icd11`, `icd10`, `loinc`, `rxnorm`, `mesh`, `atc`, `cid10`, `icf` (WHO functioning and disability, e.g. \"d450\").\n\nHard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
@@ -11173,7 +13711,8 @@
                     "rxnorm",
                     "mesh",
                     "atc",
-                    "cid10"
+                    "cid10",
+                    "icf"
                   ],
                   "type": "string"
                 }
@@ -11453,6 +13992,63 @@
                   "description": "The code as submitted.",
                   "type": "string"
                 },
+                "coding": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "description": "FHIR Coding for this code, ready to store in a FHIR resource.",
+                      "properties": {
+                        "code": {
+                          "description": "The code in FHIR form. ICD-11: the entity id (e.g. \"257068234\"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form (\"A001\").",
+                          "type": "string"
+                        },
+                        "display": {
+                          "description": "Official label from the source. Omitted when the source returned none.",
+                          "type": "string"
+                        },
+                        "extension": {
+                          "description": "ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.",
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "url": {
+                                "description": "Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).",
+                                "type": "string"
+                              },
+                              "valueCode": {
+                                "description": "ICD-11 short classification code (e.g. \"5A11\").",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "url",
+                              "valueCode"
+                            ],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "system": {
+                          "description": "Canonical FHIR system URI of the terminology (e.g. http://loinc.org).",
+                          "type": "string"
+                        },
+                        "version": {
+                          "description": "Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "system",
+                        "code"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "FHIR Coding for the confirmed code (system, code, display, version where known). Null when the code was not confirmed (valid=false), so an unconfirmed code never reaches a FHIR resource."
+                },
                 "error": {
                   "description": "When the upstream call failed (timeout, server error, feature flag off), this holds the failure message. Distinct from valid=false: valid=false + error=null means \"code not found\"; valid=false + error set means \"couldn't validate\".",
                   "type": [
@@ -11479,7 +14075,8 @@
                     "rxnorm",
                     "mesh",
                     "atc",
-                    "cid10"
+                    "cid10",
+                    "icf"
                   ],
                   "type": "string"
                 },
@@ -11502,6 +14099,7 @@
                 "active",
                 "title",
                 "replaced_by",
+                "coding",
                 "source",
                 "error"
               ],

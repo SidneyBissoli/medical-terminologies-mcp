@@ -9,6 +9,11 @@ import {
   RxNormNDCParamsSchema,
   FindEquivalentParamsSchema,
   ValidateCodesParamsSchema,
+  ValidateCodesOutputSchema,
+  ICFLookupParamsSchema,
+  ICFSearchOutputSchema,
+  ICFLookupOutputSchema,
+  FhirCodingSchema,
   TerminologyVersionsParamsSchema,
   ATCByCodeParamsSchema,
   ATCMembersParamsSchema,
@@ -221,6 +226,7 @@ describe('ICD-11 output schemas — fixtures parse cleanly', () => {
   it('search output: typical hit', () => {
     const sample = {
       query: 'diabetes',
+      within: [],
       total_count: 25,
       entities: [
         {
@@ -247,6 +253,7 @@ describe('ICD-11 output schemas — fixtures parse cleanly', () => {
     expect(
       ICD11SearchOutputSchema.safeParse({
         query: 'zzz',
+        within: [],
         total_count: 0,
         entities: [],
       }).success,
@@ -256,6 +263,8 @@ describe('ICD-11 output schemas — fixtures parse cleanly', () => {
   it('search output: rejects entity without is_leaf', () => {
     const sample = {
       query: 'x',
+      // Present, so the ONLY defect is the missing is_leaf.
+      within: [],
       total_count: 1,
       entities: [
         {
@@ -477,9 +486,10 @@ describe('MeSH output schemas — fixtures parse cleanly', () => {
         query: 'diabetes',
         match: 'contains',
         total_count: 2,
+        matched_via: 'descriptor_label',
         descriptors: [
-          { id: 'D003920', uri: 'http://id.nlm.nih.gov/mesh/D003920', label: 'Diabetes Mellitus' },
-          { id: 'D003922', uri: 'http://id.nlm.nih.gov/mesh/D003922', label: 'Diabetes Mellitus, Type 2' },
+          { id: 'D003920', uri: 'http://id.nlm.nih.gov/mesh/D003920', label: 'Diabetes Mellitus', matched_term: null },
+          { id: 'D003922', uri: 'http://id.nlm.nih.gov/mesh/D003922', label: 'Diabetes Mellitus, Type 2', matched_term: null },
         ],
       }).success,
     ).toBe(true);
@@ -761,6 +771,7 @@ describe('find_equivalent output schema — ranked aggregator with mixed results
                 title: 'Type 2 diabetes mellitus',
                 uri: 'http://id.who.int/icd/entity/119724091',
                 match_score: 0.45,
+                matched_label: null,
                 rank: 2,
               },
             ],
@@ -768,7 +779,7 @@ describe('find_equivalent output schema — ranked aggregator with mixed results
           loinc: {
             found: true,
             error: null,
-            items: [{ code: '2339-0', title: 'Glucose', uri: null, match_score: 0, rank: 3 }],
+            items: [{ code: '2339-0', title: 'Glucose', uri: null, match_score: 0, matched_label: null, rank: 3 }],
           },
           rxnorm: { found: false, error: null, items: [] },
           mesh: {
@@ -780,6 +791,7 @@ describe('find_equivalent output schema — ranked aggregator with mixed results
                 title: 'Diabetes Mellitus',
                 uri: 'http://id.nlm.nih.gov/mesh/D003920',
                 match_score: 0.833,
+                matched_label: "Diabetes",
                 rank: 1,
               },
             ],
@@ -801,12 +813,12 @@ describe('find_equivalent output schema — ranked aggregator with mixed results
           icd11: {
             found: true,
             error: null,
-            items: [{ code: '5A10', title: 'Diabetes mellitus', uri: null, match_score: 1, rank: 1 }],
+            items: [{ code: '5A10', title: 'Diabetes mellitus', uri: null, match_score: 1, matched_label: null, rank: 1 }],
           },
           mesh: {
             found: true,
             error: null,
-            items: [{ code: 'D003920', title: 'Diabetes Mellitus', uri: null, match_score: 1, rank: 2 }],
+            items: [{ code: 'D003920', title: 'Diabetes Mellitus', uri: null, match_score: 1, matched_label: null, rank: 2 }],
           },
         },
         groups: [
@@ -1099,6 +1111,7 @@ describe('CID-10 schemas', () => {
       CID10SearchOutputSchema.safeParse({
         query: 'diabetes',
         level: 'all',
+        within: [],
         total_count: 1,
         shown_count: 1,
         hits: [
@@ -1126,6 +1139,7 @@ describe('CID-10 schemas', () => {
       CID10SearchOutputSchema.safeParse({
         query: 'x',
         level: 'all',
+        within: [],
         total_count: 0,
         shown_count: 0,
         hits: [],
@@ -1136,6 +1150,7 @@ describe('CID-10 schemas', () => {
       CID10SearchOutputSchema.safeParse({
         query: 'x',
         level: 'all',
+        within: [],
         total_count: 1,
         shown_count: 1,
         hits: [
@@ -1228,5 +1243,84 @@ describe('CID-10 schemas', () => {
         ],
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('FHIR Coding (Phase 24.1)', () => {
+  const confirmed = {
+    code: '5A11',
+    terminology: 'icd11',
+    valid: true,
+    active: true,
+    title: 'Type 2 diabetes mellitus',
+    replaced_by: null,
+    coding: {
+      system: 'http://id.who.int/icd/release/11/mms',
+      version: '2026-01',
+      code: '1691003785',
+      display: 'Type 2 diabetes mellitus',
+      extension: [{ url: 'http://id.who.int/icd/schema/extension/classificationCode', valueCode: '5A11' }],
+    },
+    source: 'WHO ICD-11 MMS 2026-01',
+    error: null,
+  };
+  const envelope = (r: object) => ({ total: 1, valid_count: 1, invalid_count: 0, error_count: 0, results: [r] });
+
+  it('accepts a minimal Coding (version/display/extension omitted, as FHIR JSON requires)', () => {
+    expect(FhirCodingSchema.safeParse({ system: 'http://loinc.org', code: '41950-7' }).success).toBe(true);
+  });
+
+  it('rejects null version: FHIR JSON forbids null, the field must be omitted', () => {
+    expect(FhirCodingSchema.safeParse({ system: 'http://loinc.org', code: '41950-7', version: null }).success).toBe(false);
+  });
+
+  it('validate_codes: confirmed code with Coding, and unconfirmed code with coding null', () => {
+    expect(ValidateCodesOutputSchema.safeParse(envelope(confirmed)).success).toBe(true);
+    expect(
+      ValidateCodesOutputSchema.safeParse(envelope({ ...confirmed, valid: false, active: null, title: null, coding: null })).success,
+    ).toBe(true);
+  });
+
+  it('validate_codes: coding is required (null, never absent)', () => {
+    const { coding: _omit, ...missing } = confirmed;
+    expect(ValidateCodesOutputSchema.safeParse(envelope(missing)).success).toBe(false);
+  });
+});
+
+describe('ICF schemas (Phase 24.3)', () => {
+  it('lookup params: ICF code accepted (trimmed, any case); ICD-11 code and qualifier refused', () => {
+    expect(ICFLookupParamsSchema.safeParse({ code: ' D450 ' }).success).toBe(true);
+    expect(ICFLookupParamsSchema.safeParse({ code: 'b28013' }).success).toBe(true);
+    expect(ICFLookupParamsSchema.safeParse({ code: '5A11' }).success).toBe(false);
+    expect(ICFLookupParamsSchema.safeParse({ code: 'd4509.qp8' }).success).toBe(false);
+    expect(ICFLookupParamsSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('lookup params: only ICF URIs (an ICD-11 MMS URI goes to icd11_lookup)', () => {
+    expect(ICFLookupParamsSchema.safeParse({ uri: 'http://id.who.int/icd/release/11/2026-01/icf/1550548595' }).success).toBe(true);
+    expect(ICFLookupParamsSchema.safeParse({ uri: 'http://id.who.int/icd/release/11/2026-01/mms/119724091' }).success).toBe(false);
+  });
+
+  it('search output: coded hit and uncoded block (code/component null)', () => {
+    expect(
+      ICFSearchOutputSchema.safeParse({
+        query: 'walking',
+        within: [],
+        total_count: 2,
+        entities: [
+          { code: 'd450', title: 'Walking', component: 'activities_participation', score: 0.9, uri: 'u1', is_leaf: false },
+          { code: null, title: 'Walking and moving', component: null, score: 0.5, uri: 'u2', is_leaf: false },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
+  it('lookup output: optional fields null; an unknown component is refused', () => {
+    const base = {
+      code: 'd450', code_range: null, uri: 'u', title: 'Walking', component: 'activities_participation',
+      class_kind: null, definition: null, exclusions: [], inclusions: [], browser_url: null,
+    };
+    expect(ICFLookupOutputSchema.safeParse(base).success).toBe(true);
+    expect(ICFLookupOutputSchema.safeParse({ ...base, component: 'diagnoses' }).success).toBe(false);
   });
 });

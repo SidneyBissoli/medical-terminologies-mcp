@@ -27,9 +27,10 @@
  * and (in the provenance session) as the `derivation_note` of the block. */
 export const RANKING_METHOD_NOTE =
   'match_score and rank are computed by this server as lexical similarity between the search ' +
-  'term and each candidate title (mean of term-token coverage and Sørensen–Dice over ' +
-  'normalized word tokens; 1.0 = exact match after normalization). Upstream relevance ' +
-  'orders are not comparable across terminologies and are not used.';
+  'term and each candidate title, or a synonym the source publishes for it when that scores ' +
+  'higher (mean of term-token coverage and Sørensen–Dice over normalized, lightly stemmed word ' +
+  'tokens; 1.0 = exact match after normalization). Upstream relevance orders are not ' +
+  'comparable across terminologies and are not used.';
 
 /**
  * Normalizes a string for comparison: lowercase, diacritics stripped
@@ -46,6 +47,28 @@ export function normalizeForMatch(text: string): string {
 }
 
 /**
+ * Light English suffix stripping, applied to BOTH sides of a comparison so a
+ * word and its inflection meet ("dressed" ~ "Dressing", "walks" ~ "Walking").
+ * Measured 2026-11-24 (PROGRESS.md 24.5): "getting dressed" scored 0 against
+ * ICF d540 "Dressing". Deliberately crude and symmetric — it only decides
+ * which tokens count as shared; `exact` still needs the unstemmed words to be
+ * equal. Short tokens (≤ 4 chars) are left alone ("bus", "ICD", "type").
+ */
+export function stemToken(token: string): string {
+  if (token.length <= 4) return token;
+  for (const suffix of ['ing', 'ies', 'ed', 'es', 's']) {
+    if (token.endsWith(suffix) && token.length - suffix.length >= 3) {
+      return token.slice(0, -suffix.length);
+    }
+  }
+  return token;
+}
+
+function stemmedTokens(normalized: string): Set<string> {
+  return new Set(normalized.split(' ').map(stemToken));
+}
+
+/**
  * Scores a candidate title against the search term. Returns a number in
  * [0, 1], rounded to 3 decimals. Empty or placeholder titles score 0.
  */
@@ -55,8 +78,8 @@ export function lexicalScore(term: string, title: string): number {
   if (t.length === 0 || c.length === 0) return 0;
   if (t === c) return 1;
 
-  const termTokens = new Set(t.split(' '));
-  const titleTokens = new Set(c.split(' '));
+  const termTokens = stemmedTokens(t);
+  const titleTokens = stemmedTokens(c);
   let overlap = 0;
   for (const token of termTokens) {
     if (titleTokens.has(token)) overlap++;
@@ -99,7 +122,30 @@ export function classifyMatch(term: string, title: string, score: number): Match
   const c = normalizeForMatch(title);
   if (t.length > 0 && t === c) return 'exact';
   if (score < STRONG_MATCH_MIN_SCORE || t.length === 0) return 'needs_review';
-  const titleTokens = new Set(c.split(' '));
-  const everyTermToken = t.split(' ').every((token) => titleTokens.has(token));
+  const titleTokens = stemmedTokens(c);
+  const everyTermToken = [...stemmedTokens(t)].every((token) => titleTokens.has(token));
   return everyTermToken ? 'strong' : 'needs_review';
+}
+
+/**
+ * Best label of a candidate for this term: its title or one of the synonyms
+ * its SOURCE publishes (WHO matchingPVs, ICD-11/ICF inclusions and index
+ * terms, LOINC related names, MeSH entry terms). Measured 2026-11-24
+ * (PROGRESS.md 24.5): scoring by title alone pushed ICD-11 BA41 from the
+ * WHO's 1st place to 6th for "heart attack"; with the WHO synonyms it is
+ * exact and 1st. The score and the class come from the SAME label, which is
+ * reported so a reader sees why a candidate ranked where it did.
+ */
+export function bestLabelScore(
+  term: string,
+  title: string,
+  synonyms: readonly string[] = [],
+): { score: number; label: string; matchType: MatchType } {
+  let best = { score: lexicalScore(term, title), label: title };
+  for (const s of synonyms) {
+    if (!s) continue;
+    const score = lexicalScore(term, s);
+    if (score > best.score) best = { score, label: s };
+  }
+  return { ...best, matchType: classifyMatch(term, best.label, best.score) };
 }

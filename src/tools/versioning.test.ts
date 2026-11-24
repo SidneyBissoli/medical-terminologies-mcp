@@ -16,15 +16,15 @@ describe('terminology_versions', () => {
     expect(handler).toBeDefined();
   });
 
-  it('returns all 7 terminologies when no filter is set', async () => {
+  it('returns all 8 terminologies when no filter is set', async () => {
     const result = await handler!({});
     const parsed = TerminologyVersionsOutputSchema.parse(result.structuredContent);
-    expect(parsed.total).toBe(7);
-    expect(parsed.terminologies).toHaveLength(7);
+    expect(parsed.total).toBe(8);
+    expect(parsed.terminologies).toHaveLength(8);
 
     const codes = parsed.terminologies.map((t) => t.code).sort();
     expect(codes).toEqual(
-      ['atc', 'cid10', 'icd10', 'icd11', 'loinc', 'mesh', 'rxnorm'],
+      ['atc', 'cid10', 'icd10', 'icd11', 'icf', 'loinc', 'mesh', 'rxnorm'],
     );
   });
 
@@ -80,6 +80,30 @@ describe('terminology_versions', () => {
     if (block.type !== 'text') throw new Error('unreachable');
     expect(block.text).toContain('# Terminology versions');
     expect(block.text).toContain('| Code | Name | Version |');
+  });
+});
+
+describe('terminology_versions — ICF (PROGRESS.md 24.3c)', () => {
+  const handler = toolRegistry.getHandler('terminology_versions');
+
+  it('lists ICF on the same pinned WHO release as ICD-11, queried live', async () => {
+    const result = await handler!({ terminology: 'icf' });
+    const parsed = TerminologyVersionsOutputSchema.parse(result.structuredContent);
+    expect(parsed.total).toBe(1);
+    const [icf] = parsed.terminologies;
+    expect(icf.code).toBe('icf');
+    expect(icf.publisher).toBe('World Health Organization');
+    expect(icf.current_version).toBe(WHO_ICD11_DEFAULT_RELEASE);
+    expect(icf.source_url).toBe(`https://icd.who.int/browse/${WHO_ICD11_DEFAULT_RELEASE}/icf/en`);
+    expect(icf.bundled_in_server).toBe(false);
+  });
+
+  it('terminology_diff on ICF is guidance only (no snapshots), pointing at the WHO browser', async () => {
+    const result = await toolRegistry.getHandler('terminology_diff')!({ terminology: 'icf' });
+    const parsed = TerminologyDiffOutputSchema.parse(result.structuredContent);
+    expect(parsed.diff_available).toBe(false);
+    expect(parsed.bundled_versions).toEqual([]);
+    expect(parsed.message).toContain(`https://icd.who.int/browse/${WHO_ICD11_DEFAULT_RELEASE}/icf/en`);
   });
 });
 

@@ -38,7 +38,7 @@ The answers come from authoritative sources (WHO, NLM, NIH, DataSUS) — real co
 
 ## Features
 
-- 33 tools: 31 terminology tools plus `search`/`fetch` for ChatGPT Deep Research
+- 37 tools: 35 terminology tools plus `search`/`fetch` for ChatGPT Deep Research
 - 3 MCP **Prompts** that orchestrate tool calls into named workflows (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — clients render these as one-click user actions
 - 4 MCP **Resources** for in-process reference content (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — sub-millisecond reads (except `info://stats` which round-trips to the StatsCounter Durable Object on the hosted endpoint)
 - Multi-terminology support in a single server
@@ -110,7 +110,7 @@ Or install via Smithery, which proxies the same endpoint through their gateway:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-The hosted instance has WHO credentials configured, so all 33 tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
+The hosted instance has WHO credentials configured, so all 37 tools work without any setup on your side. For your own deployment (e.g. corporate network, different region, custom WHO credentials), see the [Installation](#installation) and [Hosted on Cloudflare Workers](#hosted-on-cloudflare-workers-primary) sections below.
 
 ## Installation
 
@@ -221,7 +221,7 @@ After your Worker is live, register the URL on Smithery:
 2. Pick the **URL** submission path (Smithery deprecated container hosting in 2024 — URL is the supported flow now).
 3. Paste `https://<your-worker>.workers.dev/mcp`. Smithery's gateway scans for compliance and proxies traffic.
 
-## Available Tools (33)
+## Available Tools (37)
 
 ### Official Portuguese (pt-BR) content
 
@@ -229,6 +229,7 @@ The server never machine-translates terminology content — but several sources 
 
 - **CID-10 is natively Portuguese**: `cid10_search` / `cid10_lookup` / `cid10_chapter(s)` serve the DataSUS V2008 dataset (the CID-10 the Brazilian SUS uses operationally).
 - **ICD-11 in official Portuguese**: pass `language: "pt"` to `icd11_search` / `icd11_lookup` to search and read WHO's official pt-BR linearization labels.
+- **ICF (CIF) in official Portuguese**: pass `language: "pt"` to `icf_search` / `icf_lookup` ("andar" → d450 Andar).
 - **MeSH**: pass `language: "pt"` to `mesh_search` / `mesh_descriptor` to request NLM's official translations where they exist.
 
 If a source has no official translation for an entry, you get the source language back — never a machine translation.
@@ -237,11 +238,20 @@ If a source has no official translation for an entry, you get the source languag
 
 | Tool | Description | Example |
 |------|-------------|---------|
-| `icd11_search` | Search ICD-11 by term | `query: "diabetes mellitus"` |
+| `icd11_search` | Search ICD-11 by term; `within` bounds it to chapters, blocks or codes (WHO subtree filter) | `query: "depression", within: ["06"]` |
 | `icd11_lookup` | Get entity details by code/URI | `code: "5A11"` |
 | `icd11_hierarchy` | Navigate parent/child relationships | `code: "5A11"` |
 | `icd11_chapters` | List all ICD-11 chapters | - |
 | `icd11_postcoordination` | Get postcoordination axes | `code: "5A11"` |
+
+### ICF Tools (2)
+
+WHO International Classification of Functioning, Disability and Health: body functions (b), body structures (s), activities and participation (d), environmental factors (e). Same WHO API, credential and release as ICD-11.
+
+| Tool | Description | Example |
+|------|-------------|---------|
+| `icf_search` | Search ICF by term (functioning, activity, environmental factor); `within` bounds it to categories | `query: "walking", within: ["d450"]` |
+| `icf_lookup` | Get category details by ICF code/URI: definition, inclusions, exclusions, component | `code: "d450"` |
 
 ### LOINC Tools (4)
 
@@ -271,14 +281,16 @@ If a source has no official translation for an entry, you get the source languag
 | `mesh_tree` | Get tree hierarchy location | `mesh_id: "D006973"` |
 | `mesh_qualifiers` | Get allowed qualifiers | `mesh_id: "D006973"` |
 
-### Crosswalk Tools (4)
+### Crosswalk Tools (5)
 
 | Tool | Description | Example |
 |------|-------------|---------|
 | `map_icd10_to_icd11` | Authoritative ICD-10 → ICD-11 mapping via bundled WHO transition tables; returns primary code + chapter + URIs and any WHO-documented alternatives | `icd10_code: "E11"` |
-| `validate_codes` | Batch-validate up to 50 codes across ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10; returns per-code valid/invalid + display name | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
-| `find_equivalent` | Ranked unified search across terminologies: server-computed `match_score`/`rank` per candidate plus cross-terminology `groups` of lexically identical titles | `term: "diabetes"` |
-| `harmonize_terms` | Batch-map up to 50 free-text terms to standard codes: diagnosis → ICD-11, drug → RxNorm (+ ATC classes), lab → LOINC. Per term: ranked candidates with `match_score` and `match_type` (`exact` / `strong` / `needs_review`), one provenance block per source. The term-first companion of `validate_codes` | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
+| `validate_codes` | Batch-validate up to 50 codes across ICD-11, ICF, LOINC, RxNorm, MeSH, ATC, CID-10; returns per-code valid/invalid + display name, and a FHIR `Coding` (system, code, display, version) for each confirmed code | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
+| `find_equivalent` | Ranked unified search across ICD-11, LOINC, RxNorm, MeSH and ICF: server-computed `match_score`/`rank` per candidate plus cross-terminology `groups` of lexically identical titles | `term: "diabetes"` |
+| `harmonize_terms` | Batch-map up to 50 free-text terms to standard codes: diagnosis → ICD-11, drug → RxNorm (+ ATC classes), lab → LOINC. Per term: ranked candidates with `match_score` and `match_type` (`exact` / `strong` / `needs_review`), a FHIR `Coding` per candidate, one provenance block per source. The term-first companion of `validate_codes` | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
+| `match_value_set` | Pick the best code for each free-text term FROM A VALUE SET YOU SEND (up to 100 codes, any terminology): members confirmed at the source, ranked with `match_score`/`match_type`, each with its FHIR `coding` | `terms: ["walking"], value_set: [{code:"d450",terminology:"icf"}, …]` |
+| `compose_functioning` | Code ONE functional concept in its roles: ICF activity (with the ICD-11 chapter V entity the WHO ties to it, e.g. d450 → VW13), LOINC measure and ICD-11 condition. The ICF → ICD-11 link is read from the WHO; the rest are lexical suggestions to review | `term: "walking speed"` |
 
 ### ATC Tools (3)
 
@@ -296,7 +308,7 @@ Brazilian Portuguese translation of ICD-10 (DataSUS V2008). Bundled as a static 
 
 | Tool | Description | Example |
 |------|-------------|---------|
-| `cid10_search` | Portuguese text search (diacritic-insensitive, AND between words; everyday words resolved to CID-10 wording, and the response says so) | `query: "câncer de mama"` |
+| `cid10_search` | Portuguese text search (diacritic-insensitive, AND between words; everyday words resolved to CID-10 wording, and the response says so); `within` bounds it to chapters, ranges or codes | `query: "infecção", within: ["N30-N39"]` |
 | `cid10_lookup` | Code → official Portuguese name | `code: "I21"` or `"A00.1"` |
 | `cid10_chapters` | List the 22 CID-10 chapters | - |
 | `cid10_chapter` | Chapter detail with constituent groups | `num: 9` |
@@ -438,6 +450,13 @@ ICD-11 content is provided under the [Creative Commons Attribution-NoDerivatives
 - This server always serves ICD-11 codes and titles together with their URIs, verbatim; non-English labels are WHO's own official translations (never machine-translated)
 - WHO may terminate the license at any time by notice (§4.7)
 - API access requires registration at https://icd.who.int/icdapi
+
+### ICF (WHO)
+
+ICF content is provided under the [Creative Commons Attribution-NoDerivatives 3.0 IGO license (CC BY-ND 3.0 IGO)](https://creativecommons.org/licenses/by-nd/3.0/igo/), per WHO's [licensing of WHO Classifications](https://www.who.int/about/policies/publishing/copyright): commercial and non-commercial use, provided there is no adaptation of the codes and the work is appropriately cited.
+
+- This server serves ICF codes and titles together with their URIs, verbatim; non-English labels are WHO's own official translations
+- Served by the same WHO ICD-API and credentials as ICD-11
 
 ### WHO ICD-10 → ICD-11 transition tables (bundled)
 
