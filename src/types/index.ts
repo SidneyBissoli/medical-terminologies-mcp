@@ -145,7 +145,7 @@ export const ICD11SearchOutputSchema = z.object({
 });
 
 const ICD11LabelRefSchema = z.object({
-  uri: z.string(),
+  uri: z.string().describe('URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.'),
   label: z.string(),
 });
 

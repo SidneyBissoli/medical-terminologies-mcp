@@ -14,7 +14,7 @@
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
-import { getWHOClient, ICD11EntityResponse } from '../clients/who-client.js';
+import { getWHOClient, ICD11EntityResponse, termRefs } from '../clients/who-client.js';
 import {
   ICFSearchParamsSchema,
   ICFLookupParamsSchema,
@@ -118,12 +118,12 @@ function formatEntity(entity: ICD11EntityResponse): string {
   }
   if (entity.inclusion && entity.inclusion.length > 0) {
     lines.push('**Inclusions:**');
-    for (const inc of entity.inclusion) lines.push(`- ${inc.label?.['@value'] || inc['@id']}`);
+    for (const inc of termRefs(entity.inclusion, entity['@id'])) lines.push(`- ${inc.label}`);
     lines.push('');
   }
   if (entity.exclusion && entity.exclusion.length > 0) {
     lines.push('**Exclusions:**');
-    for (const exc of entity.exclusion) lines.push(`- ${exc.label?.['@value'] || exc['@id']}`);
+    for (const exc of termRefs(entity.exclusion, entity['@id'])) lines.push(`- ${exc.label}`);
     lines.push('');
   }
   if (entity.browserUrl) lines.push(`**Browser:** ${entity.browserUrl}`);
@@ -197,8 +197,8 @@ async function handleICFLookup(args: Record<string, unknown>): Promise<CallToolR
       component: icfComponent(entity.code),
       class_kind: entity.classKind ?? null,
       definition: entity.definition?.['@value'] ?? null,
-      exclusions: (entity.exclusion ?? []).map((e) => ({ uri: e['@id'], label: e.label?.['@value'] ?? e['@id'] })),
-      inclusions: (entity.inclusion ?? []).map((i) => ({ uri: i['@id'], label: i.label?.['@value'] ?? i['@id'] })),
+      exclusions: termRefs(entity.exclusion, entity['@id']),
+      inclusions: termRefs(entity.inclusion, entity['@id']),
       browser_url: entity.browserUrl ?? null,
     };
 

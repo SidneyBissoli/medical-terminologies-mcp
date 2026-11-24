@@ -13,7 +13,7 @@
 
 import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
-import { getWHOClient, ICD11DestinationEntity, ICD11EntityResponse } from '../clients/who-client.js';
+import { getWHOClient, ICD11DestinationEntity, ICD11EntityResponse, termRefs } from '../clients/who-client.js';
 import {
   ICD11SearchParamsSchema,
   ICD11LookupParamsSchema,
@@ -190,8 +190,7 @@ function formatEntity(entity: ICD11EntityResponse): string {
   if (entity.exclusion && entity.exclusion.length > 0) {
     lines.push('**Exclusions:**');
     for (const exc of entity.exclusion) {
-      const label = exc.label?.['@value'] || exc['@id'];
-      lines.push(`- ${label}`);
+      if (exc.label?.['@value']) lines.push(`- ${exc.label['@value']}`);
     }
     lines.push('');
   }
@@ -199,8 +198,7 @@ function formatEntity(entity: ICD11EntityResponse): string {
   if (entity.inclusion && entity.inclusion.length > 0) {
     lines.push('**Inclusions (Synonyms):**');
     for (const inc of entity.inclusion) {
-      const label = inc.label?.['@value'] || inc['@id'];
-      lines.push(`- ${label}`);
+      if (inc.label?.['@value']) lines.push(`- ${inc.label['@value']}`);
     }
     lines.push('');
   }
@@ -208,8 +206,7 @@ function formatEntity(entity: ICD11EntityResponse): string {
   if (entity.indexTerm && entity.indexTerm.length > 0) {
     lines.push('**Index Terms:**');
     for (const term of entity.indexTerm.slice(0, 10)) {
-      const label = term.label?.['@value'] || term['@id'];
-      lines.push(`- ${label}`);
+      if (term.label?.['@value']) lines.push(`- ${term.label['@value']}`);
     }
     if (entity.indexTerm.length > 10) {
       lines.push(`- ... and ${entity.indexTerm.length - 10} more`);
@@ -322,18 +319,9 @@ async function handleICD11Lookup(args: Record<string, unknown>): Promise<CallToo
       long_definition: entity.longDefinition?.['@value'] ?? null,
       diagnostic_criteria: entity.diagnosticCriteria?.['@value'] ?? null,
       coding_note: entity.codingNote?.['@value'] ?? null,
-      exclusions: (entity.exclusion ?? []).map((e) => ({
-        uri: e['@id'],
-        label: e.label?.['@value'] ?? e['@id'],
-      })),
-      inclusions: (entity.inclusion ?? []).map((i) => ({
-        uri: i['@id'],
-        label: i.label?.['@value'] ?? i['@id'],
-      })),
-      index_terms: (entity.indexTerm ?? []).map((t) => ({
-        uri: t['@id'],
-        label: t.label?.['@value'] ?? t['@id'],
-      })),
+      exclusions: termRefs(entity.exclusion, entity['@id']),
+      inclusions: termRefs(entity.inclusion, entity['@id']),
+      index_terms: termRefs(entity.indexTerm, entity['@id']),
       browser_url: entity.browserUrl ?? null,
     };
 
