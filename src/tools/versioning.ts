@@ -1,7 +1,7 @@
 /**
  * Versioning tools.
  *
- * - terminology_versions: lists all 7 supported terminologies with their
+ * - terminology_versions: lists all 8 supported terminologies with their
  *   current version, release date, publisher, source URL, and update
  *   cadence. Useful for pipeline maintainers who need to confirm what
  *   the server is querying against before running batch validation.
@@ -76,7 +76,7 @@ export interface TerminologyMeta {
 }
 
 /**
- * The seven terminology records, built at request time (the ICD-11 release
+ * The eight terminology records, built at request time (the ICD-11 release
  * id and the bundled-table versions are read live). Exported for the Deep
  * Research index (`deep-research.ts`), which lists one document per record.
  */
@@ -176,6 +176,20 @@ export function buildMetadata(): TerminologyMeta[] {
       bundled_in_server: false,
       notes: 'Server queries the WHO ATC mirror exposed via NLM RxClass. Substance-level (7-char) codes only resolve via `atc_classify` by drug name.',
     },
+    {
+      // Same WHO ICD-API, credential and pinned release as ICD-11 (PROGRESS.md 24.3).
+      code: 'icf',
+      name: 'ICF',
+      full_name: 'International Classification of Functioning, Disability and Health',
+      publisher: 'World Health Organization',
+      current_version: whoIcd11Release,
+      release_date: whoIcd11Release,
+      source_url: `https://icd.who.int/browse/${whoIcd11Release}/icf/en`,
+      changelog_url: null,
+      update_cadence: 'annual (released with ICD-11)',
+      bundled_in_server: false,
+      notes: `Server queries the ICF linearization of the WHO ICD-API, on the same pinned release as ICD-11 (${whoIcd11Release}); WHO_ICD11_RELEASE_ID moves both.`,
+    },
   ];
 }
 
@@ -189,11 +203,11 @@ const terminologyVersionsTool: Tool = {
   description: `List the current version, release date, publisher, source URL, and update cadence of every terminology this server queries against.
 
 Useful for pipeline maintainers who need to:
-- Confirm which release of ICD-11 / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.
+- Confirm which release of ICD-11 / ICF / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.
 - Verify the bundled CID-10 (frozen at V2008) and ICD-10 → ICD-11 transition tables (currently 2025-01) match expectations.
 - Cite the data version in research artifacts.
 
-Pass \`terminology\` to filter to a single entry; otherwise the full set of 7 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.`,
+Pass \`terminology\` to filter to a single entry; otherwise the full set of 8 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.`,
   inputSchema: buildInputSchema(TerminologyVersionsParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(TerminologyVersionsOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
