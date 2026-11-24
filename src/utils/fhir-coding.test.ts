@@ -49,6 +49,14 @@ describe('toFhirCoding', () => {
       display: 'Cólera devida a Vibrio cholerae 01, biótipo El Tor',
     });
   });
+  it('ICF: HL7 sid/icf system, lower-case category code, pinned release as version', () => {
+    expect(toFhirCoding('icf', 'D450', 'Walking')).toEqual({
+      system: 'http://hl7.org/fhir/sid/icf',
+      version: '2026-01',
+      code: 'd450',
+      display: 'Walking',
+    });
+  });
   it('NLM-served terminologies: no version key at all (FHIR JSON forbids null)', () => {
     for (const t of ['loinc', 'rxnorm', 'mesh', 'atc', 'icd10'] as const) {
       const c = toFhirCoding(t, 'X1', 'label');
@@ -64,6 +72,7 @@ describe('toFhirCoding', () => {
       toFhirCoding('icd11', '5A11', 'T2DM', 'http://id.who.int/icd/release/11/2026-01/mms/119724091'),
       toFhirCoding('cid10', 'E11', 'Diabetes'),
       toFhirCoding('loinc', '2345-7', null),
+      toFhirCoding('icf', 'd450', 'Walking'),
     ];
     for (const s of samples) expect(FhirCodingSchema.safeParse(s).success).toBe(true);
   });

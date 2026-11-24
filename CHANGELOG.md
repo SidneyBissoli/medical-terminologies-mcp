@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Version 2.6.0 (ICF, two new tools) on top of 2.5.0 (FHIR `Coding`, new output field); neither was published to npm or the MCP Registry yet. Both are minor bumps by this repository's convention.
+Version **3.0.0** (ICF in the cross-terminology tools) on top of 2.6.0 (ICF, two new tools) and 2.5.0 (FHIR `Coding`, new output field). None of them was published to npm or the MCP Registry yet; npm is still at 2.4.0.
+
+### Breaking
+
+- **`validate_codes` and `find_equivalent` responses can now carry the value `"icf"`** in `results[].terminology` (`validate_codes`) and in `searched_terminologies`, `groups[].terminologies` and `groups[].members[].terminology` (`find_equivalent`). A client that switches exhaustively over the old values must handle `icf`. `find_equivalent` also searches ICF **by default**: callers who want the old four-terminology fan-out pass `target_terminologies: ["icd11", "loinc", "rxnorm", "mesh"]`. Nothing else changed shape; `terminology_versions` and `terminology_diff` keep their seven terminologies on purpose (their enum is now their own, so they never accept a value they cannot answer for).
 
 ### Added
+
+- **ICF in `validate_codes` and `find_equivalent` (3.0.0).** `validate_codes` accepts `terminology: "icf"` (e.g. `d450`), confirms the code at the WHO and returns its FHIR `Coding` with system `http://hl7.org/fhir/sid/icf` (HL7 THO NamingSystem "ICF", read 2026-11-23), the lower-case category code and the pinned release as `version`; its provenance block is `WHO ICD-API (ICF)`. `find_equivalent` searches ICF by default and accepts `icf` in `target_terminologies` / `source_terminology`; ICF comes last in the tie-break order so the ranking of the four older terminologies is unchanged, and uncoded ICF blocks are left out (a candidate is a code). The default fan-out therefore makes one more WHO request, in parallel (Phase 24.3b).
 
 - **ICF: `icf_search` and `icf_lookup` (35 tools).** The WHO International Classification of Functioning, Disability and Health — body functions (b), body structures (s), activities and participation (d), environmental factors (e) — for rehabilitation and home-care coding, which ICD-11 (diagnoses) does not cover. Served by the same WHO ICD-API, OAuth credential and pinned release (2026-01) as ICD-11; measured before any code (CI integration run of 2026-11-23: "walking" → d450, "andar" in Portuguese → d450 Andar, release list 2024-01/2025-01/2026-01). Official translations via `language` (e.g. `pt`), never machine-translated. Each result carries the ICF `component`. Its own provenance preset (`WHO ICD-API (ICF)`) and cache prefix, so an answer never mixes ICD-11 and ICF diagnostics. License read at WHO's licensing of WHO Classifications: CC BY-ND 3.0 IGO (NOTICE.md, README, LEIA-ME, `info://licenses`). The server instructions now route functioning and disability questions to ICF. Requested by a clinical terminology practitioner (Phase 24.3).
 

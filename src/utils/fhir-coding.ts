@@ -33,6 +33,9 @@ export const FHIR_SYSTEMS = {
   rxnorm: 'http://www.nlm.nih.gov/research/umls/rxnorm',
   mesh: 'https://www.nlm.nih.gov/mesh',
   atc: 'http://www.whocc.no/atc',
+  // HL7 THO NamingSystem "ICF" (active, preferred; OID 2.16.840.1.113883.6.254),
+  // read 2026-11-23. The code is the ICF category code itself (e.g. d450).
+  icf: 'http://hl7.org/fhir/sid/icf',
 } as const;
 
 export type CodingTerminology = keyof typeof FHIR_SYSTEMS;
@@ -89,6 +92,15 @@ export function toFhirCoding(
       ...(hasShortCode
         ? { extension: [{ url: ICD11_CLASSIFICATION_CODE_EXTENSION, valueCode: shortCode }] }
         : {}),
+    };
+  }
+  if (terminology === 'icf') {
+    // ICF ships inside the WHO release this server pins; the call read it.
+    return {
+      system: FHIR_SYSTEMS.icf,
+      version: getICD11ReleaseId(),
+      code: code.trim().toLowerCase(),
+      ...(display !== null ? { display } : {}),
     };
   }
   if (terminology === 'cid10') {

@@ -55,6 +55,7 @@ import {
   type Provenance,
 } from '../provenance.js';
 import { toFhirCoding } from '../utils/fhir-coding.js';
+import { plainTitle } from '../utils/plain-title.js';
 
 /**
  * Source preset per terminology, for the multi-source tools. One block PER
@@ -68,6 +69,7 @@ const SOURCE_BY_TERMINOLOGY: Record<ValidateCodesTerminology, MedicalSourceKey> 
   rxnorm: 'NLM_RXNAV',
   mesh: 'NLM_MESH',
   atc: 'NLM_RXCLASS_ATC',
+  icf: 'WHO_ICF_API',
 };
 
 /** Transition-tables block with the live bundled-dataset version attached. */
@@ -114,14 +116,14 @@ const validateCodesTool: Tool = {
 
 For each input \`{ code, terminology }\`, returns:
 - **valid**: whether the code exists in the source terminology.
-- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; LOINC returns a real boolean).
+- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, ICF, RxNorm, MeSH all return null today; LOINC returns a real boolean).
 - **title**: the official label/name when available.
 - **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.
 - **coding**: the confirmed code as a FHIR Coding (system, code, display, version when the call knows the release), ready to store in a FHIR resource; null when the code was not confirmed. ICD-11 follows the HL7 terminology guide: the code is the entity id and the short code travels in the WHO classificationCode extension. Hand on a code only when \`coding\` is non-null.
 - **source**: human-readable provenance of the validation (terminology + release/version).
 - **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). \`valid: false\` + \`error: null\` means "code not found"; \`valid: false\` + \`error: set\` means "couldn't validate".
 
-Terminology is **required per code** — auto-detection isn't supported because category codes like "A00" exist in both ICD-10 and CID-10. Accepted values: \`icd11\`, \`icd10\`, \`loinc\`, \`rxnorm\`, \`mesh\`, \`atc\`, \`cid10\`.
+Terminology is **required per code** — auto-detection isn't supported because category codes like "A00" exist in both ICD-10 and CID-10. Accepted values: \`icd11\`, \`icd10\`, \`loinc\`, \`rxnorm\`, \`mesh\`, \`atc\`, \`cid10\`, \`icf\` (WHO functioning and disability, e.g. "d450").
 
 Hard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).`,
   inputSchema: buildInputSchema(ValidateCodesParamsSchema),
@@ -139,7 +141,7 @@ Use this tool to:
 - Compare how terminologies represent a concept
 - Support terminology mapping and data integration
 
-Searches across: ICD-11, LOINC, RxNorm, and MeSH. Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. \`limit\` caps candidates per terminology (default 5, max 10).
+Searches across: ICD-11, LOINC, RxNorm, MeSH and ICF (WHO functioning and disability; coded categories only). Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. \`limit\` caps candidates per terminology (default 5, max 10).
 
 Every candidate carries \`match_score\` (lexical similarity to the search term, 0-1) and \`rank\` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in \`groups\` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).
 
@@ -337,6 +339,31 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
         }
       }
 
+      case 'icf': {
+        const source = 'WHO ICD-API (ICF)';
+        try {
+          const entity = await getWHOClient().lookupICF(item.code, 'en');
+          const title = entity.title?.['@value'] ?? null;
+          return {
+            code: item.code,
+            terminology: 'icf',
+            valid: true,
+            // ICF, like ICD-11, is versioned by release, not retired in place.
+            active: null,
+            title,
+            replaced_by: null,
+            coding: toFhirCoding('icf', entity.code ?? item.code, title),
+            source,
+            error: null,
+          };
+        } catch (err) {
+          if (err instanceof ApiError && err.code === 'NOT_FOUND') {
+            return notFoundResult(item, source);
+          }
+          throw err;
+        }
+      }
+
       case 'cid10': {
         const cli = getCID10Client();
         const hit = cli.lookup(item.code);
@@ -512,7 +539,9 @@ async function handleValidateCodes(args: Record<string, unknown>): Promise<CallT
   }
 }
 
-const ALL_TERMINOLOGIES = ['icd11', 'loinc', 'rxnorm', 'mesh'] as const;
+// ICF last: its position only matters for ties, and putting it at the end
+// keeps the order the four older terminologies already had (24.3b).
+const ALL_TERMINOLOGIES = ['icd11', 'loinc', 'rxnorm', 'mesh', 'icf'] as const;
 
 type TerminologyKey = (typeof ALL_TERMINOLOGIES)[number];
 
@@ -521,6 +550,7 @@ const TERMINOLOGY_LABELS: Record<TerminologyKey, string> = {
   loinc: 'LOINC',
   rxnorm: 'RxNorm',
   mesh: 'MeSH',
+  icf: 'ICF',
 };
 
 type FindEquivalentEntry = NonNullable<FindEquivalentOutput['results']['icd11']>;
@@ -644,6 +674,25 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
             );
           } catch (e) {
             raw.mesh = fail(e instanceof Error ? e.message : 'Error');
+          }
+        })(),
+      );
+    }
+
+    if (targets.includes('icf')) {
+      searches.push(
+        (async () => {
+          try {
+            const response = await getWHOClient().searchICF(term, 'en', limit);
+            raw.icf = ok(
+              (response.destinationEntities ?? [])
+                // Uncoded blocks have no code to hand on; candidates are codes.
+                .filter((r) => Boolean(r.theCode))
+                .slice(0, limit)
+                .map((r) => ({ code: r.theCode as string, title: plainTitle(r.title), uri: r.id ?? null })),
+            );
+          } catch (e) {
+            raw.icf = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );

@@ -222,10 +222,10 @@ const casos: Caso[] = [
     sourceContains: 'transition tables',
   },
   {
-    // 4 sources answer (icd11/loinc/rxnorm/mesh).
+    // 5 sources answer (icd11/loinc/rxnorm/mesh/icf; icf since 2.7.0).
     nome: 'find_equivalent',
     args: { term: 'diabetes' },
-    multi: 4,
+    multi: 5,
     sourceContains: 'WHO ICD-API',
   },
   {
