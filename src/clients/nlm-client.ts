@@ -120,13 +120,17 @@ export class NLMClient {
           df: DEFAULT_LOINC_FIELDS.join(','),
           // LOINC License §10: terms with third-party copyright must carry
           // their notice — request it and pass it through verbatim.
-          ef: 'EXTERNAL_COPYRIGHT_NOTICE',
+          // RELATEDNAMES2 / CONSUMER_NAME are LOINC's own synonyms ("HbA1c"
+          // for 4548-4): the server ranks against them (PROGRESS.md 24.5a).
+          ef: 'EXTERNAL_COPYRIGHT_NOTICE,RELATEDNAMES2,CONSUMER_NAME',
         });
 
         // Parse the Clinical Tables API response format
         // [totalCount, codes, extraFieldsObjOrNull, [fields arrays]]
         const [totalCount, codes, extraFields, fieldsArrays] = response;
         const notices = extraFields?.EXTERNAL_COPYRIGHT_NOTICE ?? [];
+        const related = extraFields?.RELATEDNAMES2 ?? [];
+        const consumer = extraFields?.CONSUMER_NAME ?? [];
 
         const items: LOINCItem[] = codes.map((code, index) => {
           const fields = fieldsArrays[index] || [];
@@ -143,6 +147,8 @@ export class NLMClient {
             STATUS: fields[9] || '',
             SHORTNAME: fields[10] || '',
             EXTERNAL_COPYRIGHT_NOTICE: notices[index] || '',
+            RELATEDNAMES2: related[index] || '',
+            CONSUMER_NAME: consumer[index] || '',
           };
         });
 
@@ -216,6 +222,10 @@ export class NLMClient {
           SHORTNAME: fields[10] || '',
           EXTERNAL_COPYRIGHT_NOTICE:
             extraFields?.EXTERNAL_COPYRIGHT_NOTICE?.[exactIndex] || '',
+          // Already requested in `ef`; kept so match_value_set can rank a
+          // member by LOINC's own synonyms (24.5a).
+          RELATEDNAMES2: extraFields?.RELATEDNAMES2?.[exactIndex] || '',
+          CONSUMER_NAME: extraFields?.CONSUMER_NAME?.[exactIndex] || '',
         };
       },
       DEFAULT_TTL.LOOKUP
@@ -360,6 +370,21 @@ export interface LOINCItem {
   SHORTNAME: string;
   /** LOINC §10: third-party copyright notice of the term; '' when none. */
   EXTERNAL_COPYRIGHT_NOTICE?: string;
+  /** LOINC related names, ';'-separated (search only; '' when none). */
+  RELATEDNAMES2?: string;
+  /** LOINC consumer-friendly name (search only; '' when none). */
+  CONSUMER_NAME?: string;
+}
+
+/** LOINC's own synonyms for a search item: related names, consumer name, short name. */
+export function loincSynonyms(item: Pick<LOINCItem, 'SHORTNAME' | 'RELATEDNAMES2' | 'CONSUMER_NAME'>): string[] {
+  return [
+    ...(item.RELATEDNAMES2 ?? '').split(';'),
+    item.CONSUMER_NAME ?? '',
+    item.SHORTNAME ?? '',
+  ]
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
 }
 
 /**

@@ -564,11 +564,15 @@ export const MeSHSearchOutputSchema = z.object({
   query: z.string().describe('The search term as submitted.'),
   match: z.enum(['exact', 'contains', 'startswith']).describe('Match type applied to descriptor labels.'),
   total_count: z.number().int().describe('Number of descriptors returned (the NLM lookup is capped at max_results, so this is not a total count of all matches).'),
+  matched_via: z
+    .enum(['descriptor_label', 'entry_term'])
+    .describe('descriptor_label = the query matched descriptor labels; entry_term = no label matched, so the descriptors were reached through MeSH entry terms (synonyms such as "Heart Attack" for Myocardial Infarction).'),
   descriptors: z.array(
     z.object({
       id: z.string(),
       uri: z.string(),
       label: z.string(),
+      matched_term: z.string().nullable().describe('The MeSH entry term that led to this descriptor; null when the label itself matched.'),
     }),
   ).describe('Matching MeSH descriptors, each with its ID (e.g. "D003920"), URI and label.'),
 });
@@ -660,6 +664,11 @@ const FindEquivalentItemSchema = z.object({
   // 0-1, 3 decimals; see src/utils/lexical-score.ts for the formula. The
   // provenance block (next session) will mark these derived: true.
   match_score: z.number().min(0).max(1),
+  // 24.5a (additive): the synonym the score came from, when it beat the title.
+  matched_label: z
+    .string()
+    .nullable()
+    .describe('The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.'),
   // Global rank across ALL searched terminologies (1 = best match overall).
   // Ties break by terminology order (icd11, loinc, rxnorm, mesh, icf),
   // then by upstream result order — deterministic for identical responses.
@@ -928,7 +937,11 @@ const MatchValueSetCandidateSchema = z.object({
   terminology: ValidateCodesTerminologyEnum,
   title: z.string().describe('Official title of the member, read at its source.'),
   match_score: z.number().min(0).max(1).describe('Lexical similarity between the term and the title (0-1), computed by this server.'),
-  match_type: z.enum(['exact', 'strong', 'needs_review']).describe('exact = same words; strong = every term word in the title and score >= 0.85; needs_review = anything else.'),
+  match_type: z.enum(['exact', 'strong', 'needs_review']).describe('exact = same words; strong = every term word in the title (or the matched synonym) and score >= 0.85; needs_review = anything else.'),
+  matched_label: z
+    .string()
+    .nullable()
+    .describe('The synonym published by the source (ICD-11/ICF inclusion or index term, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.'),
   coding: FhirCodingSchema.nullable().describe('FHIR Coding of the member (null only when the source gives no system for it).'),
 });
 

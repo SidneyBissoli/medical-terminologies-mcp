@@ -141,6 +141,59 @@ export class MeSHClient {
   }
 
   /**
+   * Finds descriptors through their ENTRY TERMS, for lay words the descriptor
+   * label search misses ("heart attack" → D009203 Myocardial Infarction,
+   * "bedsore" → D003668 Pressure Ulcer). Measured 2026-11-24 (PROGRESS.md
+   * 24.5): `/lookup/descriptor` returned nothing for both, while
+   * `/lookup/term` found the entry terms; the term → descriptor step is one
+   * SPARQL query (3-8 s live, so callers use this only as a fallback when the
+   * label search came back empty). At most 3 terms are mapped.
+   */
+  async searchDescriptorsByEntryTerm(term: string, limit: number = 5): Promise<MeSHSearchResult[]> {
+    return cache.getOrSet(
+      CACHE_PREFIX.MESH,
+      `mesh:entry-term:${term}:${limit}`,
+      async () => {
+        const terms = await this.request<MeSHLookupResponse>('/lookup/term', {
+          label: term,
+          match: 'contains',
+          limit: 3,
+        });
+        if (!Array.isArray(terms) || terms.length === 0) return [];
+
+        const values = terms
+          .map((t) => t.resource)
+          .filter((u) => /^http:\/\/id\.nlm\.nih\.gov\/mesh\/T\d+$/.test(u))
+          .map((u) => `<${u}>`)
+          .join(' ');
+        if (values === '') return [];
+        const query =
+          'PREFIX meshv: <http://id.nlm.nih.gov/mesh/vocab#> ' +
+          'PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> ' +
+          'SELECT DISTINCT ?d ?dLabel ?tLabel WHERE { ' +
+          `VALUES ?t { ${values} } ` +
+          '{ ?c meshv:term ?t } UNION { ?c meshv:preferredTerm ?t } ' +
+          '{ ?d meshv:concept ?c } UNION { ?d meshv:preferredConcept ?c } ' +
+          '?d a meshv:TopicalDescriptor . ?d rdfs:label ?dLabel . ?t meshv:prefLabel ?tLabel }';
+        const res = await this.request<{
+          results?: { bindings?: Array<Record<string, { value: string }>> };
+        }>('/sparql', { query, format: 'JSON' });
+
+        const seen = new Set<string>();
+        const out: MeSHSearchResult[] = [];
+        for (const b of res?.results?.bindings ?? []) {
+          const uri = b.d?.value;
+          if (!uri || seen.has(uri)) continue;
+          seen.add(uri);
+          out.push({ id: this.extractMeshId(uri), uri, label: b.dLabel?.value ?? '', matchedTerm: b.tLabel?.value });
+        }
+        return out.slice(0, limit);
+      },
+      DEFAULT_TTL.SEARCH,
+    );
+  }
+
+  /**
    * Gets descriptor details by MeSH ID. Returns the descriptor's label,
    * scope note (sourced from the preferred concept), tree numbers, the
    * preferred concept (with its term labels resolved), and the list of
@@ -519,6 +572,8 @@ export interface MeSHSearchResult {
   id: string;
   uri: string;
   label: string;
+  /** Entry term that led to this descriptor (entry-term fallback only). */
+  matchedTerm?: string;
 }
 
 /**

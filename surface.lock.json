@@ -1,8 +1,8 @@
 {
   "$comentario": "Impressão digital da superfície (@sbissoli/mcp-surface). Não editar à mão: `npm run surface:lock` regrava, e só aceita superfície nova sob versão nova.",
   "declarada": {
-    "versao": "3.1.0",
-    "sha256": "846e9a8b92b2460f3930ee33261c73bb60b1bdcad70f92d5aef8ffb6df8a1ce2",
+    "versao": "3.2.0",
+    "sha256": "56e41ec9663ff389729dbccf7d517ec2e31093be58e46f8ebcfa6d63f53d4863",
     "conteudo": {
       "initialize": {
         "capabilities": {
@@ -3055,6 +3055,13 @@
                               "minimum": 0,
                               "type": "number"
                             },
+                            "matched_label": {
+                              "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "rank": {
                               "maximum": 9007199254740991,
                               "minimum": 1,
@@ -3075,6 +3082,7 @@
                             "title",
                             "uri",
                             "match_score",
+                            "matched_label",
                             "rank"
                           ],
                           "type": "object"
@@ -3117,6 +3125,13 @@
                               "minimum": 0,
                               "type": "number"
                             },
+                            "matched_label": {
+                              "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "rank": {
                               "maximum": 9007199254740991,
                               "minimum": 1,
@@ -3137,6 +3152,7 @@
                             "title",
                             "uri",
                             "match_score",
+                            "matched_label",
                             "rank"
                           ],
                           "type": "object"
@@ -3179,6 +3195,13 @@
                               "minimum": 0,
                               "type": "number"
                             },
+                            "matched_label": {
+                              "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "rank": {
                               "maximum": 9007199254740991,
                               "minimum": 1,
@@ -3199,6 +3222,7 @@
                             "title",
                             "uri",
                             "match_score",
+                            "matched_label",
                             "rank"
                           ],
                           "type": "object"
@@ -3241,6 +3265,13 @@
                               "minimum": 0,
                               "type": "number"
                             },
+                            "matched_label": {
+                              "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "rank": {
                               "maximum": 9007199254740991,
                               "minimum": 1,
@@ -3261,6 +3292,7 @@
                             "title",
                             "uri",
                             "match_score",
+                            "matched_label",
                             "rank"
                           ],
                           "type": "object"
@@ -3303,6 +3335,13 @@
                               "minimum": 0,
                               "type": "number"
                             },
+                            "matched_label": {
+                              "description": "The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "rank": {
                               "maximum": 9007199254740991,
                               "minimum": 1,
@@ -3323,6 +3362,7 @@
                             "title",
                             "uri",
                             "match_score",
+                            "matched_label",
                             "rank"
                           ],
                           "type": "object"
@@ -3398,7 +3438,7 @@
             "openWorldHint": true,
             "readOnlyHint": true
           },
-          "description": "Map a LIST of free-text clinical terms to standard codes in one call, with ranked candidates and a confidence label for each — the building block of a reviewable crosswalk.\n\nUse this tool to:\n- Harmonize a column of diagnoses, drugs or lab names from a dataset to ICD-11 / RxNorm (+ ATC) / LOINC\n- Triage which terms map cleanly (exact / strong) and which need a person (needs_review)\n- Build a crosswalk you can audit: every row keeps its candidates, scores and sources\n\nGive each term its `domain`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to 50 terms per call — a longer list is refused with a validation error: split it into batches of 50. Repeated term+domain pairs are looked up once. `max_candidates` keeps 1-5 per term (default 3).\n\nEvery candidate carries `match_score` (lexical, 0-1, the find_equivalent formula) and `match_type`: exact = same words after normalization; strong = every term word is in the title (or the matched synonym) and score ≥ 0.85; needs_review = anything else. A one-word term is exact or needs_review, never strong (\"Tylenol\" vs \"Tylenol PM\" is a different product). Synonyms, abbreviations (\"MI\", \"HbA1c\") and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named \"Deprecated\". For diagnoses, a candidate is also scored against the synonyms WHO matched (e.g. \"hypertension NOS\" for Essential hypertension), reported in `matched_label`; postcoordinated clusters (codes with \"/\" or \"&\") are left out — build those with icd11_postcoordination. Lab names are ambiguous without specimen and property: \"glucose\" matches over a thousand LOINC codes, so write \"glucose serum\" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status \"error\".\n\nEvery candidate also carries `coding`, the FHIR Coding of that code as the source returned it — a candidate, not a confirmed match: confirm needs_review rows with a person (and codes from elsewhere with validate_codes) before storing them.\n\nTerms are searched in English and sent to the WHO and NLM APIs — de-identify the list first. For Brazilian Portuguese diagnoses use cid10_search; to check codes you already have, use validate_codes; for one term across every terminology, use find_equivalent. Record the vocabulary versions with the provenance blocks (one per source) and terminology_versions.",
+          "description": "Map a LIST of free-text clinical terms to standard codes in one call, with ranked candidates and a confidence label for each — the building block of a reviewable crosswalk.\n\nUse this tool to:\n- Harmonize a column of diagnoses, drugs or lab names from a dataset to ICD-11 / RxNorm (+ ATC) / LOINC\n- Triage which terms map cleanly (exact / strong) and which need a person (needs_review)\n- Build a crosswalk you can audit: every row keeps its candidates, scores and sources\n\nGive each term its `domain`: diagnosis → ICD-11; drug → RxNorm concepts (ingredients first) plus the ATC classes of the term; lab → LOINC. Up to 50 terms per call — a longer list is refused with a validation error: split it into batches of 50. Repeated term+domain pairs are looked up once. `max_candidates` keeps 1-5 per term (default 3).\n\nEvery candidate carries `match_score` (lexical, 0-1, the find_equivalent formula) and `match_type`: exact = same words after normalization; strong = every term word is in the title (or the matched synonym) and score ≥ 0.85; needs_review = anything else. A one-word term is exact or needs_review, never strong (\"Tylenol\" vs \"Tylenol PM\" is a different product). Synonyms the source does not publish, abbreviations it does not list and misspellings land in needs_review or no_candidates — the label errs toward asking a person. Candidates sharing no word with the term are dropped, as are LOINC codes named \"Deprecated\". A candidate is also scored against the synonyms its source publishes — for diagnoses the ones WHO matched (e.g. \"hypertension NOS\" for Essential hypertension), for labs LOINC's related names (e.g. \"HbA1c\") — reported in `matched_label`; postcoordinated clusters (codes with \"/\" or \"&\") are left out — build those with icd11_postcoordination. Lab names are ambiguous without specimen and property: \"glucose\" matches over a thousand LOINC codes, so write \"glucose serum\" or expect needs_review. One failed lookup does not fail the batch: that row comes back with status \"error\".\n\nEvery candidate also carries `coding`, the FHIR Coding of that code as the source returned it — a candidate, not a confirmed match: confirm needs_review rows with a person (and codes from elsewhere with validate_codes) before storing them.\n\nTerms are searched in English and sent to the WHO and NLM APIs — de-identify the list first. For Brazilian Portuguese diagnoses use cid10_search; to check codes you already have, use validate_codes; for one term across every terminology, use find_equivalent. Record the vocabulary versions with the provenance blocks (one per source) and terminology_versions.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -8189,7 +8229,7 @@
             "openWorldHint": true,
             "readOnlyHint": true
           },
-          "description": "For each free-text term, pick the best code FROM A VALUE SET YOU PROVIDE — the question \"which code of this value set fits this field?\".\n\nSend `terms` (up to 50) and `value_set`: the allowed codes as `{ code, terminology }` pairs (up to 100; any of icd11, icd10, cid10, loinc, rxnorm, mesh, atc, icf, mixed if needed). Only those codes can be suggested — never a code outside the set.\n\nHow it works: every member is first confirmed at its source (the validate_codes logic), giving its official title and FHIR `coding`; members that do not exist or cannot be checked are listed in `value_set.unconfirmed` and never ranked. Then each term is scored against each confirmed member's title: `match_score` (lexical, 0-1) and `match_type` (exact / strong / needs_review, the harmonize_terms rules). Members sharing no word with the term are left out; a term with none left is `no_candidates`.\n\nLexical only: synonyms and abbreviations (\"gait speed\" for \"walking speed\") land in needs_review or no_candidates — review those with a person. Each member is looked up live (cached), so a large set of ICD-11/ICF codes takes a few seconds.\n\nWhen NOT to use: with no value set, map terms with harmonize_terms; to check a list of codes, use validate_codes.",
+          "description": "For each free-text term, pick the best code FROM A VALUE SET YOU PROVIDE — the question \"which code of this value set fits this field?\".\n\nSend `terms` (up to 50) and `value_set`: the allowed codes as `{ code, terminology }` pairs (up to 100; any of icd11, icd10, cid10, loinc, rxnorm, mesh, atc, icf, mixed if needed). Only those codes can be suggested — never a code outside the set.\n\nHow it works: every member is first confirmed at its source (the validate_codes logic), giving its official title and FHIR `coding`; members that do not exist or cannot be checked are listed in `value_set.unconfirmed` and never ranked. Then each term is scored against each confirmed member's title AND the synonyms its source publishes (ICD-11/ICF inclusions and index terms, LOINC related names, MeSH entry terms): `match_score` (lexical, 0-1), `match_type` (exact / strong / needs_review, the harmonize_terms rules) and `matched_label` (the synonym that scored, or null when the title did). Members sharing no word with the term are left out; a term with none left is `no_candidates`.\n\nLexical only: a synonym the source does NOT publish (\"gait speed\" for \"walking speed\") lands in needs_review or no_candidates — review those with a person. Each member is looked up live (cached), so a large set of ICD-11/ICF codes takes a few seconds.\n\nWhen NOT to use: with no value set, map terms with harmonize_terms; to check a list of codes, use validate_codes.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -8593,13 +8633,20 @@
                               "type": "number"
                             },
                             "match_type": {
-                              "description": "exact = same words; strong = every term word in the title and score >= 0.85; needs_review = anything else.",
+                              "description": "exact = same words; strong = every term word in the title (or the matched synonym) and score >= 0.85; needs_review = anything else.",
                               "enum": [
                                 "exact",
                                 "strong",
                                 "needs_review"
                               ],
                               "type": "string"
+                            },
+                            "matched_label": {
+                              "description": "The synonym published by the source (ICD-11/ICF inclusion or index term, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                              "type": [
+                                "string",
+                                "null"
+                              ]
                             },
                             "terminology": {
                               "enum": [
@@ -8625,6 +8672,7 @@
                             "title",
                             "match_score",
                             "match_type",
+                            "matched_label",
                             "coding"
                           ],
                           "type": "object"
@@ -8708,13 +8756,20 @@
                             "type": "number"
                           },
                           "match_type": {
-                            "description": "exact = same words; strong = every term word in the title and score >= 0.85; needs_review = anything else.",
+                            "description": "exact = same words; strong = every term word in the title (or the matched synonym) and score >= 0.85; needs_review = anything else.",
                             "enum": [
                               "exact",
                               "strong",
                               "needs_review"
                             ],
                             "type": "string"
+                          },
+                          "matched_label": {
+                            "description": "The synonym published by the source (ICD-11/ICF inclusion or index term, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.",
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           },
                           "terminology": {
                             "enum": [
@@ -8740,6 +8795,7 @@
                           "title",
                           "match_score",
                           "match_type",
+                          "matched_label",
                           "coding"
                         ],
                         "type": "object"
@@ -9520,7 +9576,7 @@
             "openWorldHint": true,
             "readOnlyHint": true
           },
-          "description": "Search for MeSH (Medical Subject Headings) descriptors.\n\nUse this tool to:\n- Find MeSH terms for indexing medical literature\n- Look up subject headings for PubMed searches\n- Find controlled vocabulary terms\n\nSet `language` to request NLM's official translations where they exist (e.g. `language: \"pt\"` for Portuguese labels); content is never machine-translated.\n\nReturns matching descriptors with MeSH IDs and labels.",
+          "description": "Search for MeSH (Medical Subject Headings) descriptors.\n\nUse this tool to:\n- Find MeSH terms for indexing medical literature\n- Look up subject headings for PubMed searches\n- Find controlled vocabulary terms\n\nSet `language` to request NLM's official translations where they exist (e.g. `language: \"pt\"` for Portuguese labels); content is never machine-translated.\n\nReturns matching descriptors with MeSH IDs and labels. When no descriptor LABEL matches (lay words such as \"heart attack\" or \"bedsore\"), the search falls back to MeSH entry terms and says so (`matched_via: \"entry_term\"`, with the `matched_term` per descriptor) — that fallback takes a few seconds. Not applied with `match: \"exact\"`.",
           "inputSchema": {
             "additionalProperties": false,
             "properties": {
@@ -9591,6 +9647,13 @@
                     "label": {
                       "type": "string"
                     },
+                    "matched_term": {
+                      "description": "The MeSH entry term that led to this descriptor; null when the label itself matched.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "uri": {
                       "type": "string"
                     }
@@ -9598,7 +9661,8 @@
                   "required": [
                     "id",
                     "uri",
-                    "label"
+                    "label",
+                    "matched_term"
                   ],
                   "type": "object"
                 },
@@ -9610,6 +9674,14 @@
                   "exact",
                   "contains",
                   "startswith"
+                ],
+                "type": "string"
+              },
+              "matched_via": {
+                "description": "descriptor_label = the query matched descriptor labels; entry_term = no label matched, so the descriptors were reached through MeSH entry terms (synonyms such as \"Heart Attack\" for Myocardial Infarction).",
+                "enum": [
+                  "descriptor_label",
+                  "entry_term"
                 ],
                 "type": "string"
               },
@@ -9844,6 +9916,7 @@
               "query",
               "match",
               "total_count",
+              "matched_via",
               "descriptors",
               "provenance",
               "attribution"

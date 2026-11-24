@@ -60,7 +60,7 @@ Use this tool to:
 
 Set \`language\` to request NLM's official translations where they exist (e.g. \`language: "pt"\` for Portuguese labels); content is never machine-translated.
 
-Returns matching descriptors with MeSH IDs and labels.`,
+Returns matching descriptors with MeSH IDs and labels. When no descriptor LABEL matches (lay words such as "heart attack" or "bedsore"), the search falls back to MeSH entry terms and says so (\`matched_via: "entry_term"\`, with the \`matched_term\` per descriptor) — that fallback takes a few seconds. Not applied with \`match: "exact"\`.`,
   inputSchema: buildInputSchema(MeSHSearchParamsSchema),
   outputSchema: buildOutputSchema(withProvenance(MeSHSearchOutputSchema)),
   annotations: READ_ONLY_TOOL_ANNOTATIONS,
@@ -135,7 +135,8 @@ function formatSearchResults(query: string, results: MeSHSearchResult[]): string
   lines.push('|---------|-------|');
 
   for (const result of results) {
-    lines.push(`| ${result.id} | ${result.label} |`);
+    const via = result.matchedTerm ? ` _(via entry term "${result.matchedTerm}")_` : '';
+    lines.push(`| ${result.id} | ${result.label}${via} |`);
   }
 
   return lines.join('\n');
@@ -283,21 +284,35 @@ async function handleMeSHSearch(args: Record<string, unknown>): Promise<CallTool
   try {
     const params = MeSHSearchParamsSchema.parse(args);
     const client = getMeSHClient();
-    const results = await client.searchDescriptors(
+    let results = await client.searchDescriptors(
       params.query,
       params.match,
       params.max_results,
       params.language,
     );
+    // Lay words ("heart attack", "bedsore") are MeSH ENTRY terms, not
+    // descriptor labels: when the label search finds nothing, go through
+    // the entry terms (PROGRESS.md 24.5a). Not for `exact`, which asks for
+    // the label itself.
+    let matchedVia: MeSHSearchOutput['matched_via'] = 'descriptor_label';
+    if (results.length === 0 && params.match !== 'exact') {
+      const viaTerms = await client.searchDescriptorsByEntryTerm(params.query, params.max_results);
+      if (viaTerms.length > 0) {
+        results = viaTerms;
+        matchedVia = 'entry_term';
+      }
+    }
 
     const structured: MeSHSearchOutput = {
       query: params.query,
       match: params.match,
       total_count: results.length,
+      matched_via: matchedVia,
       descriptors: results.map((r) => ({
         id: r.id,
         uri: r.uri,
         label: r.label,
+        matched_term: r.matchedTerm ?? null,
       })),
     };
 
