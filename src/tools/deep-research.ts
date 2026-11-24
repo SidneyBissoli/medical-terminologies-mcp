@@ -1,6 +1,6 @@
 /**
  * `search` / `fetch` — the ChatGPT Deep Research contract (OpenAI), over the
- * seven terminologies. The contract, the envelope, the descriptions and the
+ * served terminologies. The contract, the envelope, the descriptions and the
  * ranking index live in `@sbissoli/mcp-search` (portfolio package); this
  * module is the medical adapter: what can be found and how a document reads.
  *

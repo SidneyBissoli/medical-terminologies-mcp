@@ -270,6 +270,37 @@ export const FIXTURES: EvalFixture[] = [
     expectedTools: ['harmonize_terms'],
     note: 'Batch of free-text TERMS (not codes) with a review flag → harmonize_terms (1.18.0); validate_codes starts from codes, find_equivalent from one term.',
   },
+  {
+    id: 'xw-11',
+    query: 'My form field only accepts these codes: ICF d450, d455 and d460. Which one fits the note "walks with difficulty outdoors"?',
+    expectedTools: ['match_value_set'],
+    note: 'A FIXED list of allowed codes + a term → match_value_set (24.4); harmonize_terms searches the whole terminology, validate_codes starts from codes.',
+  },
+  {
+    id: 'xw-12',
+    query: 'For a rehab note on gait speed I need the ICF activity code, the LOINC observation for the measurement and any ICD-11 diagnosis — all for "walking speed".',
+    expectedTools: ['compose_functioning'],
+    note: 'One functional concept in its ROLES (activity, measure, condition) → compose_functioning (24.6); find_equivalent gives one unroled list, icf_search only the activity.',
+  },
+  // ── icf — WHO ICF (functioning and disability; 24.3) ─────────────────────
+  {
+    id: 'icf-01',
+    query: 'My rehab patient has trouble walking. Which ICF category should I record?',
+    expectedTools: ['icf_search'],
+    note: 'Functioning/activity (not a diagnosis) → ICF; icd11_search covers diseases, loinc_search the measured observation.',
+  },
+  {
+    id: 'icf-02',
+    query: 'Show me the official definition, inclusions and exclusions of ICF code d450.',
+    expectedTools: ['icf_lookup'],
+    note: 'A known ICF code wanting detail → icf_lookup; d450 is not an ICD-11 code.',
+  },
+  {
+    id: 'icf-03',
+    query: 'Qual o código da CIF para dificuldade de locomoção dentro de casa?',
+    expectedTools: ['icf_search'],
+    note: 'pt-BR: CIF is the Portuguese name of ICF; search with language pt (official WHO translation).',
+  },
   // ── versioning — release metadata ────────────────────────────────────────
   {
     id: 'ver-01',

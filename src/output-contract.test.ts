@@ -114,6 +114,32 @@ function mockUpstreams(): void {
 
     // ---- WHO ICD-11 --------------------------------------------------
     if (url.includes('id.who.int')) {
+      // ---- ICF linearization (24.3): live shapes measured 2026-11-23.
+      if (url.includes('/icf/')) {
+        const ICF_BASE = `https://id.who.int/icd/release/11/${RELEASE}/icf`;
+        if (url.includes('/icf/search')) {
+          return jsonResponse({
+            error: false,
+            resultChopped: false,
+            words: ['walking'],
+            destinationEntities: [
+              { id: `${ICF_BASE}/1550548595`, theCode: 'd450', title: 'Walking', score: 0.9, isLeaf: false, matchingPVs: [] },
+              // An uncoded block ("Walking and moving") — the code/component-null path.
+              { id: `${ICF_BASE}/2000000`, title: "<em class='found'>Walking</em> and moving", score: 0.5, isLeaf: false, matchingPVs: [] },
+            ],
+          });
+        }
+        if (url.includes('/icf/codeinfo/')) {
+          return jsonResponse({ '@id': `${ICF_BASE}/codeinfo/d450`, stemId: `${ICF_BASE}/1550548595`, code: 'd450' });
+        }
+        // The entity, with definition/inclusions/browserUrl absent (null/empty paths).
+        return jsonResponse({
+          '@id': `${ICF_BASE}/1550548595`, code: 'd450', title: { '@language': 'en', '@value': 'Walking' },
+          // WHO `Term` shape: label only, no '@id' (2026-11-24).
+          inclusion: [{ label: { '@language': 'en', '@value': 'walking short or long distances' } }],
+          exclusion: [{ label: { '@language': 'en', '@value': 'transferring oneself' }, linearizationReference: `${ICF_BASE}/3000` }],
+        });
+      }
       if (url.includes('/postcoordination')) {
         return jsonResponse({
           '@id': `${ICD_BASE}/1234/postcoordination`,
@@ -156,7 +182,21 @@ function mockUpstreams(): void {
         });
       }
       if (url.endsWith('/mms/1234')) {
-        return jsonResponse(icdEntity('1234', { code: '5A11', withChildren: true }));
+        return jsonResponse({
+          ...icdEntity('1234', { code: '5A11', withChildren: true }),
+          // WHO `Term` shape (swagger v2, read 2026-11-24): NO '@id' — only a
+          // label and, when the term comes from another entity, references.
+          inclusion: [{ label: { '@language': 'en', '@value': 'adult-onset diabetes' } }],
+          exclusion: [{
+            label: { '@language': 'en', '@value': 'Diabetes mellitus in pregnancy' },
+            foundationReference: 'http://id.who.int/icd/entity/1000',
+            linearizationReference: `http://id.who.int/icd/release/11/${RELEASE}/mms/1000`,
+          }],
+          indexTerm: [
+            { label: { '@language': 'en', '@value': 'type 2 diabetes' } },
+            { label: { '@language': 'en', '@value': 'NIDDM' }, foundationReference: 'http://id.who.int/icd/entity/2000' },
+          ],
+        });
       }
       // The linearization root — chapters.
       if (/\/mms\/?(\?|$)/.test(url)) {
@@ -227,6 +267,29 @@ function mockUpstreams(): void {
 
     // ---- NLM MeSH ----------------------------------------------------
     if (url.includes('id.nlm.nih.gov/mesh')) {
+      // Entry-term fallback (24.5a), live shapes measured 2026-11-24: the
+      // label search is empty for a lay word, /lookup/term finds the entry
+      // term, and one SPARQL query maps it to its descriptor.
+      if (url.includes('label=heart')) {
+        if (url.includes('/lookup/descriptor')) return jsonResponse([]);
+        if (url.includes('/lookup/term')) {
+          return jsonResponse([{ resource: 'http://id.nlm.nih.gov/mesh/T000866941', label: 'Heart Attack' }]);
+        }
+      }
+      if (url.includes('/sparql')) {
+        return jsonResponse({
+          head: { vars: ['d', 'dLabel', 'tLabel'] },
+          results: {
+            bindings: [
+              {
+                d: { type: 'uri', value: 'http://id.nlm.nih.gov/mesh/D009203' },
+                dLabel: { type: 'literal', 'xml:lang': 'en', value: 'Myocardial Infarction' },
+                tLabel: { type: 'literal', 'xml:lang': 'en', value: 'Heart Attack' },
+              },
+            ],
+          },
+        });
+      }
       if (url.includes('/lookup/')) return jsonResponse(fixture('mesh/lookup-hypertension.json'));
       if (url.includes('D006973')) return jsonResponse(fixture('mesh/descriptor-D006973.json'));
       if (url.includes('D003920')) return jsonResponse(fixture('mesh/descriptor-D003920.json'));
@@ -263,11 +326,23 @@ afterEach(() => {
  */
 const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['icd11_search', 'hit without theCode (foundation-only)', { query: 'diabetes' }],
+  ['icd11_search', 'bounded by a branch (within → resolved branch echoed)', { query: 'diabetes', within: ['5A11'] }],
   ['icd11_lookup', 'entity with the optional fields absent', { code: '5A11' }],
   ['icd11_hierarchy', 'parents', { code: '5A11', direction: 'parents' }],
   ['icd11_hierarchy', 'children', { code: '5A11', direction: 'children' }],
   ['icd11_chapters', 'chapter list', {}],
   ['icd11_postcoordination', 'axis without scaleEntity (value_count null)', { code: '5A11' }],
+
+  ['icf_search', 'coded hit and uncoded block (code/component null)', { query: 'walking' }],
+  ['icf_search', 'bounded by a branch (within d450)', { query: 'walking', within: ['d450'] }],
+  ['icf_lookup', 'category by code with the optional fields absent', { code: 'd450' }],
+  ['icf_lookup', 'category by URI', { uri: `https://id.who.int/icd/release/11/${RELEASE}/icf/1550548595` }],
+
+  // compose_functioning (24.6): ICF hit whose entity the MMS also holds (counterpart,
+  // code absent → null), ICD-11 hit without theCode (conditions empty), LOINC
+  // sharing no word (measures empty); then a term only LOINC matches.
+  ['compose_functioning', 'ICF with ICD-11 counterpart, empty measures and conditions', { term: 'walking' }],
+  ['compose_functioning', 'measures only (no ICF or ICD-11 candidate shares a word)', { term: 'glucose' }],
 
   ['loinc_search', 'search with hits', { query: 'glucose' }],
   ['loinc_search', 'search without hits', { query: 'zzzznaoexiste' }],
@@ -289,6 +364,8 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['rxnorm_ndc', 'by ndc (rxcui argument absent)', { ndc: '00093015001' }],
 
   ['mesh_search', 'search with hits', { query: 'hypertension' }],
+  ['mesh_search', 'lay word via entry terms (matched_via entry_term, matched_term set)', { query: 'heart attack' }],
+  ['find_equivalent', 'MeSH entry-term fallback inside the fan-out (matched_label from the entry term)', { term: 'heart attack', target_terminologies: ['mesh'] }],
   ['mesh_descriptor', 'descriptor fan-out', { mesh_id: 'D006973' }],
   ['mesh_tree', 'tree numbers', { mesh_id: 'D006973' }],
   ['mesh_qualifiers', 'allowable qualifiers', { mesh_id: 'D006973' }],
@@ -297,8 +374,25 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['map_icd10_to_icd11', 'code absent from the table (null mapping)', { icd10_code: 'ZZZ' }],
   ['validate_codes', 'bundled branches', { codes: [{ code: 'E11', terminology: 'icd10' }, { code: 'A00', terminology: 'cid10' }] }],
   ['validate_codes', 'invalid code (title/active null)', { codes: [{ code: 'ZZZZ', terminology: 'icd10' }] }],
+  ['validate_codes', 'every terminology (coding with and without version/extension)', {
+    codes: [
+      { code: '5A11', terminology: 'icd11' },
+      { code: 'E11', terminology: 'icd10' },
+      { code: 'A00.1', terminology: 'cid10' },
+      { code: '2345-7', terminology: 'loinc' },
+      { code: '6809', terminology: 'rxnorm' },
+      { code: 'D006973', terminology: 'mesh' },
+      { code: 'A10BA', terminology: 'atc' },
+      { code: 'd450', terminology: 'icf' },
+    ],
+  }],
   ['find_equivalent', 'fan-out without source_terminology (echo null)', { term: 'glucose', target_terminologies: ['loinc', 'rxnorm'] }],
+  ['find_equivalent', 'ICF alone (uncoded block filtered out)', { term: 'walking', target_terminologies: ['icf'] }],
   ['find_equivalent', 'fan-out with source_terminology', { term: 'glucose', source_terminology: 'loinc', target_terminologies: ['rxnorm', 'mesh'] }],
+  ['match_value_set', 'confirmed and unconfirmed members, matched and no_candidates terms', {
+    terms: ['walking', 'zzzz nothing shared'],
+    value_set: [{ code: 'd450', terminology: 'icf' }, { code: 'A00', terminology: 'cid10' }, { code: 'ZZZZ', terminology: 'icd10' }],
+  }],
   ['harmonize_terms', 'one term per domain (atc array on drug, null elsewhere; uri null off ICD-11)', {
     terms: [
       { term: 'type 2 diabetes mellitus', domain: 'diagnosis' },
@@ -323,6 +417,7 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
 
   ['cid10_search', 'bundled search', { query: 'diabetes' }],
   ['cid10_search', 'search without hits', { query: 'zzzznaoexiste' }],
+  ['cid10_search', 'bounded by a chapter (within, uri null)', { query: 'diabetes', within: ['4'] }],
   ['cid10_search', 'everyday word translated (vocabulary_notes present)', { query: 'câncer de mama' }],
   ['cid10_lookup', 'known code', { code: 'A00' }],
   ['cid10_lookup', 'well-formed code absent from the dataset', { code: 'U99' }],
@@ -360,7 +455,7 @@ describe('structuredContent obeys the advertised outputSchema', () => {
     for (const tool of tools) {
       expect(tool.outputSchema, `${tool.name} has no outputSchema`).toBeDefined();
     }
-    expect(tools).toHaveLength(33);
+    expect(tools).toHaveLength(37);
   });
 
   it('every listed tool is covered by at least one case', async () => {
@@ -466,5 +561,43 @@ describe('the listed schema accepts a contract 1.3 block (step one of 1.3)', () 
     await expect(
       callWithInjected('cid10_lookup', { code: 'A00' }, { revision: { status: 'maybe', note: null } }),
     ).rejects.toThrow();
+  });
+});
+
+describe('FHIR Coding on the wire (Phase 24.1)', () => {
+  type Coding = { system: string; version?: string; code: string; display?: string; extension?: { url: string; valueCode: string }[] };
+  type Row = { terminology: string; valid: boolean; coding: Coding | null };
+
+  it('validate_codes: confirmed codes carry a Coding, an unconfirmed one carries null', async () => {
+    const s = await callAsClient('validate_codes', {
+      codes: [
+        { code: '5A11', terminology: 'icd11' },
+        { code: 'A00.1', terminology: 'cid10' },
+        { code: 'ZZZZ', terminology: 'icd10' },
+      ],
+    });
+    const [icd11, cid10, missing] = s.results as Row[];
+    expect(icd11.coding?.system).toBe('http://id.who.int/icd/release/11/mms');
+    expect(icd11.coding?.code).toMatch(/^\d+/); // entity id, not the short code
+    expect(icd11.coding?.extension?.[0].valueCode).toBe('5A11');
+    expect(cid10.coding).toMatchObject({ system: 'https://rnds-fhir.saude.gov.br/CodeSystem/BRCID10', code: 'A001', version: 'V2008' });
+    expect(missing.valid).toBe(false);
+    expect(missing.coding).toBeNull();
+  });
+
+  it('harmonize_terms: every ICD-11 and LOINC candidate carries its Coding', async () => {
+    const s = await callAsClient('harmonize_terms', {
+      terms: [
+        { term: 'type 2 diabetes mellitus', domain: 'diagnosis' },
+        { term: 'glucose', domain: 'lab' },
+      ],
+    });
+    const results = s.results as { terminology: string; candidates: { coding: Coding | null }[] }[];
+    for (const r of results) {
+      for (const c of r.candidates) {
+        expect(c.coding).not.toBeNull();
+        expect(c.coding).not.toHaveProperty('version', null);
+      }
+    }
   });
 });

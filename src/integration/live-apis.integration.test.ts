@@ -47,6 +47,7 @@ import { getRxNormClient } from '../clients/rxnorm-client.js';
 import { getMeSHClient } from '../clients/mesh-client.js';
 import { getCID10Client } from '../clients/cid10-client.js';
 import { getWHOClient, WHOClient, WHO_ICD11_DEFAULT_RELEASE } from '../clients/who-client.js';
+import { plainTitle } from '../tools/icf.js';
 import { cache } from '../utils/cache.js';
 import { UPSTREAM_POLICY } from '../utils/upstream.js';
 
@@ -345,6 +346,150 @@ describeIntegration('Integration: live API contracts', () => {
         expect(labels).toContain('hypertension nos');
       },
       { endpoint: 'icd11-search-pvs' },
+    );
+
+    // PROGRESS.md 24.3 gate (inherited from 24.2): ICF codeinfo was measured
+    // in production on 2026-11-23; ICF SEARCH could not be, because the only
+    // valid credential lives in the repository secrets. These cases are that
+    // measurement. Findings go out as ::notice lines (process.stdout.write:
+    // vitest's reporter swallows console.log) so the run log shows what WHO
+    // returned, not only pass/fail.
+    const noticeICF = (title: string, body: string) =>
+      process.stdout.write(`::notice title=ICF ${title}::${body.replace(/\r?\n/g, ' ')}\n`);
+    const topCodes = (r: { destinationEntities: { theCode?: string; title: string }[] }, n = 5) =>
+      r.destinationEntities
+        .slice(0, n)
+        .map((e) => `${e.theCode ?? '-'} ${plainTitle(e.title)}`)
+        .join(' | ');
+
+    aoVivo(
+      'ICF search answers: "walking" finds d450 Walking',
+      async () => {
+        const r = await getWHOClient().searchICF('walking', 'en', 10);
+        noticeICF('search walking', topCodes(r));
+        expect(r.error, r.errorMessage).toBe(false);
+        expect(r.destinationEntities.map((e) => e.theCode)).toContain('d450');
+      },
+      { endpoint: 'icf-search' },
+    );
+
+    aoVivo(
+      'ICF search in Portuguese answers ("andar")',
+      async () => {
+        const r = await getWHOClient().searchICF('andar', 'pt', 10);
+        noticeICF('search andar (pt)', topCodes(r));
+        expect(r.error, r.errorMessage).toBe(false);
+        expect(r.destinationEntities.length).toBeGreaterThan(0);
+      },
+      { endpoint: 'icf-search-pt' },
+    );
+
+    aoVivo(
+      'ICF search for the researcher\'s phrase ("walking speed") answers without error',
+      async () => {
+        const r = await getWHOClient().searchICF('walking speed', 'en', 10);
+        noticeICF('search walking speed', topCodes(r) || '(no results)');
+        expect(r.error, r.errorMessage).toBe(false);
+      },
+      { endpoint: 'icf-search-phrase' },
+    );
+
+    aoVivo(
+      'ICF lookup by code: b280 Sensation of pain',
+      async () => {
+        const e = await getWHOClient().lookupICF('b280', 'en');
+        expect(e.title?.['@value']).toBe('Sensation of pain');
+        expect(e['@id']).toMatch(/\/release\/11\/[\d-]+\/icf\/\d+$/);
+      },
+      { endpoint: 'icf-lookup' },
+    );
+
+    aoVivo(
+      'ICF release list includes the pinned release, and autocode answers',
+      async () => {
+        const tokenRes = await fetchLive('https://icdaccessmanagement.who.int/connect/token', {
+          method: 'POST',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: process.env.WHO_CLIENT_ID ?? '',
+            client_secret: process.env.WHO_CLIENT_SECRET ?? '',
+            grant_type: 'client_credentials',
+            scope: 'icdapi_access',
+          }).toString(),
+        });
+        expect(tokenRes.ok, `token: HTTP ${tokenRes.status}`).toBe(true);
+        const { access_token } = (await tokenRes.json()) as { access_token: string };
+        const headers = {
+          Authorization: `Bearer ${access_token}`,
+          Accept: 'application/json',
+          'Accept-Language': 'en',
+          'API-Version': 'v2',
+        };
+
+        const rel = await fetchLive('https://id.who.int/icd/release/11/icf', { headers });
+        expect(rel.ok, `ICF release list: HTTP ${rel.status}`).toBe(true);
+        const relBody = (await rel.json()) as { latestRelease?: string; release?: string[] };
+        noticeICF('releases', `latest=${relBody.latestRelease ?? '?'}; all=${(relBody.release ?? []).join(', ')}`);
+        expect((relBody.release ?? []).some((u) => u.includes(`/${WHO_ICD11_DEFAULT_RELEASE}/icf`))).toBe(true);
+
+        const ac = await fetchLive(
+          `https://id.who.int/icd/release/11/${WHO_ICD11_DEFAULT_RELEASE}/icf/autocode?searchText=${encodeURIComponent('difficulty walking')}`,
+          { headers },
+        );
+        const acText = await ac.text();
+        noticeICF('autocode difficulty walking', `HTTP ${ac.status} ${acText.slice(0, 400)}`);
+        expect(ac.status, 'autocode should answer (any 2xx)').toBeLessThan(300);
+      },
+      { endpoint: 'icf-release-autocode' },
+    );
+
+    // PROGRESS.md 24.6 — the ICF → ICD-11 link compose_functioning relies on,
+    // measured in production on 2026-11-24 through the tools: d450 Walking IS
+    // ICD-11 VW13 (same entity 1550548595), and VW13 lists d4500 as an index
+    // term. If the WHO ever changes that, this says so before a user does.
+    aoVivo(
+      'ICF → ICD-11 chapter V: d450 is VW13 (same entity), d4500 reaches VW13 (index term)',
+      async () => {
+        const who = getWHOClient();
+        const d450 = await who.icd11CounterpartOfICF(await who.lookupICF('d450', 'en'));
+        const d4500 = await who.icd11CounterpartOfICF(await who.lookupICF('d4500', 'en'));
+        noticeICF(
+          'counterparts',
+          `d450 → ${d450?.entity.code ?? 'none'} (${d450?.link ?? '-'}); d4500 → ${d4500?.entity.code ?? 'none'} (${d4500?.link ?? '-'})`,
+        );
+        expect(d450).toMatchObject({ link: 'same_entity', entity: { code: 'VW13' } });
+        expect(d4500).toMatchObject({ link: 'index_term', entity: { code: 'VW13' } });
+      },
+      { endpoint: 'icf-icd11-counterpart' },
+    );
+
+    // PROGRESS.md 24.4b — `within` hands the WHO its own subtreesFilter
+    // (swagger v2). Read in the swagger, not yet measured: this proves the
+    // search really stays inside the branch, for MMS and for ICF.
+    aoVivo(
+      'subtreesFilter bounds the search: "depression" in chapter 06; "walking" in d450',
+      async () => {
+        const who = getWHOClient();
+        const ch06 = `http://id.who.int/icd/release/11/${WHO_ICD11_DEFAULT_RELEASE}/mms/334423054`;
+        const free = await who.search('depression', 'en', 50);
+        const bounded = await who.search('depression', 'en', 50, [ch06]);
+        const codes = bounded.destinationEntities.map((e) => e.theCode ?? '-');
+        noticeICF(
+          'subtrees mms',
+          `free ${free.destinationEntities.length}: ${topCodes(free, 8)} || within 06 ${codes.length}: ${codes.slice(0, 12).join(' ')}`,
+        );
+        expect(bounded.error, bounded.errorMessage).toBe(false);
+        expect(codes.length).toBeGreaterThan(0);
+        expect(codes.filter((c) => c !== '-').every((c) => c.startsWith('6'))).toBe(true);
+
+        const d450 = await who.lookupICF('d450', 'en');
+        const icf = await who.searchICF('walking', 'en', 50, [d450['@id']]);
+        const icfCodes = icf.destinationEntities.map((e) => e.theCode ?? '-');
+        noticeICF('subtrees icf', `within d450 ${icfCodes.length}: ${icfCodes.join(' ')}`);
+        expect(icfCodes.length).toBeGreaterThan(0);
+        expect(icfCodes.filter((c) => c !== '-').every((c) => c.startsWith('d450'))).toBe(true);
+      },
+      { endpoint: 'who-subtrees-filter' },
     );
 
     // PROGRESS.md 14.3 — the annual ICD-11 release bump, as a MEASUREMENT

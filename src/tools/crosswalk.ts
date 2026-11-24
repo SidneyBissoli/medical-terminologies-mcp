@@ -20,7 +20,7 @@
 import { Tool, CallToolResult } from '@modelcontextprotocol/server';
 import { toolRegistry } from '../server-core.js';
 import { getWHOClient } from '../clients/who-client.js';
-import { getNLMClient } from '../clients/nlm-client.js';
+import { getNLMClient, loincSynonyms } from '../clients/nlm-client.js';
 import { getRxNormClient } from '../clients/rxnorm-client.js';
 import { getMeSHClient } from '../clients/mesh-client.js';
 import { getICD10ToICD11MapClient } from '../clients/icd10-icd11-map-client.js';
@@ -45,7 +45,7 @@ import {
   handleToolError,
   READ_ONLY_TOOL_ANNOTATIONS,
 } from '../utils/zod-schema.js';
-import { lexicalScore, normalizeForMatch, RANKING_METHOD_NOTE } from '../utils/lexical-score.js';
+import { bestLabelScore, normalizeForMatch, RANKING_METHOD_NOTE } from '../utils/lexical-score.js';
 import {
   medicalProvenance,
   provenancedResult,
@@ -54,6 +54,8 @@ import {
   type MedicalSourceKey,
   type Provenance,
 } from '../provenance.js';
+import { toFhirCoding } from '../utils/fhir-coding.js';
+import { plainTitle } from '../utils/plain-title.js';
 
 /**
  * Source preset per terminology, for the multi-source tools. One block PER
@@ -67,6 +69,7 @@ const SOURCE_BY_TERMINOLOGY: Record<ValidateCodesTerminology, MedicalSourceKey> 
   rxnorm: 'NLM_RXNAV',
   mesh: 'NLM_MESH',
   atc: 'NLM_RXCLASS_ATC',
+  icf: 'WHO_ICF_API',
 };
 
 /** Transition-tables block with the live bundled-dataset version attached. */
@@ -80,9 +83,12 @@ function transitionTablesProvenance(derivedNote?: string): Provenance {
   });
 }
 
-function terminologyProvenance(t: ValidateCodesTerminology): Provenance {
-  if (t === 'icd10') return transitionTablesProvenance();
-  return medicalProvenance(SOURCE_BY_TERMINOLOGY[t]);
+export function terminologyProvenance(t: ValidateCodesTerminology, derivedNote?: string): Provenance {
+  if (t === 'icd10') return transitionTablesProvenance(derivedNote);
+  return medicalProvenance(
+    SOURCE_BY_TERMINOLOGY[t],
+    derivedNote !== undefined ? { derived: { note: derivedNote } } : undefined,
+  );
 }
 
 // ============================================================================
@@ -113,13 +119,14 @@ const validateCodesTool: Tool = {
 
 For each input \`{ code, terminology }\`, returns:
 - **valid**: whether the code exists in the source terminology.
-- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, RxNorm, MeSH all return null today; LOINC returns a real boolean).
+- **active**: whether the code is currently active. Null when the source doesn't expose an explicit active/inactive distinction at category level (CID-10, ATC, ICD-11, ICF, RxNorm, MeSH all return null today; LOINC returns a real boolean).
 - **title**: the official label/name when available.
 - **replaced_by**: a successor code, populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables.
+- **coding**: the confirmed code as a FHIR Coding (system, code, display, version when the call knows the release), ready to store in a FHIR resource; null when the code was not confirmed. ICD-11 follows the HL7 terminology guide: the code is the entity id and the short code travels in the WHO classificationCode extension. Hand on a code only when \`coding\` is non-null.
 - **source**: human-readable provenance of the validation (terminology + release/version).
 - **error**: non-null only when validation couldn't be performed (network error, upstream outage, etc.). \`valid: false\` + \`error: null\` means "code not found"; \`valid: false\` + \`error: set\` means "couldn't validate".
 
-Terminology is **required per code** — auto-detection isn't supported because category codes like "A00" exist in both ICD-10 and CID-10. Accepted values: \`icd11\`, \`icd10\`, \`loinc\`, \`rxnorm\`, \`mesh\`, \`atc\`, \`cid10\`.
+Terminology is **required per code** — auto-detection isn't supported because category codes like "A00" exist in both ICD-10 and CID-10. Accepted values: \`icd11\`, \`icd10\`, \`loinc\`, \`rxnorm\`, \`mesh\`, \`atc\`, \`cid10\`, \`icf\` (WHO functioning and disability, e.g. "d450").
 
 Hard cap of 50 codes per call; codes are validated in parallel through their respective clients, so total wall time scales with the slowest upstream + its rate limit (worst case ~10 s for a full batch hitting ICD-11).`,
   inputSchema: buildInputSchema(ValidateCodesParamsSchema),
@@ -137,7 +144,7 @@ Use this tool to:
 - Compare how terminologies represent a concept
 - Support terminology mapping and data integration
 
-Searches across: ICD-11, LOINC, RxNorm, and MeSH. Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. \`limit\` caps candidates per terminology (default 5, max 10).
+Searches across: ICD-11, LOINC, RxNorm, MeSH and ICF (WHO functioning and disability; coded categories only). Set \`target_terminologies\` to limit which are searched, or set \`source_terminology\` to exclude one (e.g. when you already have a code from that terminology and want equivalents elsewhere). The two combine: source is subtracted from targets. \`limit\` caps candidates per terminology (default 5, max 10).
 
 Every candidate carries \`match_score\` (lexical similarity to the search term, 0-1) and \`rank\` (global position across all searched terminologies) — both computed by this server, since upstreams don't expose comparable relevance scores. Candidates from different terminologies whose titles are lexically identical are clustered in \`groups\` — a strong same-concept signal (absence of a group is NOT evidence of non-equivalence).
 
@@ -245,7 +252,7 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
 // validate_codes — batch cross-terminology validator
 // ============================================================================
 
-interface ValidateInput {
+export interface ValidateInput {
   code: string;
   terminology: ValidateCodesTerminology;
 }
@@ -261,6 +268,7 @@ function notFoundResult(
     active: null,
     title: null,
     replaced_by: null,
+    coding: null,
     source,
     error: null,
   };
@@ -278,12 +286,13 @@ function errorResult(
     active: null,
     title: null,
     replaced_by: null,
+    coding: null,
     source,
     error: message,
   };
 }
 
-async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult> {
+export async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult> {
   try {
     switch (item.terminology) {
       case 'icd10': {
@@ -299,6 +308,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: entry.icd10.title,
           replaced_by: `${entry.primary.code} (ICD-11: ${entry.primary.title})`,
+          coding: toFhirCoding('icd10', entry.icd10.code, entry.icd10.title),
           source,
           error: null,
         };
@@ -320,6 +330,32 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
             active: null,
             title,
             replaced_by: null,
+            coding: toFhirCoding('icd11', entity.code ?? item.code, title, entity['@id']),
+            source,
+            error: null,
+          };
+        } catch (err) {
+          if (err instanceof ApiError && err.code === 'NOT_FOUND') {
+            return notFoundResult(item, source);
+          }
+          throw err;
+        }
+      }
+
+      case 'icf': {
+        const source = 'WHO ICD-API (ICF)';
+        try {
+          const entity = await getWHOClient().lookupICF(item.code, 'en');
+          const title = entity.title?.['@value'] ?? null;
+          return {
+            code: item.code,
+            terminology: 'icf',
+            valid: true,
+            // ICF, like ICD-11, is versioned by release, not retired in place.
+            active: null,
+            title,
+            replaced_by: null,
+            coding: toFhirCoding('icf', entity.code ?? item.code, title),
             source,
             error: null,
           };
@@ -344,6 +380,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: hit.title,
           replaced_by: null,
+          coding: toFhirCoding('cid10', hit.code, hit.title),
           source,
           error: null,
         };
@@ -365,6 +402,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active,
           title: details.LONG_COMMON_NAME ?? null,
           replaced_by: null,
+          coding: toFhirCoding('loinc', details.LOINC_NUM, details.LONG_COMMON_NAME ?? null),
           source,
           error: null,
         };
@@ -385,6 +423,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: concept.name,
           replaced_by: null,
+          coding: toFhirCoding('rxnorm', concept.rxcui, concept.name),
           source,
           error: null,
         };
@@ -403,6 +442,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: desc.label,
           replaced_by: null,
+          coding: toFhirCoding('mesh', desc.id, desc.label),
           source,
           error: null,
         };
@@ -420,6 +460,7 @@ async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult
           active: null,
           title: atc.atc_name,
           replaced_by: null,
+          coding: toFhirCoding('atc', atc.atc_code, atc.atc_name),
           source,
           error: null,
         };
@@ -501,7 +542,9 @@ async function handleValidateCodes(args: Record<string, unknown>): Promise<CallT
   }
 }
 
-const ALL_TERMINOLOGIES = ['icd11', 'loinc', 'rxnorm', 'mesh'] as const;
+// ICF last: its position only matters for ties, and putting it at the end
+// keeps the order the four older terminologies already had (24.3b).
+const ALL_TERMINOLOGIES = ['icd11', 'loinc', 'rxnorm', 'mesh', 'icf'] as const;
 
 type TerminologyKey = (typeof ALL_TERMINOLOGIES)[number];
 
@@ -510,6 +553,7 @@ const TERMINOLOGY_LABELS: Record<TerminologyKey, string> = {
   loinc: 'LOINC',
   rxnorm: 'RxNorm',
   mesh: 'MeSH',
+  icf: 'ICF',
 };
 
 type FindEquivalentEntry = NonNullable<FindEquivalentOutput['results']['icd11']>;
@@ -520,8 +564,19 @@ interface RawFanoutEntry {
   // `uri` when the terminology exposes one (ICD-11 foundation URI, MeSH
   // descriptor URI) — the ICD-11 license requires codes and titles to be
   // served with their URIs (§1.2.2–1.2.3).
-  items: { code: string; title: string; uri: string | null }[];
+  // `synonyms`: what the SOURCE publishes for that code (WHO matchingPVs,
+  // LOINC related names, the MeSH entry term that found it) — the score uses
+  // the best of title and synonyms (PROGRESS.md 24.5a).
+  items: { code: string; title: string; uri: string | null; synonyms: string[] }[];
 }
+
+/**
+ * LOINC candidates fetched before re-ranking. Measured 2026-11-24: the Clinical
+ * Tables order buries exact titles ("body weight" → 29463-7 at 46th of 100,
+ * "pulse rate" → 8867-4 at 57th), so a top-`limit` cut taken from the source
+ * order loses them; fetch a wider pool, rank, then cut.
+ */
+const LOINC_RERANK_POOL = 50;
 
 async function handleFindEquivalent(args: Record<string, unknown>): Promise<CallToolResult> {
   try {
@@ -576,6 +631,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
                 code: r.theCode ?? 'N/A',
                 title: r.title ?? 'N/A',
                 uri: r.id ?? null,
+                synonyms: (r.matchingPVs ?? []).map((pv) => plainTitle(pv.label)),
               })),
             );
           } catch (e) {
@@ -590,12 +646,19 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         (async () => {
           try {
             const client = getNLMClient();
-            const loincResponse = await client.searchLOINC(term, limit);
+            const loincResponse = await client.searchLOINC(term, Math.max(limit, LOINC_RERANK_POOL));
             const loincResults = loincResponse.items ?? [];
+            // No cut here: the per-terminology `limit` is applied after ranking.
+            // Retired codes are dropped by LOINC's naming convention, as in
+            // harmonize_terms: with synonyms scored, "pulse rate" put a
+            // "Deprecated Heart beat…" code first (measured 2026-11-24).
             raw.loinc = ok(
-              loincResults
-                .slice(0, limit)
-                .map((r) => ({ code: r.LOINC_NUM, title: r.LONG_COMMON_NAME, uri: null })),
+              loincResults.filter((r) => !/^deprecated\b/i.test(r.LONG_COMMON_NAME)).map((r) => ({
+                code: r.LOINC_NUM,
+                title: r.LONG_COMMON_NAME,
+                uri: null,
+                synonyms: loincSynonyms(r),
+              })),
             );
           } catch (e) {
             raw.loinc = fail(e instanceof Error ? e.message : 'Error');
@@ -613,7 +676,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
             raw.rxnorm = ok(
               rxResults.drugs
                 .slice(0, limit)
-                .map((r) => ({ code: r.rxcui, title: r.name, uri: null })),
+                .map((r) => ({ code: r.rxcui, title: r.name, uri: null, synonyms: [] })),
             );
           } catch (e) {
             raw.rxnorm = fail(e instanceof Error ? e.message : 'Error');
@@ -627,12 +690,46 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         (async () => {
           try {
             const client = getMeSHClient();
-            const meshResults = await client.searchDescriptors(term, 'contains', limit);
+            let meshResults = await client.searchDescriptors(term, 'contains', limit);
+            // Lay words are MeSH entry terms, not labels (24.5a): same
+            // fallback as mesh_search when the label search is empty.
+            if (meshResults.length === 0) {
+              meshResults = await client.searchDescriptorsByEntryTerm(term, limit);
+            }
             raw.mesh = ok(
-              meshResults.slice(0, limit).map((r) => ({ code: r.id, title: r.label, uri: r.uri ?? null })),
+              meshResults.slice(0, limit).map((r) => ({
+                code: r.id,
+                title: r.label,
+                uri: r.uri ?? null,
+                synonyms: r.matchedTerm ? [r.matchedTerm] : [],
+              })),
             );
           } catch (e) {
             raw.mesh = fail(e instanceof Error ? e.message : 'Error');
+          }
+        })(),
+      );
+    }
+
+    if (targets.includes('icf')) {
+      searches.push(
+        (async () => {
+          try {
+            const response = await getWHOClient().searchICF(term, 'en', limit);
+            raw.icf = ok(
+              (response.destinationEntities ?? [])
+                // Uncoded blocks have no code to hand on; candidates are codes.
+                .filter((r) => Boolean(r.theCode))
+                .slice(0, limit)
+                .map((r) => ({
+                  code: r.theCode as string,
+                  title: plainTitle(r.title),
+                  uri: r.id ?? null,
+                  synonyms: (r.matchingPVs ?? []).map((pv) => plainTitle(pv.label)),
+                })),
+            );
+          } catch (e) {
+            raw.icf = fail(e instanceof Error ? e.message : 'Error');
           }
         })(),
       );
@@ -650,30 +747,41 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
       title: string;
       uri: string | null;
       match_score: number;
+      matched_label: string | null;
       rank: number;
     }
-    const candidates: ScoredCandidate[] = [];
+    const scored: ScoredCandidate[] = [];
     for (const key of targets) {
       const entry = raw[key];
       if (!entry) continue;
       entry.items.forEach((item, upstreamIndex) => {
-        candidates.push({
+        const best = bestLabelScore(term, item.title, item.synonyms);
+        scored.push({
           key,
           upstreamIndex,
           code: item.code,
           title: item.title,
           uri: item.uri,
-          match_score: lexicalScore(term, item.title),
+          match_score: best.score,
+          matched_label: best.label === item.title ? null : best.label,
           rank: 0,
         });
       });
     }
-    candidates.sort(
+    scored.sort(
       (a, b) =>
         b.match_score - a.match_score ||
         ALL_TERMINOLOGIES.indexOf(a.key) - ALL_TERMINOLOGIES.indexOf(b.key) ||
         a.upstreamIndex - b.upstreamIndex,
     );
+    // `limit` per terminology, taken AFTER ranking (LOINC brings a wider pool).
+    const kept = new Map<TerminologyKey, number>();
+    const candidates = scored.filter((c) => {
+      const n = kept.get(c.key) ?? 0;
+      if (n >= limit) return false;
+      kept.set(c.key, n + 1);
+      return true;
+    });
     candidates.forEach((c, i) => {
       c.rank = i + 1;
     });
@@ -692,6 +800,7 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
           title: c.title,
           uri: c.uri,
           match_score: c.match_score,
+          matched_label: c.matched_label,
           rank: c.rank,
         }));
       entries[key] = { found: items.length > 0, error: entry.error, items };
@@ -759,7 +868,8 @@ async function handleFindEquivalent(args: Record<string, unknown>): Promise<Call
         lines.push('No matches found.');
       } else {
         for (const item of entry.items) {
-          lines.push(`- ${item.code} - ${item.title} _(rank ${item.rank}, score ${item.match_score.toFixed(3)})_`);
+          const via = item.matched_label ? `, via "${item.matched_label}"` : '';
+          lines.push(`- ${item.code} - ${item.title} _(rank ${item.rank}, score ${item.match_score.toFixed(3)}${via})_`);
         }
       }
       lines.push('');

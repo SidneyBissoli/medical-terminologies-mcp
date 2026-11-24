@@ -38,7 +38,7 @@ As respostas vêm de fontes oficiais (OMS, NLM, NIH, DataSUS) — códigos e map
 
 ## Funcionalidades
 
-- 33 ferramentas: 31 de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
+- 37 ferramentas: 35 de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
 - 3 **Prompts** MCP que orquestram chamadas de ferramenta em fluxos nomeados (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — os clientes exibem isso como ação de um clique para o usuário
 - 4 **Recursos** MCP de conteúdo de referência em processo (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — leitura em menos de um milissegundo (exceto `info://stats`, que vai até o Durable Object StatsCounter no endpoint hospedado)
 - Várias terminologias num servidor só
@@ -110,7 +110,7 @@ Ou instale pelo Smithery, que faz proxy do mesmo endpoint pelo gateway deles:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-A instância hospedada já tem as credenciais da OMS configuradas, então todas as 33 ferramentas funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
+A instância hospedada já tem as credenciais da OMS configuradas, então todas as 37 ferramentas funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
 
 ## Instalação
 
@@ -221,7 +221,7 @@ Depois que o seu Worker estiver no ar, registre a URL no Smithery:
 2. Escolha o caminho de submissão por **URL** (o Smithery descontinuou a hospedagem em contêiner em 2024 — URL é o fluxo suportado hoje).
 3. Cole `https://<seu-worker>.workers.dev/mcp`. O gateway do Smithery varre a conformidade e faz proxy do tráfego.
 
-## Ferramentas disponíveis (33)
+## Ferramentas disponíveis (37)
 
 ### Conteúdo oficial em português (pt-BR)
 
@@ -229,6 +229,7 @@ O servidor nunca traduz conteúdo terminológico por máquina — mas várias fo
 
 - **A CID-10 é nativamente em português**: `cid10_search` / `cid10_lookup` / `cid10_chapter(s)` servem o conjunto DataSUS V2008 (a CID-10 que o SUS usa operacionalmente).
 - **ICD-11 em português oficial**: passe `language: "pt"` para `icd11_search` / `icd11_lookup` e busque e leia os rótulos da linearização oficial pt-BR da OMS.
+- **CIF (ICF) em português oficial**: passe `language: "pt"` para `icf_search` / `icf_lookup` ("andar" → d450 Andar).
 - **MeSH**: passe `language: "pt"` para `mesh_search` / `mesh_descriptor` e peça as traduções oficiais da NLM onde elas existem.
 
 Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma de origem — nunca uma tradução de máquina.
@@ -237,11 +238,20 @@ Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma d
 
 | Ferramenta | Descrição | Exemplo |
 |------------|-----------|---------|
-| `icd11_search` | Busca na ICD-11 por termo | `query: "diabetes mellitus"` |
+| `icd11_search` | Busca na ICD-11 por termo; `within` limita a capítulos, blocos ou códigos (filtro de subárvore da OMS) | `query: "depression", within: ["06"]` |
 | `icd11_lookup` | Detalhes da entidade por código/URI | `code: "5A11"` |
 | `icd11_hierarchy` | Navega as relações pai/filho | `code: "5A11"` |
 | `icd11_chapters` | Lista todos os capítulos da ICD-11 | - |
 | `icd11_postcoordination` | Devolve os eixos de pós-coordenação | `code: "5A11"` |
+
+### Ferramentas ICF/CIF (2)
+
+Classificação Internacional de Funcionalidade, Incapacidade e Saúde da OMS: funções do corpo (b), estruturas do corpo (s), atividades e participação (d), fatores ambientais (e). Mesma API, credencial e versão da OMS que a ICD-11.
+
+| Ferramenta | Descrição | Exemplo |
+|------|-------------|---------|
+| `icf_search` | Busca na CIF por termo (funcionalidade, atividade, fator ambiental); `within` limita a categorias | `query: "walking", within: ["d450"]` |
+| `icf_lookup` | Detalhes de uma categoria por código/URI da CIF: definição, inclusões, exclusões, componente | `code: "d450"` |
 
 ### Ferramentas LOINC (4)
 
@@ -271,14 +281,16 @@ Se a fonte não tem tradução oficial para uma entrada, você recebe o idioma d
 | `mesh_tree` | Posição na hierarquia de árvore | `mesh_id: "D006973"` |
 | `mesh_qualifiers` | Qualificadores permitidos | `mesh_id: "D006973"` |
 
-### Ferramentas de mapeamento entre terminologias (4)
+### Ferramentas de mapeamento entre terminologias (5)
 
 | Ferramenta | Descrição | Exemplo |
 |------------|-----------|---------|
 | `map_icd10_to_icd11` | Mapeamento oficial ICD-10 → ICD-11 pelas tabelas de transição da OMS embutidas; devolve código primário + capítulo + URIs e as alternativas documentadas pela OMS | `icd10_code: "E11"` |
-| `validate_codes` | Valida em lote até 50 códigos em ICD-11, LOINC, RxNorm, MeSH, ATC, CID-10; devolve válido/inválido + nome de exibição por código | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
-| `find_equivalent` | Busca unificada e ranqueada entre terminologias: `match_score`/`rank` calculados no servidor por candidato, mais `groups` de títulos lexicalmente idênticos entre terminologias | `term: "diabetes"` |
-| `harmonize_terms` | Mapeia em lote até 50 termos em texto livre para códigos padrão: diagnóstico → ICD-11, medicamento → RxNorm (+ classes ATC), exame → LOINC. Por termo: candidatos ranqueados com `match_score` e `match_type` (`exact` / `strong` / `needs_review`), um bloco de proveniência por fonte. É o par do `validate_codes` que parte do termo, não do código | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
+| `validate_codes` | Valida em lote até 50 códigos em ICD-11, ICF, LOINC, RxNorm, MeSH, ATC, CID-10; devolve válido/inválido + nome de exibição por código, e um `Coding` FHIR (system, code, display, version) para cada código confirmado | `codes: [{terminology:"icd11",code:"5A11"}, …]` |
+| `find_equivalent` | Busca unificada e ranqueada em ICD-11, LOINC, RxNorm, MeSH e ICF: `match_score`/`rank` calculados no servidor por candidato, mais `groups` de títulos lexicalmente idênticos entre terminologias | `term: "diabetes"` |
+| `harmonize_terms` | Mapeia em lote até 50 termos em texto livre para códigos padrão: diagnóstico → ICD-11, medicamento → RxNorm (+ classes ATC), exame → LOINC. Por termo: candidatos ranqueados com `match_score` e `match_type` (`exact` / `strong` / `needs_review`), um `Coding` FHIR por candidato, um bloco de proveniência por fonte. É o par do `validate_codes` que parte do termo, não do código | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
+| `match_value_set` | Escolhe o melhor código para cada termo DENTRO DE UM VALUE SET ENVIADO por quem chama (até 100 códigos, qualquer terminologia): membros confirmados na fonte, ranqueados com `match_score`/`match_type`, cada um com seu `coding` FHIR | `terms: ["walking"], value_set: [{code:"d450",terminology:"icf"}, …]` |
+| `compose_functioning` | Codifica UM conceito funcional em seus papéis: atividade na ICF (com a entidade do capítulo V da ICD-11 que a OMS liga a ela, ex.: d450 → VW13), medida no LOINC e condição na ICD-11. A ligação ICF → ICD-11 é lida da OMS; o resto são sugestões lexicais a revisar | `term: "walking speed"` |
 
 ### Ferramentas ATC (3)
 
@@ -296,7 +308,7 @@ Tradução brasileira da ICD-10 (DataSUS V2008). Vem embutida como conjunto est�
 
 | Ferramenta | Descrição | Exemplo |
 |------------|-----------|---------|
-| `cid10_search` | Busca textual em português (ignora acentos, AND entre palavras; a palavra de todo dia é traduzida para a da CID-10, e a resposta diz que traduziu) | `query: "câncer de mama"` |
+| `cid10_search` | Busca textual em português (ignora acentos, AND entre palavras; a palavra de todo dia é traduzida para a da CID-10, e a resposta diz que traduziu); `within` limita a capítulos, intervalos ou códigos | `query: "infecção", within: ["N30-N39"]` |
 | `cid10_lookup` | Código → nome oficial em português | `code: "I21"` ou `"A00.1"` |
 | `cid10_chapters` | Lista os 22 capítulos da CID-10 | - |
 | `cid10_chapter` | Detalhe do capítulo com os grupos que o compõem | `num: 9` |
@@ -438,6 +450,13 @@ O conteúdo da ICD-11 é fornecido sob a [licença Creative Commons Atribuição
 - Este servidor sempre serve códigos e títulos da ICD-11 junto com as URIs deles, verbatim; rótulos em outros idiomas são as traduções oficiais da própria OMS (nunca tradução de máquina)
 - A OMS pode encerrar a licença a qualquer momento mediante aviso (§4.7)
 - O acesso à API exige cadastro em https://icd.who.int/icdapi
+
+### CIF/ICF (OMS)
+
+O conteúdo da CIF é fornecido sob a [licença Creative Commons Atribuição-SemDerivações 3.0 IGO (CC BY-ND 3.0 IGO)](https://creativecommons.org/licenses/by-nd/3.0/igo/), conforme o [licenciamento das classificações da OMS](https://www.who.int/about/policies/publishing/copyright): uso comercial e não comercial, desde que os códigos não sejam adaptados e a obra seja citada.
+
+- Este servidor serve códigos e títulos da CIF junto com as URIs deles, verbatim; rótulos em outros idiomas são as traduções oficiais da própria OMS
+- Servida pela mesma API e credenciais da OMS que a ICD-11
 
 ### Tabelas de transição ICD-10 → ICD-11 da OMS (embutidas)
 

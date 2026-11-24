@@ -10,7 +10,9 @@ const SupportedLanguageSchema = z
     "Language code (default: en). Returns the source's OFFICIAL translation when it exists (e.g. 'pt' for official Portuguese); content is never machine-translated.",
   );
 
-const TerminologyEnum = z.enum(['icd11', 'loinc', 'rxnorm', 'mesh']);
+// find_equivalent's search scope. `icf` entered in 2.7.0 (PROGRESS.md 24.3b),
+// LAST so the tie-break order of the four older terminologies is unchanged.
+const TerminologyEnum = z.enum(['icd11', 'loinc', 'rxnorm', 'mesh', 'icf']);
 
 /**
  * A numeric identifier that clients send either as the string the source
@@ -62,10 +64,31 @@ const maxResults = (defaultValue: number) =>
 // ICD-11 params
 // ============================================================================
 
+// PROGRESS.md 24.4b: bound a search to branches of the hierarchy (the WHO's
+// own subtreesFilter for ICD-11/ICF; an in-memory range for CID-10).
+const withinSchema = (what: string) =>
+  z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .max(10)
+    .optional()
+    .describe(what);
+
+/** The branches that bounded a search, as the source resolved them. */
+export const WithinBranchSchema = z.object({
+  value: z.string().describe('The branch as sent in `within`.'),
+  code: z.string().nullable().describe('Code of the branch entity (chapter number, block range or category code); null when it has none.'),
+  title: z.string(),
+  uri: z.string().nullable().describe('Entity URI of the branch; null for CID-10 (bundled, no URIs).'),
+});
+
 export const ICD11SearchParamsSchema = z.object({
   query: z.string().min(1).describe('Search text (disease name, symptom, or keyword)'),
   language: SupportedLanguageSchema.optional().default('en'),
   max_results: maxResults(25),
+  within: withinSchema(
+    'Only search these branches of ICD-11 and their descendants (up to 10): a chapter number ("06", "V"), a block range ("5A10-5A14"), a category code ("5A11") or an entity URI. Uses the WHO search subtree filter. A branch that does not exist is an error, never a silent unbounded search.',
+  ),
 }).strict();
 
 export const ICD11LookupParamsSchema = z
@@ -126,6 +149,7 @@ const ICD11MatchingPVSchema = z.object({
 
 export const ICD11SearchOutputSchema = z.object({
   query: z.string().describe('The search text as submitted.'),
+  within: z.array(WithinBranchSchema).describe('The branches that bounded the search, resolved at the WHO; empty when the search was unbounded.'),
   total_count: z
     .number()
     .int()
@@ -143,7 +167,7 @@ export const ICD11SearchOutputSchema = z.object({
 });
 
 const ICD11LabelRefSchema = z.object({
-  uri: z.string(),
+  uri: z.string().describe('URI of the entity this term comes from: the referenced entity when the WHO names one (release URI, else foundation URI), otherwise the entity being looked up itself — which is the case for most inclusions and index terms.'),
   label: z.string(),
 });
 
@@ -207,6 +231,93 @@ export type ICD11LookupOutput = z.infer<typeof ICD11LookupOutputSchema>;
 export type ICD11HierarchyOutput = z.infer<typeof ICD11HierarchyOutputSchema>;
 export type ICD11ChaptersOutput = z.infer<typeof ICD11ChaptersOutputSchema>;
 export type ICD11PostcoordinationOutput = z.infer<typeof ICD11PostcoordinationOutputSchema>;
+
+// ============================================================================
+// ICF (PROGRESS.md 24.3) — WHO International Classification of Functioning,
+// Disability and Health, served by the same ICD-API as ICD-11.
+// ============================================================================
+
+/**
+ * ICF category code: the component letter (b body functions, s body
+ * structures, d activities and participation, e environmental factors) and
+ * 1-5 digits (`b280`, `b28013`, `d450`, `e1101`, chapter `d4`). Qualifiers
+ * (`d4509.qp8`) are not lookup keys.
+ */
+const ICFCodeSchema = z
+  .string()
+  .trim()
+  .regex(
+    /^[bsde]\d{1,5}$/i,
+    'Invalid ICF code; expected a component letter (b, s, d, e) and 1-5 digits, e.g. "d450" or "b28013" (qualifiers such as ".qp8" are not part of the code)',
+  );
+
+export const ICFSearchParamsSchema = z.object({
+  query: z.string().min(1).describe('Search text (a function, activity, body structure or environmental factor, e.g. "walking")'),
+  language: SupportedLanguageSchema.optional().default('en'),
+  max_results: maxResults(25),
+  within: withinSchema(
+    'Only search these branches of ICF and their descendants (up to 10): a category code ("d450", "b280") or an ICF entity URI. Uses the WHO search subtree filter. A branch that does not exist is an error, never a silent unbounded search.',
+  ),
+}).strict();
+
+export const ICFLookupParamsSchema = z
+  .object({
+    code: ICFCodeSchema.optional().describe('ICF category code (e.g. "d450", "b28013")'),
+    uri: z
+      .string()
+      .url()
+      .regex(
+        /^https?:\/\/id\.who\.int\/icd\/release\/11\/[^/]+\/icf(\/|$)/,
+        'Not an ICF URI; expected http://id.who.int/icd/release/11/<release>/icf/<id> (ICD-11 URIs go to icd11_lookup)',
+      )
+      .optional()
+      .describe('ICF entity URI as returned by icf_search or a previous icf_lookup'),
+    language: SupportedLanguageSchema.optional().default('en'),
+  })
+  .strict()
+  .refine((data) => Boolean(data.code) || Boolean(data.uri), {
+    message: 'Either "code" or "uri" must be provided',
+  });
+
+const ICFComponentSchema = z
+  .enum(['body_functions', 'body_structures', 'activities_participation', 'environmental_factors'])
+  .nullable()
+  .describe('ICF component, read from the code letter (b, s, d, e); null when the entity has no code (chapters and blocks).');
+
+export const ICFSearchOutputSchema = z.object({
+  query: z.string().describe('The search text as submitted.'),
+  within: z.array(WithinBranchSchema).describe('The branches that bounded the search, resolved at the WHO; empty when the search was unbounded.'),
+  total_count: z
+    .number()
+    .int()
+    .describe('Number of entities the WHO search returned, before the max_results cap.'),
+  entities: z.array(
+    z.object({
+      code: z.string().nullable().describe('ICF code (e.g. "d450"); null for entries without a code.'),
+      title: z.string().describe('Official title in the requested language.'),
+      component: ICFComponentSchema,
+      score: z.number().describe('WHO search relevance score.'),
+      uri: z.string().describe('WHO ICF entity URI; pass it to icf_lookup.'),
+      is_leaf: z.boolean().describe('True when the category has no subcategories.'),
+    }),
+  ).describe('Matching ICF entities in WHO relevance order, at most max_results.'),
+});
+
+export const ICFLookupOutputSchema = z.object({
+  code: z.string().nullable().describe('ICF code (e.g. "d450"); null for chapters and blocks, which have a code_range instead.'),
+  code_range: z.string().nullable().describe('Code range of a block (e.g. "d450-d469"); null for coded categories.'),
+  uri: z.string().describe('WHO ICF entity URI.'),
+  title: z.string().describe('Official title in the requested language ("Unknown" when the WHO returns none).'),
+  component: ICFComponentSchema,
+  class_kind: z.string().nullable().describe('WHO class kind (e.g. "chapter", "block", "category"); null when the WHO does not state it.'),
+  definition: z.string().nullable().describe('Official definition; null when the WHO publishes none.'),
+  exclusions: z.array(ICD11LabelRefSchema).describe('Exclusion entries (coded elsewhere in ICF), each with its URI and label.'),
+  inclusions: z.array(ICD11LabelRefSchema).describe('Inclusion entries (what this category covers), each with its URI and label.'),
+  browser_url: z.string().nullable().describe('Link to the entity in the WHO ICF browser; null when the WHO returns none.'),
+});
+
+export type ICFSearchOutput = z.infer<typeof ICFSearchOutputSchema>;
+export type ICFLookupOutput = z.infer<typeof ICFLookupOutputSchema>;
 
 // ============================================================================
 // LOINC params
@@ -479,11 +590,15 @@ export const MeSHSearchOutputSchema = z.object({
   query: z.string().describe('The search term as submitted.'),
   match: z.enum(['exact', 'contains', 'startswith']).describe('Match type applied to descriptor labels.'),
   total_count: z.number().int().describe('Number of descriptors returned (the NLM lookup is capped at max_results, so this is not a total count of all matches).'),
+  matched_via: z
+    .enum(['descriptor_label', 'entry_term'])
+    .describe('descriptor_label = the query matched descriptor labels; entry_term = no label matched, so the descriptors were reached through MeSH entry terms (synonyms such as "Heart Attack" for Myocardial Infarction).'),
   descriptors: z.array(
     z.object({
       id: z.string(),
       uri: z.string(),
       label: z.string(),
+      matched_term: z.string().nullable().describe('The MeSH entry term that led to this descriptor; null when the label itself matched.'),
     }),
   ).describe('Matching MeSH descriptors, each with its ID (e.g. "D003920"), URI and label.'),
 });
@@ -541,7 +656,7 @@ export const FindEquivalentParamsSchema = z.object({
   target_terminologies: z
     .array(TerminologyEnum)
     .optional()
-    .describe('Limit the search to these terminologies. If omitted, all five are searched.'),
+    .describe('Limit the search to these terminologies. If omitted, all five are searched (ICD-11, LOINC, RxNorm, MeSH, ICF).'),
   limit: z
     .number()
     .int()
@@ -575,8 +690,13 @@ const FindEquivalentItemSchema = z.object({
   // 0-1, 3 decimals; see src/utils/lexical-score.ts for the formula. The
   // provenance block (next session) will mark these derived: true.
   match_score: z.number().min(0).max(1),
+  // 24.5a (additive): the synonym the score came from, when it beat the title.
+  matched_label: z
+    .string()
+    .nullable()
+    .describe('The synonym published by the source (WHO matched synonym, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.'),
   // Global rank across ALL searched terminologies (1 = best match overall).
-  // Ties break by terminology order (icd11, loinc, rxnorm, mesh),
+  // Ties break by terminology order (icd11, loinc, rxnorm, mesh, icf),
   // then by upstream result order — deterministic for identical responses.
   rank: z.number().int().min(1),
 });
@@ -629,6 +749,7 @@ export const FindEquivalentOutputSchema = z.object({
     loinc: FindEquivalentTerminologyResultSchema.optional().describe('LOINC candidates; present only when LOINC was searched.'),
     rxnorm: FindEquivalentTerminologyResultSchema.optional().describe('RxNorm candidates; present only when RxNorm was searched.'),
     mesh: FindEquivalentTerminologyResultSchema.optional().describe('MeSH candidates; present only when MeSH was searched.'),
+    icf: FindEquivalentTerminologyResultSchema.optional().describe('ICF (WHO functioning and disability) candidates; present only when ICF was searched.'),
   }).describe('Per-terminology results, keyed by terminology. A key is absent when that terminology was not searched; found=false with empty items and error null means searched, no hits.'),
   // Groups of lexically identical candidates across terminologies, sorted
   // by best member match_score. Empty when nothing groups.
@@ -715,6 +836,7 @@ export const ValidateCodesTerminologyEnum = z.enum([
   'mesh',
   'atc',
   'cid10',
+  'icf',
 ]);
 
 export type ValidateCodesTerminology = z.infer<typeof ValidateCodesTerminologyEnum>;
@@ -733,6 +855,32 @@ export const ValidateCodesParamsSchema = z.object({
     .max(50, 'Maximum 50 codes per call (rate limits apply per upstream API).')
     .describe('List of code+terminology pairs to validate. Hard cap of 50 per call to keep total latency under ~10 s given upstream rate limits.'),
 }).strict();
+
+// FHIR Coding (Phase 24.1) — see src/utils/fhir-coding.ts for where each
+// system URI was read. FHIR JSON forbids null: version/extension are omitted
+// when unknown, never null.
+export const FhirCodingSchema = z
+  .object({
+    system: z.string().describe('Canonical FHIR system URI of the terminology (e.g. http://loinc.org).'),
+    version: z
+      .string()
+      .optional()
+      .describe('Release this call read (ICD-11 release, CID-10 V2008). Omitted when the source does not state its release per answer (LOINC, RxNorm, MeSH, ATC via NLM services).'),
+    code: z.string().describe('The code in FHIR form. ICD-11: the entity id (e.g. "257068234"), per the HL7 terminology guide; the short code travels in `extension`. CID-10: DataSUS undotted form ("A001").'),
+    display: z.string().optional().describe('Official label from the source. Omitted when the source returned none.'),
+    extension: z
+      .array(
+        z.object({
+          url: z.string().describe('Extension URL. ICD-11: http://id.who.int/icd/schema/extension/classificationCode (provisional WHO URL).'),
+          valueCode: z.string().describe('ICD-11 short classification code (e.g. "5A11").'),
+        }),
+      )
+      .optional()
+      .describe('ICD-11 only: the short classification code beside the entity id. Omitted for groupings without a short code and for other terminologies.'),
+  })
+  .describe('FHIR Coding for this code, ready to store in a FHIR resource.');
+
+export type FhirCoding = z.infer<typeof FhirCodingSchema>;
 
 const ValidateCodesResultSchema = z.object({
   code: z.string().describe('The code as submitted.'),
@@ -753,6 +901,9 @@ const ValidateCodesResultSchema = z.object({
     .describe(
       'When the code has been superseded by another code, this holds the replacement. Populated today only for ICD-10 codes that have a primary ICD-11 mapping in the bundled WHO transition tables; null otherwise.',
     ),
+  coding: FhirCodingSchema.nullable().describe(
+    'FHIR Coding for the confirmed code (system, code, display, version where known). Null when the code was not confirmed (valid=false), so an unconfirmed code never reaches a FHIR resource.',
+  ),
   source: z
     .string()
     .describe('Human-readable identifier of the data source used for validation (terminology + release/version where applicable).'),
@@ -777,6 +928,167 @@ export const ValidateCodesOutputSchema = z.object({
 
 export type ValidateCodesOutput = z.infer<typeof ValidateCodesOutputSchema>;
 export type ValidateCodesResult = z.infer<typeof ValidateCodesResultSchema>;
+
+// ============================================================================
+// match_value_set (PROGRESS.md 24.4) — "which code of THIS value set fits
+// this field?". The caller brings the value set (a list of codes), so no
+// licensed value-set content (VSAC/UMLS) is hosted here. Members are
+// confirmed at their source first (validate_codes logic); terms are then
+// ranked against the confirmed members only, with the harmonize_terms score.
+// ============================================================================
+
+export const MatchValueSetParamsSchema = z.object({
+  terms: z
+    .array(z.string().trim().min(1))
+    .min(1, 'At least one term is required.')
+    .max(50, 'Maximum 50 terms per call.')
+    .describe('Free-text terms to place in the value set (e.g. the field contents of your data). Up to 50.'),
+  value_set: z
+    .array(ValidateCodesItemSchema)
+    .min(1, 'The value set needs at least one code.')
+    .max(100, 'Maximum 100 codes per value set (each is confirmed live at its source).')
+    .describe('The allowed codes, as code+terminology pairs (any of the validate_codes terminologies, mixed if needed). Only these codes can be suggested. Up to 100; each is confirmed at its source before ranking.'),
+  max_candidates: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .optional()
+    .default(3)
+    .describe('Ranked members returned per term (1-10, default 3).'),
+}).strict();
+
+const MatchValueSetCandidateSchema = z.object({
+  code: z.string().describe('Value-set member code, as submitted.'),
+  terminology: ValidateCodesTerminologyEnum,
+  title: z.string().describe('Official title of the member, read at its source.'),
+  match_score: z.number().min(0).max(1).describe('Lexical similarity between the term and the title (0-1), computed by this server.'),
+  match_type: z.enum(['exact', 'strong', 'needs_review']).describe('exact = same words; strong = every term word in the title (or the matched synonym) and score >= 0.85; needs_review = anything else.'),
+  matched_label: z
+    .string()
+    .nullable()
+    .describe('The synonym published by the source (ICD-11/ICF inclusion or index term, LOINC related name, MeSH entry term) that produced match_score, when it scored higher than the title; null when the title did.'),
+  coding: FhirCodingSchema.nullable().describe('FHIR Coding of the member (null only when the source gives no system for it).'),
+});
+
+export const MatchValueSetOutputSchema = z.object({
+  value_set: z
+    .object({
+      submitted: z.number().int().describe('Codes in the value set as sent.'),
+      confirmed: z.number().int().describe('Members confirmed at their source; only these are ranked.'),
+      unconfirmed: z
+        .array(
+          z.object({
+            code: z.string(),
+            terminology: ValidateCodesTerminologyEnum,
+            reason: z.enum(['not_found', 'error']).describe('not_found = the source says the code does not exist; error = it could not be checked.'),
+            error: z.string().nullable().describe('The failure message when reason is error; null otherwise.'),
+          }),
+        )
+        .describe('Members left out of the ranking, with why. Fix or drop them: an unconfirmed code is never suggested.'),
+    })
+    .describe('What happened to the value set before ranking.'),
+  results: z
+    .array(
+      z.object({
+        term: z.string().describe('The term as submitted.'),
+        status: z.enum(['matched', 'no_candidates']).describe('no_candidates = no confirmed member shares a word with the term.'),
+        best: MatchValueSetCandidateSchema.nullable().describe('The best member for this term; null when status is no_candidates.'),
+        candidates: z.array(MatchValueSetCandidateSchema).describe('Ranked members (best first), at most max_candidates; members sharing no word with the term are left out.'),
+      }),
+    )
+    .describe('One entry per term, in request order.'),
+  counts: z
+    .object({
+      exact: z.number().int(),
+      strong: z.number().int(),
+      needs_review: z.number().int(),
+      no_candidates: z.number().int(),
+    })
+    .describe('How many terms landed in each class (by their best member).'),
+});
+
+export type MatchValueSetOutput = z.infer<typeof MatchValueSetOutputSchema>;
+
+// ============================================================================
+// compose_functioning (PROGRESS.md 24.6) — one functional concept, four roles
+// ============================================================================
+
+export const ComposeFunctioningParamsSchema = z.object({
+  term: z
+    .string()
+    .trim()
+    .min(1)
+    .describe('A functional concept in English (e.g. "walking speed", "climbing stairs", "using transportation").'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .optional()
+    .default(3)
+    .describe('Candidates returned per role (1-5, default 3).'),
+}).strict();
+
+const ComposeMatchSchema = {
+  match_score: z.number().min(0).max(1).describe('Lexical similarity between the term and the title or a source-published synonym (0-1), computed by this server.'),
+  match_type: z.enum(['exact', 'strong', 'needs_review']).describe('exact = same words; strong = every term word in the label and score >= 0.85; needs_review = anything else. A lexical candidate is a suggestion, never a confirmed equivalence.'),
+  matched_label: z.string().nullable().describe('The synonym published by the source that produced match_score, when it scored higher than the title; null when the title did.'),
+};
+
+const ComposeICD11CounterpartSchema = z.object({
+  code: z.string().nullable().describe('ICD-11 MMS code of the counterpart (chapter V, e.g. "VW13"); null if the entity has none.'),
+  title: z.string(),
+  uri: z.string().describe('ICD-11 MMS entity URI.'),
+  link: z
+    .enum(['same_entity', 'index_term'])
+    .describe('How the WHO ties them: same_entity = the ICF category and this ICD-11 entity are the same WHO entity; index_term = this ICD-11 entity lists the ICF category among its index terms. Both are read from the WHO, not guessed.'),
+  coding: FhirCodingSchema.nullable().describe('FHIR Coding of the ICD-11 counterpart.'),
+});
+
+const ComposeRoleSchema = <T extends z.ZodTypeAny>(item: T, what: string) =>
+  z.object({
+    error: z.string().nullable().describe(`Why this role could not be filled (the source failed); null when the search ran.`),
+    items: z.array(item).describe(`${what}, best first. Empty when nothing shares a word with the term.`),
+  });
+
+export const ComposeFunctioningOutputSchema = z.object({
+  term: z.string(),
+  functioning: ComposeRoleSchema(
+    z.object({
+      code: z.string().describe('ICF category code (e.g. "d450").'),
+      title: z.string(),
+      component: ICFComponentSchema,
+      uri: z.string().nullable().describe('ICF entity URI.'),
+      ...ComposeMatchSchema,
+      coding: FhirCodingSchema.nullable(),
+      icd11_counterpart: ComposeICD11CounterpartSchema.nullable().describe('The ICD-11 entity the WHO ties to this ICF category (supplementary chapter V, "Generic functioning domains"); null when the WHO ties none.'),
+    }),
+    'ICF categories (the function or activity)',
+  ),
+  measures: ComposeRoleSchema(
+    z.object({
+      code: z.string().describe('LOINC code.'),
+      title: z.string().describe('LOINC long common name.'),
+      ...ComposeMatchSchema,
+      coding: FhirCodingSchema.nullable(),
+    }),
+    'LOINC observations that measure it (retired codes dropped)',
+  ),
+  conditions: ComposeRoleSchema(
+    z.object({
+      code: z.string().describe('ICD-11 MMS code.'),
+      title: z.string(),
+      uri: z.string().nullable(),
+      ...ComposeMatchSchema,
+      coding: FhirCodingSchema.nullable(),
+    }),
+    'ICD-11 conditions (chapters 01-26; chapter V and extension codes are left to icd11_counterpart)',
+  ),
+  note: z.string().describe('How to read the roles: which links are WHO-given and which are lexical suggestions.'),
+});
+
+export type ComposeFunctioningOutput = z.infer<typeof ComposeFunctioningOutputSchema>;
 
 // ============================================================================
 // harmonize_terms (Phase 20.6) — free-text terms → ranked candidates
@@ -835,6 +1147,9 @@ const HarmonizeCandidateSchema = z.object({
     .string()
     .nullable()
     .describe('The synonym that produced the score when it beat the title (ICD-11 only, e.g. "hypertension NOS" for BA00.Z); null when the title scored best.'),
+  coding: FhirCodingSchema.nullable().describe(
+    'FHIR Coding for this candidate as the source returned it. A candidate is not a confirmed match: store it only after review when match_type is needs_review. Null for an ICD-11 candidate without an entity URI.',
+  ),
 });
 
 const HarmonizeATCSchema = z.object({
@@ -887,14 +1202,21 @@ export type HarmonizeDomain = z.infer<typeof HarmonizeDomainEnum>;
 // terminology_versions + terminology_diff params + outputs
 // ============================================================================
 
+// The versioning tools describe the eight terminologies they have a version
+// record for. The enum is their own (not ValidateCodesTerminologyEnum): a
+// value enters here only together with its version record. `icf` entered in
+// 4.0.0 (PROGRESS.md 24.3c) — widening an output enum is a breaking change.
+const VersioningTerminologyEnum = z.enum(['icd11', 'icd10', 'loinc', 'rxnorm', 'mesh', 'atc', 'cid10', 'icf']);
+export type VersioningTerminology = z.infer<typeof VersioningTerminologyEnum>;
+
 export const TerminologyVersionsParamsSchema = z.object({
-  terminology: ValidateCodesTerminologyEnum
+  terminology: VersioningTerminologyEnum
     .optional()
-    .describe('Filter to a single terminology. Omit to return all 7.'),
+    .describe('Filter to a single terminology. Omit to return all 8.'),
 }).strict();
 
 const TerminologyVersionEntrySchema = z.object({
-  code: ValidateCodesTerminologyEnum,
+  code: VersioningTerminologyEnum,
   name: z.string(),
   full_name: z.string(),
   publisher: z.string(),
@@ -912,13 +1234,13 @@ export const TerminologyVersionsOutputSchema = z.object({
   total: z.number().int().describe('Number of terminologies listed.'),
   terminologies: z
     .array(TerminologyVersionEntrySchema)
-    .describe('Release this server queries for each terminology (all 7, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.'),
+    .describe('Release this server queries for each terminology (all 8, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.'),
 });
 
 export type TerminologyVersionsOutput = z.infer<typeof TerminologyVersionsOutputSchema>;
 
 export const TerminologyDiffParamsSchema = z.object({
-  terminology: ValidateCodesTerminologyEnum
+  terminology: VersioningTerminologyEnum
     .describe('Which terminology to report on.'),
   from_version: z
     .string()
@@ -938,7 +1260,7 @@ const CrossRevisionSummarySchema = z.object({
 });
 
 export const TerminologyDiffOutputSchema = z.object({
-  terminology: ValidateCodesTerminologyEnum.describe('The terminology reported on, as submitted.'),
+  terminology: VersioningTerminologyEnum.describe('The terminology reported on, as submitted.'),
   from_version: z
     .string()
     .nullable()
@@ -1075,6 +1397,9 @@ export const CID10SearchParamsSchema = z.object({
       'Restrict search to 3-char categories, 4-char subcategories, or both. Default: all',
     ),
   max_results: maxResults(25),
+  within: withinSchema(
+    'Only search these branches of CID-10 (up to 10): a chapter number ("5" = F00-F99), a range of categories ("F30-F39"; both ends must exist) or a category / subcategory code ("F32", "F32.1" — a category keeps its subcategories). A branch that does not exist is an error, never a silent unbounded search.',
+  ),
 }).strict();
 
 export const CID10LookupParamsSchema = z.object({
@@ -1128,6 +1453,7 @@ const CID10HitSchema = z.object({
 export const CID10SearchOutputSchema = z.object({
   query: z.string().describe('The search terms as submitted.'),
   level: z.enum(['categories', 'subcategories', 'all']).describe('Code level searched: 3-char categories, 4-char subcategories, or all.'),
+  within: z.array(WithinBranchSchema).describe('The branches that bounded the search, resolved in the bundled dataset (uri is always null); empty when the search was unbounded.'),
   total_count: z.number().int().describe('Number of CID-10 codes matching the query, before the max_results cap.'),
   shown_count: z.number().int().describe('Number of codes returned in hits (at most max_results).'),
   hits: z.array(CID10HitSchema).describe('Matching CID-10 V2008 codes with their Portuguese titles, chapter and group.'),

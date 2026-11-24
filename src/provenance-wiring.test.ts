@@ -1,5 +1,5 @@
 /**
- * Provenance release gate (contract v1.0): every tool (33; the SNOMED
+ * Provenance release gate (contract v1.0): every tool (37; the SNOMED
  * tools and their env-gated twin of this file were retired in 2.0.0) must
  * attach the provenance channel on
  * its success path:
@@ -49,6 +49,17 @@ vi.mock('./clients/who-client.js', async (importOriginal) => ({
       ],
     }),
     lookup: async () => icd11Entity,
+    searchICF: async () => ({
+      error: false,
+      destinationEntities: [
+        { id: 'http://id.who.int/icd/release/11/2026-01/icf/1550548595', theCode: 'd450', title: 'Walking', score: 0.9, isLeaf: false, matchingPVs: [] },
+      ],
+    }),
+    lookupICF: async () => ({ '@id': 'http://id.who.int/icd/release/11/2026-01/icf/1550548595', code: 'd450', title: { '@language': 'en', '@value': 'Walking' }, classKind: 'category' }),
+    icd11CounterpartOfICF: async () => ({
+      entity: { '@id': 'http://id.who.int/icd/release/11/2026-01/mms/1550548595', code: 'VW13', title: { '@value': 'Walking' } },
+      link: 'same_entity',
+    }),
     getParents: async () => [icd11Entity],
     getChildren: async () => [icd11Entity],
     getChapters: async () => ({ child: ['http://id.who.int/icd/entity/1'] }),
@@ -178,6 +189,9 @@ const casos: Caso[] = [
   { nome: 'icd11_hierarchy', args: { code: '5A11', direction: 'parents' }, sourceContains: 'WHO ICD-API' },
   { nome: 'icd11_chapters', args: {}, sourceContains: 'WHO ICD-API' },
   { nome: 'icd11_postcoordination', args: { code: '5A11' }, sourceContains: 'WHO ICD-API' },
+  // icf — WHO ICD-API, ICF linearization (24.3)
+  { nome: 'icf_search', args: { query: 'walking' }, sourceContains: 'WHO ICD-API (ICF)' },
+  { nome: 'icf_lookup', args: { code: 'd450' }, sourceContains: 'WHO ICD-API (ICF)' },
   // loinc — Clinical Tables
   { nome: 'loinc_search', args: { query: 'glucose' }, sourceContains: 'Clinical Tables' },
   { nome: 'loinc_details', args: { loinc_num: '2339-0' }, sourceContains: 'Clinical Tables' },
@@ -212,11 +226,26 @@ const casos: Caso[] = [
     sourceContains: 'transition tables',
   },
   {
-    // 4 sources answer (icd11/loinc/rxnorm/mesh).
+    // 5 sources answer (icd11/loinc/rxnorm/mesh/icf; icf since 2.7.0).
     nome: 'find_equivalent',
     args: { term: 'diabetes' },
-    multi: 4,
+    multi: 5,
     sourceContains: 'WHO ICD-API',
+  },
+  {
+    // match_value_set (24.4): one ICF member → one block (WHO ICD-API (ICF)).
+    nome: 'match_value_set',
+    args: { terms: ['walking'], value_set: [{ code: 'd450', terminology: 'icf' }] },
+    multi: 1,
+    sourceContains: 'WHO ICD-API (ICF)',
+  },
+  {
+    // compose_functioning (24.6): ICF, LOINC and ICD-11 all answer → three
+    // blocks, ICF first (the functioning role leads).
+    nome: 'compose_functioning',
+    args: { term: 'walking' },
+    multi: 3,
+    sourceContains: 'WHO ICD-API (ICF)',
   },
   {
     // One term per domain → WHO (diagnosis), RxNav + RxClass ATC (drug),
@@ -257,10 +286,10 @@ async function executar(nome: string, args: Record<string, unknown>): Promise<Ca
   return handler!(args);
 }
 
-describe('provenance — wiring across the 33 default tools (release gate)', () => {
-  it('covers exactly the 33 default tools', () => {
-    expect(toolRegistry.getTools()).toHaveLength(33);
-    expect(new Set(casos.map((c) => c.nome)).size).toBe(33);
+describe('provenance — wiring across the 37 default tools (release gate)', () => {
+  it('covers exactly the 37 default tools', () => {
+    expect(toolRegistry.getTools()).toHaveLength(37);
+    expect(new Set(casos.map((c) => c.nome)).size).toBe(37);
     const registered = new Set(toolRegistry.getTools().map((t) => t.name));
     for (const caso of casos) expect(registered.has(caso.nome), caso.nome).toBe(true);
   });

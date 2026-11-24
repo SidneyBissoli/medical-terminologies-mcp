@@ -39,6 +39,20 @@ const WHO_CONFIG = {
 } as const;
 
 /**
+ * The WHO linearizations this client reads. `mms` is ICD-11 for Mortality and
+ * Morbidity Statistics; `icf` is the International Classification of
+ * Functioning, Disability and Health, served by the same ICD-API, the same
+ * OAuth credential and the same release (measured in production 2026-11-23,
+ * PROGRESS.md 24.2: /release/11/2026-01/icf/codeinfo/d450 → "Walking").
+ */
+export type WhoLinearization = 'mms' | 'icf';
+
+/** The ICD-11 release every request of this process queries (pin or env override). */
+export function getICD11ReleaseId(): string {
+  return WHO_CONFIG.releaseId;
+}
+
+/**
  * Cache key for OAuth token
  */
 const TOKEN_CACHE_KEY = 'who_oauth_token';
@@ -105,6 +119,7 @@ export class WHOClient {
   private clientId: string;
   private clientSecret: string;
   private httpClient: HttpClient;
+  private icfHttpClient: HttpClient;
   private tokenClient: HttpClient;
 
   /**
@@ -124,6 +139,17 @@ export class WHOClient {
 
     this.httpClient = new HttpClient({
       source: CACHE_PREFIX.ICD11,
+      baseURL: WHO_CONFIG.apiBaseUrl,
+      headers: {
+        'Accept': 'application/json',
+        'API-Version': 'v2',
+      },
+    });
+    // ICF rides the same host and token but is its own source: its trips land
+    // in the `icf` collector, so an answer mixing ICD-11 and ICF gives each
+    // block the diagnostics of ITS linearization.
+    this.icfHttpClient = new HttpClient({
+      source: CACHE_PREFIX.ICF,
       baseURL: WHO_CONFIG.apiBaseUrl,
       headers: {
         'Accept': 'application/json',
@@ -199,7 +225,8 @@ export class WHOClient {
   async request<T>(
     path: string,
     params: Record<string, string | number | boolean> = {},
-    language: string = 'en'
+    language: string = 'en',
+    linearization: WhoLinearization = 'mms'
   ): Promise<T> {
     // Apply rate limiting
     await rateLimiters.who.acquire();
@@ -213,7 +240,8 @@ export class WHOClient {
 
     try {
       const startTime = Date.now();
-      const response = await this.httpClient.get<T>(path, {
+      const client = linearization === 'icf' ? this.icfHttpClient : this.httpClient;
+      const response = await client.get<T>(path, {
         params,
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -267,11 +295,42 @@ export class WHOClient {
   async search(
     query: string,
     language: string = 'en',
-    maxResults: number = 25
+    maxResults: number = 25,
+    subtrees: string[] = [],
   ): Promise<ICD11SearchResponse> {
-    const cacheKey = `search:${query}:${language}:${maxResults}`;
-    const cached = cache.get<ICD11SearchResponse>(CACHE_PREFIX.ICD11, cacheKey);
-    
+    return this.searchLinearization('mms', query, language, maxResults, subtrees);
+  }
+
+  /**
+   * Searches the ICF linearization (same release and credential as ICD-11).
+   * `medicalCodingMode` stays off: it exists to steer MMS coding (residual
+   * categories, postcoordination) and has no documented meaning for ICF.
+   */
+  async searchICF(
+    query: string,
+    language: string = 'en',
+    maxResults: number = 25,
+    subtrees: string[] = [],
+  ): Promise<ICD11SearchResponse> {
+    return this.searchLinearization('icf', query, language, maxResults, subtrees);
+  }
+
+  private async searchLinearization(
+    linearization: WhoLinearization,
+    query: string,
+    language: string,
+    maxResults: number,
+    // PROGRESS.md 24.4b: entity URIs whose subtrees bound the search — the
+    // WHO's own `subtreesFilter` (swagger v2: "the search will be performed
+    // on the entities provided and their descendants").
+    subtrees: string[] = [],
+  ): Promise<ICD11SearchResponse> {
+    // Each linearization has its own cache prefix, so provenance reads the
+    // fetch instant of THIS linearization (cacheMetaFor is keyed by prefix).
+    const cachePrefix = linearization === 'icf' ? CACHE_PREFIX.ICF : CACHE_PREFIX.ICD11;
+    const cacheKey = `search:${query}:${language}:${maxResults}:${subtrees.join(',')}`;
+    const cached = cache.get<ICD11SearchResponse>(cachePrefix, cacheKey);
+
     if (cached) {
       log.debug({ cacheKey }, 'Cache hit');
       return cached;
@@ -279,10 +338,10 @@ export class WHOClient {
 
     log.debug({ cacheKey }, 'Cache miss');
     return cache.getOrSet(
-      CACHE_PREFIX.ICD11,
+      cachePrefix,
       cacheKey,
       () => this.request<ICD11SearchResponse>(
-        `/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/search`,
+        `/release/11/${WHO_CONFIG.releaseId}/${linearization}/search`,
         {
           q: query,
           subtreeFilterUsesFoundationDescendants: false,
@@ -290,9 +349,11 @@ export class WHOClient {
           useFlexisearch: true,
           flatResults: true,
           highlightingEnabled: false,
-          medicalCodingMode: true,
+          medicalCodingMode: linearization === 'mms',
+          ...(subtrees.length > 0 ? { subtreesFilter: subtrees.join(',') } : {}),
         },
-        language
+        language,
+        linearization
       ),
       DEFAULT_TTL.SEARCH
     );
@@ -352,6 +413,95 @@ export class WHOClient {
       DEFAULT_TTL.LOOKUP
       )
     );
+  }
+
+  /**
+   * Looks up an ICF category by code (`d450`, `b28013`) or by an ICF URI a
+   * previous answer returned. `/icf/codeinfo/{code}` resolves to the entity at
+   * `stemId`, exactly as the MMS resolver does. A URI must be an ICF
+   * linearization URI: anything else is refused before any request.
+   */
+  async lookupICF(codeOrUri: string, language: string = 'en'): Promise<ICD11EntityResponse> {
+    const raw = codeOrUri.trim();
+    let path: string;
+    if (raw.startsWith('http')) {
+      const url = new URL(raw);
+      if (url.hostname !== 'id.who.int' || !/^\/icd\/release\/11\/[^/]+\/icf(\/|$)/.test(url.pathname)) {
+        throw new ApiError(
+          `Not an ICF URI: ${raw}. ICF URIs look like http://id.who.int/icd/release/11/<release>/icf/<id>.`,
+          'VALIDATION_ERROR',
+        );
+      }
+      path = url.pathname.replace(/^\/icd/, '');
+    } else {
+      path = `/release/11/${WHO_CONFIG.releaseId}/icf/codeinfo/${encodeURIComponent(raw.toLowerCase())}`;
+    }
+    return cache.getOrSet(
+      CACHE_PREFIX.ICF,
+      `lookup:${path}:${language}`,
+      async () => {
+        const info = await this.request<ICD11EntityResponse>(path, {}, language, 'icf');
+        if (info.title === undefined && typeof info.stemId === 'string' && info.stemId.startsWith('http')) {
+          const stemPath = new URL(info.stemId).pathname.replace(/^\/icd/, '');
+          return this.request<ICD11EntityResponse>(stemPath, {}, language, 'icf');
+        }
+        return info;
+      },
+      DEFAULT_TTL.LOOKUP,
+    );
+  }
+
+  /**
+   * The ICD-11 MMS entity that the WHO itself ties to an ICF category, or null
+   * (PROGRESS.md 24.6). Measured 2026-11-24: the supplementary chapter V
+   * ("Generic functioning domains") holds the SAME foundation entities as the
+   * ICF — d450 Walking and VW13 Walking are both entity 1550548595, d470 and
+   * VW16 both 267105207. Only the generic level is coded there; a finer ICF
+   * category (d4500 Walking short distances) is instead listed as an INDEX
+   * TERM of VW13, with its entity as `foundationReference`.
+   *
+   * So, in order: (1) the same entity id in the MMS → `same_entity`; (2) else
+   * the nearest ICF ancestor (up to 3 levels) that exists in the MMS, accepted
+   * ONLY if that entity lists this category among its index terms →
+   * `index_term`. Anything else is null: no lexical guess ever lands here.
+   */
+  async icd11CounterpartOfICF(
+    icfEntity: ICD11EntityResponse,
+    language: string = 'en',
+  ): Promise<{ entity: ICD11EntityResponse; link: 'same_entity' | 'index_term' } | null> {
+    const icfId = (uri: string): string | null => /\/icf\/(\d+(?:\/(?:other|unspecified))?)\/?$/.exec(uri)?.[1] ?? null;
+    const mmsUri = (id: string) =>
+      `http://id.who.int/icd/release/11/${WHO_CONFIG.releaseId}/${WHO_CONFIG.linearization}/${id}`;
+    const inMms = async (id: string): Promise<ICD11EntityResponse | null> => {
+      try {
+        return await this.getEntity(mmsUri(id), language);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'NOT_FOUND') return null;
+        throw error;
+      }
+    };
+
+    const ownId = icfId(icfEntity['@id'] ?? '');
+    if (!ownId) return null;
+    const same = await inMms(ownId);
+    if (same) return { entity: same, link: 'same_entity' };
+
+    // Residual categories (…/other, …/unspecified) are never index terms.
+    if (ownId.includes('/')) return null;
+    const ownFoundation = `/entity/${ownId}`;
+    let current = icfEntity;
+    for (let level = 0; level < 3; level++) {
+      const parentUri = current.parent?.[0];
+      const parentId = parentUri ? icfId(parentUri) : null;
+      if (!parentUri || !parentId) return null;
+      const ancestor = await inMms(parentId);
+      if (ancestor) {
+        const listed = (ancestor.indexTerm ?? []).some((t) => (t.foundationReference ?? '').endsWith(ownFoundation));
+        return listed ? { entity: ancestor, link: 'index_term' } : null;
+      }
+      current = await this.lookupICF(parentUri, language);
+    }
+    return null;
   }
 
   /**
@@ -660,20 +810,11 @@ export interface ICD11EntityResponse {
     '@value': string;
   };
   /** Exclusions */
-  exclusion?: Array<{
-    '@id': string;
-    label?: { '@language': string; '@value': string };
-  }>;
+  exclusion?: WhoTerm[];
   /** Inclusions */
-  inclusion?: Array<{
-    '@id': string;
-    label?: { '@language': string; '@value': string };
-  }>;
+  inclusion?: WhoTerm[];
   /** Index terms */
-  indexTerm?: Array<{
-    '@id': string;
-    label?: { '@language': string; '@value': string };
-  }>;
+  indexTerm?: WhoTerm[];
   /** Postcoordination scales */
   postcoordinationScale?: Array<{
     axisName: string;
@@ -687,6 +828,39 @@ export interface ICD11EntityResponse {
     label?: { '@language': string; '@value': string };
     linearizationReference?: string;
   }>;
+}
+
+/**
+ * A term inside an entity (inclusion, exclusion, index term) — the WHO
+ * `Term` schema (ICD-API swagger v2, read 2026-11-24): a label and, when the
+ * term comes from another entity, that entity's references. It has NO
+ * '@id'; until 3.2.1 the server read one, so every `uri` vanished and strict
+ * clients rejected icd11_lookup/icf_lookup outright.
+ */
+export interface WhoTerm {
+  label?: { '@language': string; '@value': string };
+  foundationReference?: string | null;
+  linearizationReference?: string | null;
+  deprecated?: boolean;
+}
+
+/**
+ * Terms projected to { uri, label }, where uri is the entity the term COMES
+ * FROM: the referenced entity (release URI first) when the source names one,
+ * otherwise the entity that carries it — the swagger defines the references
+ * as present exactly when "the term itself could be coming from another
+ * entity". A term with no label is dropped.
+ */
+export function termRefs(
+  terms: WhoTerm[] | undefined,
+  ownerUri: string,
+): { uri: string; label: string }[] {
+  return (terms ?? [])
+    .filter((t) => t.label?.['@value'])
+    .map((t) => ({
+      uri: t.linearizationReference ?? t.foundationReference ?? ownerUri,
+      label: t.label!['@value'],
+    }));
 }
 
 /**
