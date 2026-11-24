@@ -38,7 +38,7 @@ As respostas vêm de fontes oficiais (OMS, NLM, NIH, DataSUS) — códigos e map
 
 ## Funcionalidades
 
-- 36 ferramentas: 34 de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
+- 37 ferramentas: 35 de terminologia mais `search`/`fetch` para o Deep Research do ChatGPT
 - 3 **Prompts** MCP que orquestram chamadas de ferramenta em fluxos nomeados (`find-medical-code`, `drug-info`, `cid10-portuguese-lookup`) — os clientes exibem isso como ação de um clique para o usuário
 - 4 **Recursos** MCP de conteúdo de referência em processo (`info://server`, `info://cid10/chapters`, `info://licenses`, `info://stats`) — leitura em menos de um milissegundo (exceto `info://stats`, que vai até o Durable Object StatsCounter no endpoint hospedado)
 - Várias terminologias num servidor só
@@ -110,7 +110,7 @@ Ou instale pelo Smithery, que faz proxy do mesmo endpoint pelo gateway deles:
 npx -y smithery mcp add sidneybissoli/medical-terminologies-mcp
 ```
 
-A instância hospedada já tem as credenciais da OMS configuradas, então todas as 36 ferramentas funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
+A instância hospedada já tem as credenciais da OMS configuradas, então todas as 37 ferramentas funcionam sem nenhuma configuração da sua parte. Para o seu próprio deploy (rede corporativa, outra região, credenciais próprias da OMS), veja as seções [Instalação](#instalação) e [Hospedado em Cloudflare Workers](#hospedado-em-cloudflare-workers-primário) abaixo.
 
 ## Instalação
 
@@ -221,7 +221,7 @@ Depois que o seu Worker estiver no ar, registre a URL no Smithery:
 2. Escolha o caminho de submissão por **URL** (o Smithery descontinuou a hospedagem em contêiner em 2024 — URL é o fluxo suportado hoje).
 3. Cole `https://<seu-worker>.workers.dev/mcp`. O gateway do Smithery varre a conformidade e faz proxy do tráfego.
 
-## Ferramentas disponíveis (36)
+## Ferramentas disponíveis (37)
 
 ### Conteúdo oficial em português (pt-BR)
 
@@ -290,6 +290,7 @@ Classificação Internacional de Funcionalidade, Incapacidade e Saúde da OMS: f
 | `find_equivalent` | Busca unificada e ranqueada em ICD-11, LOINC, RxNorm, MeSH e ICF: `match_score`/`rank` calculados no servidor por candidato, mais `groups` de títulos lexicalmente idênticos entre terminologias | `term: "diabetes"` |
 | `harmonize_terms` | Mapeia em lote até 50 termos em texto livre para códigos padrão: diagnóstico → ICD-11, medicamento → RxNorm (+ classes ATC), exame → LOINC. Por termo: candidatos ranqueados com `match_score` e `match_type` (`exact` / `strong` / `needs_review`), um `Coding` FHIR por candidato, um bloco de proveniência por fonte. É o par do `validate_codes` que parte do termo, não do código | `terms: [{term:"type 2 diabetes",domain:"diagnosis"}, {term:"metformin",domain:"drug"}]` |
 | `match_value_set` | Escolhe o melhor código para cada termo DENTRO DE UM VALUE SET ENVIADO por quem chama (até 100 códigos, qualquer terminologia): membros confirmados na fonte, ranqueados com `match_score`/`match_type`, cada um com seu `coding` FHIR | `terms: ["walking"], value_set: [{code:"d450",terminology:"icf"}, …]` |
+| `compose_functioning` | Codifica UM conceito funcional em seus papéis: atividade na ICF (com a entidade do capítulo V da ICD-11 que a OMS liga a ela, ex.: d450 → VW13), medida no LOINC e condição na ICD-11. A ligação ICF → ICD-11 é lida da OMS; o resto são sugestões lexicais a revisar | `term: "walking speed"` |
 
 ### Ferramentas ATC (3)
 

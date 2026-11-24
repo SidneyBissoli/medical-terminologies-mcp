@@ -336,6 +336,12 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['icf_lookup', 'category by code with the optional fields absent', { code: 'd450' }],
   ['icf_lookup', 'category by URI', { uri: `https://id.who.int/icd/release/11/${RELEASE}/icf/1550548595` }],
 
+  // compose_functioning (24.6): ICF hit whose entity the MMS also holds (counterpart,
+  // code absent → null), ICD-11 hit without theCode (conditions empty), LOINC
+  // sharing no word (measures empty); then a term only LOINC matches.
+  ['compose_functioning', 'ICF with ICD-11 counterpart, empty measures and conditions', { term: 'walking' }],
+  ['compose_functioning', 'measures only (no ICF or ICD-11 candidate shares a word)', { term: 'glucose' }],
+
   ['loinc_search', 'search with hits', { query: 'glucose' }],
   ['loinc_search', 'search without hits', { query: 'zzzznaoexiste' }],
   ['loinc_details', 'code whose fields the source leaves null', { loinc_num: '2339-0' }],
@@ -446,7 +452,7 @@ describe('structuredContent obeys the advertised outputSchema', () => {
     for (const tool of tools) {
       expect(tool.outputSchema, `${tool.name} has no outputSchema`).toBeDefined();
     }
-    expect(tools).toHaveLength(36);
+    expect(tools).toHaveLength(37);
   });
 
   it('every listed tool is covered by at least one case', async () => {

@@ -254,7 +254,7 @@ jobs:
           \`\`\`
 
           ### What's included
-          - 36 tools for medical terminology lookup
+          - 37 tools for medical terminology lookup
           - ICD-11, ICF, LOINC, RxNorm, MeSH, ATC, CID-10 support
           - Cross-terminology mapping and search
 

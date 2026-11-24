@@ -1,5 +1,5 @@
 /**
- * Provenance release gate (contract v1.0): every tool (36; the SNOMED
+ * Provenance release gate (contract v1.0): every tool (37; the SNOMED
  * tools and their env-gated twin of this file were retired in 2.0.0) must
  * attach the provenance channel on
  * its success path:
@@ -56,6 +56,10 @@ vi.mock('./clients/who-client.js', async (importOriginal) => ({
       ],
     }),
     lookupICF: async () => ({ '@id': 'http://id.who.int/icd/release/11/2026-01/icf/1550548595', code: 'd450', title: { '@language': 'en', '@value': 'Walking' }, classKind: 'category' }),
+    icd11CounterpartOfICF: async () => ({
+      entity: { '@id': 'http://id.who.int/icd/release/11/2026-01/mms/1550548595', code: 'VW13', title: { '@value': 'Walking' } },
+      link: 'same_entity',
+    }),
     getParents: async () => [icd11Entity],
     getChildren: async () => [icd11Entity],
     getChapters: async () => ({ child: ['http://id.who.int/icd/entity/1'] }),
@@ -236,6 +240,14 @@ const casos: Caso[] = [
     sourceContains: 'WHO ICD-API (ICF)',
   },
   {
+    // compose_functioning (24.6): ICF, LOINC and ICD-11 all answer → three
+    // blocks, ICF first (the functioning role leads).
+    nome: 'compose_functioning',
+    args: { term: 'walking' },
+    multi: 3,
+    sourceContains: 'WHO ICD-API (ICF)',
+  },
+  {
     // One term per domain → WHO (diagnosis), RxNav + RxClass ATC (drug),
     // Clinical Tables (lab): four sources, one block each.
     nome: 'harmonize_terms',
@@ -274,10 +286,10 @@ async function executar(nome: string, args: Record<string, unknown>): Promise<Ca
   return handler!(args);
 }
 
-describe('provenance — wiring across the 36 default tools (release gate)', () => {
-  it('covers exactly the 36 default tools', () => {
-    expect(toolRegistry.getTools()).toHaveLength(36);
-    expect(new Set(casos.map((c) => c.nome)).size).toBe(36);
+describe('provenance — wiring across the 37 default tools (release gate)', () => {
+  it('covers exactly the 37 default tools', () => {
+    expect(toolRegistry.getTools()).toHaveLength(37);
+    expect(new Set(casos.map((c) => c.nome)).size).toBe(37);
     const registered = new Set(toolRegistry.getTools().map((t) => t.name));
     for (const caso of casos) expect(registered.has(caso.nome), caso.nome).toBe(true);
   });
