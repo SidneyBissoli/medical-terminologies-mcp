@@ -1,5 +1,5 @@
 /**
- * Provenance release gate (contract v1.0): every tool (35; the SNOMED
+ * Provenance release gate (contract v1.0): every tool (36; the SNOMED
  * tools and their env-gated twin of this file were retired in 2.0.0) must
  * attach the provenance channel on
  * its success path:
@@ -229,6 +229,13 @@ const casos: Caso[] = [
     sourceContains: 'WHO ICD-API',
   },
   {
+    // match_value_set (24.4): one ICF member → one block (WHO ICD-API (ICF)).
+    nome: 'match_value_set',
+    args: { terms: ['walking'], value_set: [{ code: 'd450', terminology: 'icf' }] },
+    multi: 1,
+    sourceContains: 'WHO ICD-API (ICF)',
+  },
+  {
     // One term per domain → WHO (diagnosis), RxNav + RxClass ATC (drug),
     // Clinical Tables (lab): four sources, one block each.
     nome: 'harmonize_terms',
@@ -267,10 +274,10 @@ async function executar(nome: string, args: Record<string, unknown>): Promise<Ca
   return handler!(args);
 }
 
-describe('provenance — wiring across the 35 default tools (release gate)', () => {
-  it('covers exactly the 35 default tools', () => {
-    expect(toolRegistry.getTools()).toHaveLength(35);
-    expect(new Set(casos.map((c) => c.nome)).size).toBe(35);
+describe('provenance — wiring across the 36 default tools (release gate)', () => {
+  it('covers exactly the 36 default tools', () => {
+    expect(toolRegistry.getTools()).toHaveLength(36);
+    expect(new Set(casos.map((c) => c.nome)).size).toBe(36);
     const registered = new Set(toolRegistry.getTools().map((t) => t.name));
     for (const caso of casos) expect(registered.has(caso.nome), caso.nome).toBe(true);
   });

@@ -112,7 +112,7 @@ export const LANDING = {
   pageTitle: "Medical Terminologies MCP — ICD-11, LOINC, RxNorm, MeSH",
   resumo:
     "MCP server for ICD-11, ICF, LOINC, RxNorm, MeSH, ATC and the Brazilian CID-10, with " +
-    "the authoritative WHO ICD-10 to ICD-11 mapping. 35 tools, live from WHO and NLM.",
+    "the authoritative WHO ICD-10 to ICD-11 mapping. 36 tools, live from WHO and NLM.",
   exemplos: [
     "“What’s the ICD-11 code for type 2 diabetes?”",
     "“Map ICD-10 code E11 to ICD-11.”",

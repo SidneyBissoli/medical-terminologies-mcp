@@ -54,7 +54,7 @@ jobs:
         run: |
           count=$(grep -o "toolRegistry.register" dist/index.js | wc -l)
           echo "Source-level register call sites: $count"
-          test "$count" -eq 35 || { echo "Expected 35, got $count"; exit 1; }
+          test "$count" -eq 36 || { echo "Expected 36, got $count"; exit 1; }
 
   worker:
     runs-on: ubuntu-latest

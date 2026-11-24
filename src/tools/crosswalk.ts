@@ -83,9 +83,12 @@ function transitionTablesProvenance(derivedNote?: string): Provenance {
   });
 }
 
-function terminologyProvenance(t: ValidateCodesTerminology): Provenance {
-  if (t === 'icd10') return transitionTablesProvenance();
-  return medicalProvenance(SOURCE_BY_TERMINOLOGY[t]);
+export function terminologyProvenance(t: ValidateCodesTerminology, derivedNote?: string): Provenance {
+  if (t === 'icd10') return transitionTablesProvenance(derivedNote);
+  return medicalProvenance(
+    SOURCE_BY_TERMINOLOGY[t],
+    derivedNote !== undefined ? { derived: { note: derivedNote } } : undefined,
+  );
 }
 
 // ============================================================================
@@ -249,7 +252,7 @@ async function handleMapICD10ToICD11(args: Record<string, unknown>): Promise<Cal
 // validate_codes — batch cross-terminology validator
 // ============================================================================
 
-interface ValidateInput {
+export interface ValidateInput {
   code: string;
   terminology: ValidateCodesTerminology;
 }
@@ -289,7 +292,7 @@ function errorResult(
   };
 }
 
-async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult> {
+export async function validateOneCode(item: ValidateInput): Promise<ValidateCodesResult> {
   try {
     switch (item.terminology) {
       case 'icd10': {

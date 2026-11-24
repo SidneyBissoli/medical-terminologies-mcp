@@ -337,6 +337,10 @@ const CASES: Array<[string, string, Record<string, unknown>]> = [
   ['find_equivalent', 'fan-out without source_terminology (echo null)', { term: 'glucose', target_terminologies: ['loinc', 'rxnorm'] }],
   ['find_equivalent', 'ICF alone (uncoded block filtered out)', { term: 'walking', target_terminologies: ['icf'] }],
   ['find_equivalent', 'fan-out with source_terminology', { term: 'glucose', source_terminology: 'loinc', target_terminologies: ['rxnorm', 'mesh'] }],
+  ['match_value_set', 'confirmed and unconfirmed members, matched and no_candidates terms', {
+    terms: ['walking', 'zzzz nothing shared'],
+    value_set: [{ code: 'd450', terminology: 'icf' }, { code: 'A00', terminology: 'cid10' }, { code: 'ZZZZ', terminology: 'icd10' }],
+  }],
   ['harmonize_terms', 'one term per domain (atc array on drug, null elsewhere; uri null off ICD-11)', {
     terms: [
       { term: 'type 2 diabetes mellitus', domain: 'diagnosis' },
@@ -398,7 +402,7 @@ describe('structuredContent obeys the advertised outputSchema', () => {
     for (const tool of tools) {
       expect(tool.outputSchema, `${tool.name} has no outputSchema`).toBeDefined();
     }
-    expect(tools).toHaveLength(35);
+    expect(tools).toHaveLength(36);
   });
 
   it('every listed tool is covered by at least one case', async () => {

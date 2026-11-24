@@ -10,6 +10,7 @@ descrições 12× menores em produção). Nenhum teste unitário pega essa class
 
 | Arquivo | Como foi capturado | O que representa |
 |:--|:--|:--|
+| `surface-stdio-3.1.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-11-24 | 36 tools. Diff para a 3.0.0, deliberado e no CHANGELOG: `match_value_set` nova (aditiva); instruções do handshake citam a ferramenta. |
 | `surface-stdio-3.0.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-11-24 | 35 tools. **Mudança que quebra clientes (3.0.0):** `validate_codes` e `find_equivalent` aceitam e devolvem `icf` (enum de saída ampliado), e o `find_equivalent` busca a ICF por padrão; `coding` FHIR da ICF (`http://hl7.org/fhir/sid/icf`). `terminology_versions`/`terminology_diff` ficam com 7 terminologias (enum próprio). |
 | `surface-stdio-2.6.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-11-23 | 35 tools. Diff para a 2.0.0, deliberado e no CHANGELOG: `icf_search` e `icf_lookup` novas (ICF da OMS, 2.6.0); `validate_codes` e `harmonize_terms` ganham `coding` FHIR (2.5.0); descrições do `outputSchema` (2.4.0); instruções do handshake citam a ICF. |
 | `surface-stdio-2.0.0.json` | `--stdio` sobre `dist/index.js` do fonte, 2026-10-03 | 33 tools. **Mudança que quebra clientes (2.0.0):** saem as 5 `snomed_*` (eram opcionais), `map_snomed_to_icd10` e `map_loinc_to_snomed`; o valor `snomed` sai de `find_equivalent` (`target_terminologies`, `source_terminology`), `validate_codes`, `terminology_versions` e `terminology_diff`; as instruções do handshake passam a dizer que o SNOMED não é servido. |
