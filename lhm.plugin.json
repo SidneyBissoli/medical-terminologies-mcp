@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "3.4.0",
+  "version": "4.0.0",
   "description": "Unified MCP server for global medical terminologies - ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney da Silva Pereira Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -12986,7 +12986,8 @@
               "rxnorm",
               "mesh",
               "atc",
-              "cid10"
+              "cid10",
+              "icf"
             ],
             "type": "string"
           },
@@ -13303,7 +13304,8 @@
               "rxnorm",
               "mesh",
               "atc",
-              "cid10"
+              "cid10",
+              "icf"
             ],
             "type": "string"
           },
@@ -13338,12 +13340,12 @@
         "openWorldHint": true,
         "readOnlyHint": true
       },
-      "description": "List the current version, release date, publisher, source URL, and update cadence of every terminology this server queries against.\n\nUseful for pipeline maintainers who need to:\n- Confirm which release of ICD-11 / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.\n- Verify the bundled CID-10 (frozen at V2008) and ICD-10 → ICD-11 transition tables (currently 2025-01) match expectations.\n- Cite the data version in research artifacts.\n\nPass `terminology` to filter to a single entry; otherwise the full set of 7 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.",
+      "description": "List the current version, release date, publisher, source URL, and update cadence of every terminology this server queries against.\n\nUseful for pipeline maintainers who need to:\n- Confirm which release of ICD-11 / ICF / LOINC / RxNorm / MeSH / ATC the server is querying before a batch run.\n- Verify the bundled CID-10 (frozen at V2008) and ICD-10 → ICD-11 transition tables (currently 2025-01) match expectations.\n- Cite the data version in research artifacts.\n\nPass `terminology` to filter to a single entry; otherwise the full set of 8 is returned. The ICD-10 → ICD-11 version reads live from the bundled dataset; everything else is metadata maintained alongside the project release.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "terminology": {
-            "description": "Filter to a single terminology. Omit to return all 7.",
+            "description": "Filter to a single terminology. Omit to return all 8.",
             "enum": [
               "icd11",
               "icd10",
@@ -13351,7 +13353,8 @@
               "rxnorm",
               "mesh",
               "atc",
-              "cid10"
+              "cid10",
+              "icf"
             ],
             "type": "string"
           }
@@ -13590,7 +13593,7 @@
             "type": "object"
           },
           "terminologies": {
-            "description": "Release this server queries for each terminology (all 7, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.",
+            "description": "Release this server queries for each terminology (all 8, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.",
             "items": {
               "additionalProperties": false,
               "properties": {
@@ -13611,7 +13614,8 @@
                     "rxnorm",
                     "mesh",
                     "atc",
-                    "cid10"
+                    "cid10",
+                    "icf"
                   ],
                   "type": "string"
                 },

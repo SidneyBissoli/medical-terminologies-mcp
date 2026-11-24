@@ -1202,17 +1202,17 @@ export type HarmonizeDomain = z.infer<typeof HarmonizeDomainEnum>;
 // terminology_versions + terminology_diff params + outputs
 // ============================================================================
 
-// The versioning tools describe the seven terminologies they have a version
-// record for. They used to reuse ValidateCodesTerminologyEnum; when `icf`
-// entered validate_codes (2.7.0, PROGRESS.md 24.3b) they would have accepted a
-// value they cannot answer for, so their scope is frozen here on purpose.
-const VersioningTerminologyEnum = z.enum(['icd11', 'icd10', 'loinc', 'rxnorm', 'mesh', 'atc', 'cid10']);
+// The versioning tools describe the eight terminologies they have a version
+// record for. The enum is their own (not ValidateCodesTerminologyEnum): a
+// value enters here only together with its version record. `icf` entered in
+// 4.0.0 (PROGRESS.md 24.3c) — widening an output enum is a breaking change.
+const VersioningTerminologyEnum = z.enum(['icd11', 'icd10', 'loinc', 'rxnorm', 'mesh', 'atc', 'cid10', 'icf']);
 export type VersioningTerminology = z.infer<typeof VersioningTerminologyEnum>;
 
 export const TerminologyVersionsParamsSchema = z.object({
   terminology: VersioningTerminologyEnum
     .optional()
-    .describe('Filter to a single terminology. Omit to return all 7.'),
+    .describe('Filter to a single terminology. Omit to return all 8.'),
 }).strict();
 
 const TerminologyVersionEntrySchema = z.object({
@@ -1234,7 +1234,7 @@ export const TerminologyVersionsOutputSchema = z.object({
   total: z.number().int().describe('Number of terminologies listed.'),
   terminologies: z
     .array(TerminologyVersionEntrySchema)
-    .describe('Release this server queries for each terminology (all 7, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.'),
+    .describe('Release this server queries for each terminology (all 8, or the one requested): publisher, current version, release date, update cadence, source and changelog links, and whether the data is bundled in the server.'),
 });
 
 export type TerminologyVersionsOutput = z.infer<typeof TerminologyVersionsOutputSchema>;
