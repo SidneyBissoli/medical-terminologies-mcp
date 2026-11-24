@@ -12,8 +12,8 @@ import { AREA_BY_TOOL, CATALOG } from './catalog.js';
 import { FIXTURES } from './fixtures/queries.js';
 
 describe('eval catalog (live, via registerAll)', () => {
-  it('captures exactly the 35 tools', () => {
-    expect(CATALOG.tools).toHaveLength(35);
+  it('captures exactly the 36 tools', () => {
+    expect(CATALOG.tools).toHaveLength(36);
   });
 
   it('the cluster partition covers every tool, with no stale entries', () => {

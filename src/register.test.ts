@@ -53,8 +53,8 @@ describe('MCP server protocol surface (SDK v2)', () => {
     const registered = toolRegistry.getTools();
 
     expect(tools.length).toBe(registered.length);
-    // 35 (33 terminology tools + `search`/`fetch`); SNOMED retired in 2.0.0, ICF added in 2.6.0.
-    expect(tools.length).toBe(35);
+    // 36 (34 terminology tools + `search`/`fetch`); SNOMED retired in 2.0.0, ICF added in 2.6.0, match_value_set in 3.1.0.
+    expect(tools.length).toBe(36);
 
     const byName = new Map(tools.map((t) => [t.name, t]));
     for (const reg of registered) {
@@ -94,7 +94,7 @@ describe('MCP server protocol surface (SDK v2)', () => {
   it('recusa parâmetro que não existe, em vez de descartá-lo em silêncio', async () => {
     const { tools } = await client.listTools();
 
-    expect(tools.length).toBeGreaterThanOrEqual(35);
+    expect(tools.length).toBeGreaterThanOrEqual(36);
     for (const t of tools) {
       const schema = t.inputSchema as { additionalProperties?: unknown };
       expect(schema.additionalProperties, `${t.name} aceita chave desconhecida`).toBe(false);
@@ -135,7 +135,7 @@ describe('MCP server protocol surface (SDK v2)', () => {
   });
 
   it('every tool carries a non-empty human display title (v1.7.0 usability gate)', async () => {
-    // Gates every REGISTERED tool (35; SNOMED retired in 2.0.0)...
+    // Gates every REGISTERED tool (36; SNOMED retired in 2.0.0)...
     for (const tool of toolRegistry.getTools()) {
       expect(tool.title, `tool ${tool.name} lacks a title`).toBeTruthy();
       expect(tool.title!.trim().length, `tool ${tool.name} title is blank`).toBeGreaterThan(0);

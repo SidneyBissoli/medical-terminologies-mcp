@@ -895,6 +895,83 @@ export type ValidateCodesOutput = z.infer<typeof ValidateCodesOutputSchema>;
 export type ValidateCodesResult = z.infer<typeof ValidateCodesResultSchema>;
 
 // ============================================================================
+// match_value_set (PROGRESS.md 24.4) — "which code of THIS value set fits
+// this field?". The caller brings the value set (a list of codes), so no
+// licensed value-set content (VSAC/UMLS) is hosted here. Members are
+// confirmed at their source first (validate_codes logic); terms are then
+// ranked against the confirmed members only, with the harmonize_terms score.
+// ============================================================================
+
+export const MatchValueSetParamsSchema = z.object({
+  terms: z
+    .array(z.string().trim().min(1))
+    .min(1, 'At least one term is required.')
+    .max(50, 'Maximum 50 terms per call.')
+    .describe('Free-text terms to place in the value set (e.g. the field contents of your data). Up to 50.'),
+  value_set: z
+    .array(ValidateCodesItemSchema)
+    .min(1, 'The value set needs at least one code.')
+    .max(100, 'Maximum 100 codes per value set (each is confirmed live at its source).')
+    .describe('The allowed codes, as code+terminology pairs (any of the validate_codes terminologies, mixed if needed). Only these codes can be suggested. Up to 100; each is confirmed at its source before ranking.'),
+  max_candidates: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .optional()
+    .default(3)
+    .describe('Ranked members returned per term (1-10, default 3).'),
+}).strict();
+
+const MatchValueSetCandidateSchema = z.object({
+  code: z.string().describe('Value-set member code, as submitted.'),
+  terminology: ValidateCodesTerminologyEnum,
+  title: z.string().describe('Official title of the member, read at its source.'),
+  match_score: z.number().min(0).max(1).describe('Lexical similarity between the term and the title (0-1), computed by this server.'),
+  match_type: z.enum(['exact', 'strong', 'needs_review']).describe('exact = same words; strong = every term word in the title and score >= 0.85; needs_review = anything else.'),
+  coding: FhirCodingSchema.nullable().describe('FHIR Coding of the member (null only when the source gives no system for it).'),
+});
+
+export const MatchValueSetOutputSchema = z.object({
+  value_set: z
+    .object({
+      submitted: z.number().int().describe('Codes in the value set as sent.'),
+      confirmed: z.number().int().describe('Members confirmed at their source; only these are ranked.'),
+      unconfirmed: z
+        .array(
+          z.object({
+            code: z.string(),
+            terminology: ValidateCodesTerminologyEnum,
+            reason: z.enum(['not_found', 'error']).describe('not_found = the source says the code does not exist; error = it could not be checked.'),
+            error: z.string().nullable().describe('The failure message when reason is error; null otherwise.'),
+          }),
+        )
+        .describe('Members left out of the ranking, with why. Fix or drop them: an unconfirmed code is never suggested.'),
+    })
+    .describe('What happened to the value set before ranking.'),
+  results: z
+    .array(
+      z.object({
+        term: z.string().describe('The term as submitted.'),
+        status: z.enum(['matched', 'no_candidates']).describe('no_candidates = no confirmed member shares a word with the term.'),
+        best: MatchValueSetCandidateSchema.nullable().describe('The best member for this term; null when status is no_candidates.'),
+        candidates: z.array(MatchValueSetCandidateSchema).describe('Ranked members (best first), at most max_candidates; members sharing no word with the term are left out.'),
+      }),
+    )
+    .describe('One entry per term, in request order.'),
+  counts: z
+    .object({
+      exact: z.number().int(),
+      strong: z.number().int(),
+      needs_review: z.number().int(),
+      no_candidates: z.number().int(),
+    })
+    .describe('How many terms landed in each class (by their best member).'),
+});
+
+export type MatchValueSetOutput = z.infer<typeof MatchValueSetOutputSchema>;
+
+// ============================================================================
 // harmonize_terms (Phase 20.6) — free-text terms → ranked candidates
 //
 // The TERM-first companion of validate_codes (which is CODE-first). Shape

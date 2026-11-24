@@ -71,6 +71,7 @@ import './tools/loinc.js';
 import './tools/rxnorm.js';
 import './tools/mesh.js';
 import './tools/crosswalk.js';
+import './tools/value-set.js';
 import './tools/harmonize.js';
 import './tools/atc.js';
 import './tools/cid10.js';

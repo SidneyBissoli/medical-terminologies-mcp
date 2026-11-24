@@ -53,7 +53,7 @@ const GROUPS: CatalogGroup[] = [
 ];
 
 /**
- * Primary area per tool — a PARTITION of the 35 tools by
+ * Primary area per tool — a PARTITION of the 36 tools by
  * terminology cluster (map of the `src/tools/` files). The per-cluster
  * top-1 of the paid run is the empirical criterion for the mcp-builder
  * premise "prefix by terminology" (renaming is breaking — only with
@@ -90,6 +90,7 @@ export const AREA_BY_TOOL: Record<string, string> = {
   map_icd10_to_icd11: 'crosswalk',
   validate_codes: 'crosswalk',
   harmonize_terms: 'crosswalk',
+  match_value_set: 'crosswalk',
   find_equivalent: 'crosswalk',
   terminology_versions: 'versioning',
   terminology_diff: 'versioning',

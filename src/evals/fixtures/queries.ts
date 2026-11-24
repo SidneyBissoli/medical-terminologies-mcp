@@ -270,6 +270,12 @@ export const FIXTURES: EvalFixture[] = [
     expectedTools: ['harmonize_terms'],
     note: 'Batch of free-text TERMS (not codes) with a review flag → harmonize_terms (1.18.0); validate_codes starts from codes, find_equivalent from one term.',
   },
+  {
+    id: 'xw-11',
+    query: 'My form field only accepts these codes: ICF d450, d455 and d460. Which one fits the note "walks with difficulty outdoors"?',
+    expectedTools: ['match_value_set'],
+    note: 'A FIXED list of allowed codes + a term → match_value_set (24.4); harmonize_terms searches the whole terminology, validate_codes starts from codes.',
+  },
   // ── icf — WHO ICF (functioning and disability; 24.3) ─────────────────────
   {
     id: 'icf-01',
