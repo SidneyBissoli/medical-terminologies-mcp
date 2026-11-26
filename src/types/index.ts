@@ -1000,10 +1000,10 @@ export const MatchValueSetOutputSchema = z.object({
     .describe('One entry per term, in request order.'),
   counts: z
     .object({
-      exact: z.number().int(),
-      strong: z.number().int(),
-      needs_review: z.number().int(),
-      no_candidates: z.number().int(),
+      exact: z.number().int().describe('Terms whose best member is an exact match.'),
+      strong: z.number().int().describe('Terms whose best member is a strong match.'),
+      needs_review: z.number().int().describe('Terms whose best member needs review by a person.'),
+      no_candidates: z.number().int().describe('Terms with no confirmed member sharing a word with them.'),
     })
     .describe('How many terms landed in each class (by their best member).'),
 });
@@ -1053,7 +1053,7 @@ const ComposeRoleSchema = <T extends z.ZodTypeAny>(item: T, what: string) =>
   });
 
 export const ComposeFunctioningOutputSchema = z.object({
-  term: z.string(),
+  term: z.string().describe('The functional concept as submitted.'),
   functioning: ComposeRoleSchema(
     z.object({
       code: z.string().describe('ICF category code (e.g. "d450").'),
@@ -1065,7 +1065,7 @@ export const ComposeFunctioningOutputSchema = z.object({
       icd11_counterpart: ComposeICD11CounterpartSchema.nullable().describe('The ICD-11 entity the WHO ties to this ICF category (supplementary chapter V, "Generic functioning domains"); null when the WHO ties none.'),
     }),
     'ICF categories (the function or activity)',
-  ),
+  ).describe('Functioning role: ICF categories naming the function or activity.'),
   measures: ComposeRoleSchema(
     z.object({
       code: z.string().describe('LOINC code.'),
@@ -1074,7 +1074,7 @@ export const ComposeFunctioningOutputSchema = z.object({
       coding: FhirCodingSchema.nullable(),
     }),
     'LOINC observations that measure it (retired codes dropped)',
-  ),
+  ).describe('Measure role: LOINC observations that measure the concept.'),
   conditions: ComposeRoleSchema(
     z.object({
       code: z.string().describe('ICD-11 MMS code.'),
@@ -1084,7 +1084,7 @@ export const ComposeFunctioningOutputSchema = z.object({
       coding: FhirCodingSchema.nullable(),
     }),
     'ICD-11 conditions (chapters 01-26; chapter V and extension codes are left to icd11_counterpart)',
-  ),
+  ).describe('Condition role: ICD-11 conditions lexically matched to the concept.'),
   note: z.string().describe('How to read the roles: which links are WHO-given and which are lexical suggestions.'),
 });
 
