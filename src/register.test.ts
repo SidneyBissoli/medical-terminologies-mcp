@@ -48,6 +48,28 @@ describe('MCP server protocol surface (SDK v2)', () => {
     expect(SERVER_INSTRUCTIONS).toContain('not clinical decision support');
   });
 
+  it('documents every output property the mcpscore audits (tools_output_properties_documented)', async () => {
+    // The mcpscore rule walks `properties` recursively but does not descend
+    // into `anyOf` (nullable fields) nor `items` (arrays) — measured
+    // 2026-11-26: that walk yields exactly the 8 properties it flagged in
+    // production (match_value_set counts.*, compose_functioning top level),
+    // the 207/208 that reopened the panel item after 4.0.0. Mirror the
+    // auditor, not a stricter rule, so this gate fails exactly when it would.
+    const { tools } = await client.listTools();
+    const missing: string[] = [];
+    const walk = (tool: string, node: unknown, path: string): void => {
+      const props = (node as { properties?: Record<string, { description?: unknown }> })?.properties;
+      if (!props) return;
+      for (const [name, prop] of Object.entries(props)) {
+        const d = prop.description;
+        if (!(typeof d === 'string' && /\S/.test(d))) missing.push(`${tool} ${path}.${name}`);
+        walk(tool, prop, `${path}.${name}`);
+      }
+    };
+    for (const t of tools) if (t.outputSchema) walk(t.name, t.outputSchema, '$');
+    expect(missing).toEqual([]);
+  });
+
   it('advertises every registered tool with identical wire fields', async () => {
     const { tools } = await client.listTools();
     const registered = toolRegistry.getTools();

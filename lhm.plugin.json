@@ -1,7 +1,7 @@
 {
   "identifier": "sidneybissoli-medical-terminologies-mcp",
   "name": "Medical Terminologies MCP",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "Unified MCP server for global medical terminologies - ICD-11, LOINC, RxNorm, MeSH, ATC and Brazilian CID-10 - with authoritative ICD-10 to ICD-11 mapping and cross-terminology search.",
   "author": "Sidney da Silva Pereira Bissoli",
   "authorUrl": "https://github.com/SidneyBissoli",
@@ -2359,6 +2359,7 @@
           },
           "conditions": {
             "additionalProperties": false,
+            "description": "Condition role: ICD-11 conditions lexically matched to the concept.",
             "properties": {
               "error": {
                 "description": "Why this role could not be filled (the source failed); null when the search ran.",
@@ -2486,6 +2487,7 @@
           },
           "functioning": {
             "additionalProperties": false,
+            "description": "Functioning role: ICF categories naming the function or activity.",
             "properties": {
               "error": {
                 "description": "Why this role could not be filled (the source failed); null when the search ran.",
@@ -2733,6 +2735,7 @@
           },
           "measures": {
             "additionalProperties": false,
+            "description": "Measure role: LOINC observations that measure the concept.",
             "properties": {
               "error": {
                 "description": "Why this role could not be filled (the source failed); null when the search ran.",
@@ -3077,6 +3080,7 @@
             "type": "array"
           },
           "term": {
+            "description": "The functional concept as submitted.",
             "type": "string"
           }
         },
@@ -9135,21 +9139,25 @@
             "description": "How many terms landed in each class (by their best member).",
             "properties": {
               "exact": {
+                "description": "Terms whose best member is an exact match.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
               },
               "needs_review": {
+                "description": "Terms whose best member needs review by a person.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
               },
               "no_candidates": {
+                "description": "Terms with no confirmed member sharing a word with them.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"
               },
               "strong": {
+                "description": "Terms whose best member is a strong match.",
                 "maximum": 9007199254740991,
                 "minimum": -9007199254740991,
                 "type": "integer"

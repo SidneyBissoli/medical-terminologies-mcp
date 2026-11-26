@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-26
+
+### Changed
+
+- **Every output property of `match_value_set` and `compose_functioning` is now documented.** The four `counts` fields of `match_value_set` (`exact`, `strong`, `needs_review`, `no_candidates`) and the four top-level fields of `compose_functioning` (`term`, `functioning`, `measures`, `conditions`) had no `description` in the advertised `outputSchema`. The mcpscore rule `tools_output_properties_documented` flagged exactly these eight in production (207/208 since 4.0.0). Only descriptions changed: types, names and values are the same, so a client needs no change. A new gate in `src/register.test.ts` walks the advertised schemas the way the auditor does and fails on any undocumented property.
+
 ## [4.0.0] - 2026-11-24
 
 First npm / MCP Registry release since 2.4.0. It carries **4.0.0** (`terminology_versions` lists ICF, breaking) on top of **3.4.0** (`within`: search bounded to branches of the hierarchy, additive) on top of **3.3.0** (`compose_functioning`, a new tool, additive) on top of **3.2.1** (fix: `icd11_lookup`/`icf_lookup` rejected by strict clients) on top of **3.2.0** (rankings use the synonyms the sources publish) on top of **3.1.0** (`match_value_set`, a new tool, additive), on top of **3.0.0** (ICF in the cross-terminology tools), on top of 2.6.0 (ICF, two new tools) and 2.5.0 (FHIR `Coding`, new output field). Those intermediate versions ran only on the hosted endpoint and were never published to npm or the MCP Registry; upgrading from 2.4.0 brings all of them.

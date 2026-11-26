@@ -1,8 +1,8 @@
 {
   "$comentario": "Impressão digital da superfície (@sbissoli/mcp-surface). Não editar à mão: `npm run surface:lock` regrava, e só aceita superfície nova sob versão nova.",
   "declarada": {
-    "versao": "4.0.0",
-    "sha256": "da443015273033006aad3ff84cd14ed79728eaf6117bf396d18c2a91b3389975",
+    "versao": "4.1.0",
+    "sha256": "a1825b7b3380b0362582a63d2f0554dbd9b1018e1c0bd4bc9969b06c6eb6cfc3",
     "conteudo": {
       "initialize": {
         "capabilities": {
@@ -2456,6 +2456,7 @@
               },
               "conditions": {
                 "additionalProperties": false,
+                "description": "Condition role: ICD-11 conditions lexically matched to the concept.",
                 "properties": {
                   "error": {
                     "description": "Why this role could not be filled (the source failed); null when the search ran.",
@@ -2583,6 +2584,7 @@
               },
               "functioning": {
                 "additionalProperties": false,
+                "description": "Functioning role: ICF categories naming the function or activity.",
                 "properties": {
                   "error": {
                     "description": "Why this role could not be filled (the source failed); null when the search ran.",
@@ -2830,6 +2832,7 @@
               },
               "measures": {
                 "additionalProperties": false,
+                "description": "Measure role: LOINC observations that measure the concept.",
                 "properties": {
                   "error": {
                     "description": "Why this role could not be filled (the source failed); null when the search ran.",
@@ -3174,6 +3177,7 @@
                 "type": "array"
               },
               "term": {
+                "description": "The functional concept as submitted.",
                 "type": "string"
               }
             },
@@ -9232,21 +9236,25 @@
                 "description": "How many terms landed in each class (by their best member).",
                 "properties": {
                   "exact": {
+                    "description": "Terms whose best member is an exact match.",
                     "maximum": 9007199254740991,
                     "minimum": -9007199254740991,
                     "type": "integer"
                   },
                   "needs_review": {
+                    "description": "Terms whose best member needs review by a person.",
                     "maximum": 9007199254740991,
                     "minimum": -9007199254740991,
                     "type": "integer"
                   },
                   "no_candidates": {
+                    "description": "Terms with no confirmed member sharing a word with them.",
                     "maximum": 9007199254740991,
                     "minimum": -9007199254740991,
                     "type": "integer"
                   },
                   "strong": {
+                    "description": "Terms whose best member is a strong match.",
                     "maximum": 9007199254740991,
                     "minimum": -9007199254740991,
                     "type": "integer"
